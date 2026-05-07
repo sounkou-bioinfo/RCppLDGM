@@ -1,4 +1,40 @@
 # Linux/Unix OpenMP support. R's Makeconf defines SHLIB_OPENMP_CXXFLAGS
 # where OpenMP is available; it expands to an empty value on toolchains without it.
+#
+# The tskit C API is vendored from a pinned C release so `.trees` file I/O does
+# not depend on Python or a shared-library tskit ABI.
+
+TSKIT_SOURCES = \
+	tskit/convert.c \
+	tskit/core.c \
+	tskit/genotypes.c \
+	tskit/haplotype_matching.c \
+	tskit/stats.c \
+	tskit/tables.c \
+	tskit/trees.c \
+	tskit/subprojects/kastore/kastore.c
+TSKIT_OBJECTS = $(TSKIT_SOURCES:.c=.o)
+
+RCPPLDGM_CPP_SOURCES = \
+	graph.cpp \
+	precision_native.cpp \
+	tskit_adapter.cpp \
+	RcppExports.cpp
+RCPPLDGM_OBJECTS = $(RCPPLDGM_CPP_SOURCES:.cpp=.o)
+
+OBJECTS = $(TSKIT_OBJECTS) $(RCPPLDGM_OBJECTS)
+
+PKG_CPPFLAGS = -I. -Itskit/subprojects/kastore
+PKG_CFLAGS = -DNDEBUG
 PKG_CXXFLAGS = $(SHLIB_OPENMP_CXXFLAGS)
 PKG_LIBS = $(SHLIB_OPENMP_CXXFLAGS)
+
+# tskit 1.3.x exposes a C inline NAN initializer that requires C++20 when its
+# public headers are included by C++ adapter code.
+CXX_STD = CXX20
+
+tskit/%.o: tskit/%.c
+	$(CC) $(ALL_CPPFLAGS) $(PKG_CFLAGS) $(CFLAGS) $(CPICFLAGS) -c $< -o $@
+
+tskit/subprojects/kastore/%.o: tskit/subprojects/kastore/%.c
+	$(CC) $(ALL_CPPFLAGS) $(PKG_CFLAGS) $(CFLAGS) $(CPICFLAGS) -c $< -o $@

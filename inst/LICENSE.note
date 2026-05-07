@@ -2,10 +2,14 @@ RcppLDGM is distributed under GPL (>= 3).
 
 The implementation is an R/Rcpp port informed by the MIT-licensed upstream
 `ldgm` project (<https://github.com/awohns/ldgm>) and `graphld` project
-(<https://github.com/oclb/graphld>). Their original copyright notices are
-preserved in the repository file `LICENSE.upstream.md`.
+(<https://github.com/oclb/graphld>). The package also vendors the MIT-licensed
+`tskit` C API (<https://github.com/tskit-dev/tskit>) for native `.trees` file
+I/O. Original copyright notices are preserved in the repository file
+`LICENSE.upstream.md`.
 
 Upstream `ldgm` copyright (c) 2022 Anthony Wilder Wohns, Luke O'Connor,
 Pouria Salehi Nowbandegani.
 
 Upstream `graphld` copyright (c) 2024 Luke O'Connor.
+
+Vendored `tskit` C API copyright (c) 2018-2019 Tskit Developers.

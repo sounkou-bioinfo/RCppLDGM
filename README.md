@@ -38,8 +38,10 @@ Implemented and exported today:
   `ldgm_make_ldgm_from_tree_tables()`;
 - current user-facing table bundle/wrappers: `ldgm_tree_tables()`,
   `ldgm_brick_ts()`, and `ldgm_make_ldgm()`;
-- optional Python `tskit` / `.trees` adapter:
-  `ldgm_tree_tables_from_tskit()` feeding the same Rcpp kernels;
+- native `.trees` adapter via vendored tskit C API:
+  `ldgm_tree_tables_from_tskit()` feeds the same Rcpp kernels, with a
+  `reticulate` backend retained for live Python `tskit.TreeSequence`
+  objects;
 - SNP-list table slice: `ldgm_make_snplist()`;
 - sparse precision/operator layer: multiply, solve, log determinant,
   Gaussian likelihood, BLUP block, inverse diagonal estimates, OpenMP
@@ -49,10 +51,9 @@ Implemented and exported today:
 
 Still intentionally incomplete:
 
-- dependency-light native C/C++ tskit file I/O backend; current `.trees`
-  support uses optional `reticulate` + Python `tskit` only at the
-  adapter boundary;
-- direct tree-sequence object wiring for upstream `brick_haplo_graph()`;
+- direct native tree-sequence object wiring for upstream
+  `brick_haplo_graph()` beyond the current `.trees` file-to-table
+  extraction boundary;
 - remaining GraphLD workflows such as graphREML and the XNys
   inverse-diagonal estimator.
 
@@ -121,10 +122,11 @@ The checker validates both:
 8.  `ldgm_make_ldgm_from_tree_tables()` against upstream
     `ldgm.make_ldgm()` final graphs/SNP lists using only canonical
     tree-diff tables as input; and
-9.  when `reticulate` + Python `tskit` are available, `.trees` files
-    generated from pinned upstream examples through
-    `ldgm_tree_tables_from_tskit()`, `ldgm_brick_ts()`, and
-    `ldgm_make_ldgm()`.
+9.  `.trees` files generated from pinned upstream examples through the
+    native tskit C backend in `ldgm_tree_tables_from_tskit()`,
+    `ldgm_brick_ts()`, and `ldgm_make_ldgm()`; when `reticulate` +
+    Python `tskit` are available, the checker also compares native and
+    reticulate extraction tables.
 
 Expected success message:
 
@@ -177,8 +179,9 @@ under `.sync/ldgm-benchmark/`:
   `make_snplist()`, and `make_ldgm()`;
 - `rcpp-ldgm-results.csv`: timings for the Rcpp/R table-slice ports
   `ldgm_brick_edges_from_tables()`, `ldgm_brick_haplo_graph()`,
-  `ldgm_reduce_graph()`, `ldgm_make_snplist()`, and
-  `ldgm_make_ldgm_from_tables()`;
+  `ldgm_reduce_graph()`, `ldgm_make_snplist()`,
+  `ldgm_make_ldgm_from_tables()`, `ldgm_make_ldgm_from_tree_tables()`,
+  and native `ldgm_tree_tables_from_tskit()` extraction;
 - `upstream-comparison-results.csv`: combined raw timing rows;
 - `upstream-comparison-summary.csv`: median elapsed seconds by
   implementation and operation.
@@ -191,10 +194,9 @@ RCPP_LDGM_BENCH_BATCH=1000 make benchmark-upstream-ldgm
 RCPP_LDGM_BENCH_OUT=/tmp/ldgm-bench make benchmark-upstream-ldgm
 ```
 
-Important scope note: the Rcpp timings currently measure table-oriented
-slices fed by canonical bricked tree-sequence artifacts. Full R-native
-`brick_ts()` and direct tree-sequence-object `make_ldgm()` timing will
-be added when the tree-sequence layer is ported.
+Important scope note: the Rcpp timings measure table-oriented slices and
+the native `.trees` file-to-table adapter. Direct in-memory native
+tree-sequence object timing will be added if/when that API is exposed.
 
 ### R package gates
 
@@ -212,12 +214,14 @@ build without warning-suppression flags in `src/Makevars`.
 
 Latest audited local validation on 2026-05-07:
 
-- tinytest: 121 results, all OK;
+- tinytest: 139 results, all OK with `options(warn = 2)`;
 - upstream LDGM conformance: 10 examples passed for bricked edge tables,
-  brick-haplotype graph, reduction, final LDGM, and SNP-list outputs;
-- upstream LDGM benchmark target: validated and timed 10 examples
-  against pinned upstream Python with
-  `RCPP_LDGM_BENCH_ITERATIONS=1 RCPP_LDGM_BENCH_BATCH=1`;
+  brick-haplotype graph, reduction, final LDGM, SNP-list outputs, and
+  native `.trees` extraction through the vendored tskit C API;
+- upstream LDGM benchmark smoke: validated and timed 10 examples against
+  pinned upstream Python with
+  `RCPP_LDGM_BENCH_ITERATIONS=1 RCPP_LDGM_BENCH_BATCH=1`, including
+  native `ldgm_tree_tables_from_tskit()` extraction rows;
 - `R CMD build .`: 0 warnings;
 - `R CMD check --no-manual RcppLDGM_0.0.0.9000.tar.gz`: `Status: OK`, 0
   WARNING, 0 NOTE.

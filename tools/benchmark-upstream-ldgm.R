@@ -123,7 +123,7 @@ if (nrow(manifest) == 0L) {
 message("RcppLDGM upstream benchmark")
 message("examples=", nrow(manifest), " iterations=", iterations, " batch_size=", batch_size, " goldens=", golden_dir)
 
-r_columns <- preallocate_result_columns(nrow(manifest) * iterations * 6L)
+r_columns <- preallocate_result_columns(nrow(manifest) * iterations * 7L)
 result_row <- 0L
 for (row in seq_len(nrow(manifest))) {
   entry <- manifest[row, , drop = FALSE]
@@ -235,6 +235,20 @@ for (row in seq_len(nrow(manifest))) {
     stop("tree-table LDGM mismatch before benchmark for `", example, "`", call. = FALSE)
   }
 
+  trees_path <- file.path(golden_dir, entry$trees_file[[1L]])
+  if (!file.exists(trees_path)) {
+    stop(".trees file missing before benchmark for `", example, "`: ", trees_path, call. = FALSE)
+  }
+  native_tree_tables <- ldgm_tree_tables_from_tskit(trees_path, backend = "native")
+  if (!isTRUE(all.equal(
+    canonical_bricked_edges(ldgm_brick_ts(native_tree_tables)),
+    canonical_bricked_edges(expected_bricked_edges),
+    tolerance = 1e-10,
+    check.attributes = FALSE
+  ))) {
+    stop("native .trees extraction mismatch before benchmark for `", example, "`", call. = FALSE)
+  }
+
   sites <- data.frame(ancestral_state = snplist_input$ancestral_state, stringsAsFactors = FALSE)
   mutations <- data.frame(
     id = as.integer(snplist_input$mutation),
@@ -336,6 +350,16 @@ for (row in seq_len(nrow(manifest))) {
     r_columns$num_edges[[result_row]] <- nrow(expected_bricked_edges)
     r_columns$num_mutations[[result_row]] <- nrow(snplist_input)
     r_columns$reduced_edges[[result_row]] <- nrow(expected_final)
+
+    elapsed <- timed(ldgm_tree_tables_from_tskit(trees_path, backend = "native"), batch_size)
+    result_row <- result_row + 1L
+    r_columns$example[[result_row]] <- example
+    r_columns$operation[[result_row]] <- "tree_tables_from_tskit"
+    r_columns$iteration[[result_row]] <- iteration
+    r_columns$elapsed_sec[[result_row]] <- elapsed
+    r_columns$batch_size[[result_row]] <- batch_size
+    r_columns$num_edges[[result_row]] <- nrow(expected_bricked_edges)
+    r_columns$num_mutations[[result_row]] <- nrow(snplist_input)
   }
 }
 

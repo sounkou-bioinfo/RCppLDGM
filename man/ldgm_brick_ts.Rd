@@ -14,13 +14,13 @@ ldgm_brick_ts(x, recombination_freq_threshold = NULL, ...)
 splitting; \code{NULL} follows upstream default behavior.}
 
 \item{...}{Passed to \code{ldgm_tree_tables_from_tskit()} for \code{.trees} / Python
-tskit inputs; currently supports \code{python}.}
+tskit inputs; currently supports \code{python} and \code{backend}.}
 }
 \value{
 A bricked edge table.
 }
 \description{
 Upstream-name wrapper for the table-backed bricking kernel. Accepts an
-\code{ldgm_tree_tables} bundle directly, or uses the optional Python \code{tskit}
-adapter for \code{.trees} paths and live reticulate tree-sequence objects.
+\code{ldgm_tree_tables} bundle directly, or uses the tskit adapter for \code{.trees}
+paths and live reticulate tree-sequence objects.
 }

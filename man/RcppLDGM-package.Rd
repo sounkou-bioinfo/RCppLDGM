@@ -27,6 +27,7 @@ Other contributors:
   \item Anthony Wilder Wohns [copyright holder]
   \item Luke O'Connor [copyright holder]
   \item Pouria Salehi Nowbandegani [copyright holder]
+  \item Tskit Developers [copyright holder]
   \item RcppLDGM contributors [contributor]
 }
 

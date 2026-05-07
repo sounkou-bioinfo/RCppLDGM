@@ -44,3 +44,8 @@ RC_set_openmp_threads <- function(n_threads) {
 RC_sparse_matmul <- function(precision, x) {
     .Call(`_RcppLDGM_sparse_matmul_cpp`, precision, x)
 }
+
+RC_tskit_tree_tables_from_file <- function(path) {
+    .Call(`_RcppLDGM_tskit_tree_tables_from_file_cpp`, path)
+}
+

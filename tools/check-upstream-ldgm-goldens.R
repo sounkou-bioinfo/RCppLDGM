@@ -206,7 +206,7 @@ for (row in seq_len(nrow(manifest))) {
   }
   wrapped_result <- ldgm_make_ldgm(tree_bundle, path_threshold = threshold, return_intermediates = TRUE)
   trees_result <- NULL
-  if (have_reticulate_tskit && "trees_file" %in% names(entry)) {
+  if ("trees_file" %in% names(entry)) {
     trees_path <- file.path(golden_dir, entry$trees_file[[1L]])
     if (file.exists(trees_path)) {
       trees_tables <- ldgm_tree_tables_from_tskit(trees_path, python = if (nzchar(tskit_python)) tskit_python else NULL)
@@ -218,6 +218,19 @@ for (row in seq_len(nrow(manifest))) {
       }
       if (!isTRUE(all.equal(canonical_bricked_edges(ldgm_brick_ts(trees_tables)), expected_bricked_edges, tolerance = 1e-10, check.attributes = FALSE))) {
         stop(".trees adapter table extraction mismatch for upstream example `", example, "`", call. = FALSE)
+      }
+      if (have_reticulate_tskit) {
+        reticulate_tables <- ldgm_tree_tables_from_tskit(
+          trees_path,
+          python = if (nzchar(tskit_python)) tskit_python else NULL,
+          backend = "reticulate"
+        )
+        if (!isTRUE(all.equal(trees_tables$initial_edges, reticulate_tables$initial_edges, tolerance = 1e-10, check.attributes = FALSE))) {
+          stop("native and reticulate .trees adapter initial-edge tables differ for upstream example `", example, "`", call. = FALSE)
+        }
+        if (!isTRUE(all.equal(trees_tables$mutations, reticulate_tables$mutations, tolerance = 1e-10, check.attributes = FALSE))) {
+          stop("native and reticulate .trees adapter mutation tables differ for upstream example `", example, "`", call. = FALSE)
+        }
       }
       trees_result <- ldgm_make_ldgm(trees_path, path_threshold = threshold, return_intermediates = TRUE, python = if (nzchar(tskit_python)) tskit_python else NULL)
     }

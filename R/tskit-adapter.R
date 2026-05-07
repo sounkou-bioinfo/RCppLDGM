@@ -1,20 +1,25 @@
-#' Build LDGM Tree Tables from a Python tskit Tree Sequence
+#' Build LDGM Tree Tables from tskit Inputs
 #'
 #' Optional adapter that extracts the canonical tree-diff tables consumed by the
 #' native Rcpp LDGM pipeline from a `.trees` file or a live Python `tskit`
-#' `TreeSequence` object. The adapter uses `reticulate` only at the I/O boundary;
-#' bricking, mutation mapping, graph construction, and reduction still run
-#' through the R/Rcpp table kernels.
+#' `TreeSequence` object. File paths use the vendored tskit C API by default;
+#' live Python objects still use `reticulate` only at the I/O boundary. Bricking,
+#' mutation mapping, graph construction, and reduction run through the R/Rcpp
+#' table kernels in either case.
 #'
 #' @param x Path to a `.trees` file or a Python `tskit.TreeSequence` object from
 #'   `reticulate`.
-#' @param python Optional path to the Python executable containing `tskit`. If
-#'   omitted, `RCPP_LDGM_PYTHON` is honored when set, otherwise reticulate's
-#'   default Python discovery is used.
+#' @param python Optional path to the Python executable containing `tskit`; used
+#'   only by the `reticulate` backend. If omitted, `RCPP_LDGM_PYTHON` is honored
+#'   when set, otherwise reticulate's default Python discovery is used.
+#' @param backend Extraction backend. `"auto"` uses the native vendored tskit C
+#'   backend for `.trees` file paths and falls back to `reticulate`; Python
+#'   objects require `"auto"` or `"reticulate"`.
 #'
 #' @return An `ldgm_tree_tables` object.
 #' @export
-ldgm_tree_tables_from_tskit <- function(x, python = NULL) {
+ldgm_tree_tables_from_tskit <- function(x, python = NULL, backend = c("auto", "native", "reticulate")) {
+  backend <- match.arg(backend)
   if (is.character(x)) {
     if (length(x) != 1L || is.na(x) || !nzchar(x)) {
       stop("`x` must be a single `.trees` path or Python tskit object", call. = FALSE)
@@ -22,10 +27,29 @@ ldgm_tree_tables_from_tskit <- function(x, python = NULL) {
     if (!file.exists(x)) {
       stop("`.trees` file does not exist: ", x, call. = FALSE)
     }
+    if (backend %in% c("auto", "native")) {
+      native_error <- NULL
+      native_result <- tryCatch(
+        ldgm_tree_tables_from_tskit_native(x),
+        error = function(e) {
+          native_error <<- e
+          NULL
+        }
+      )
+      if (!is.null(native_result)) {
+        return(native_result)
+      }
+      if (identical(backend, "native")) {
+        stop(native_error)
+      }
+    }
     ensure_reticulate_tskit(python = python)
     tskit <- reticulate::import("tskit", convert = FALSE)
     ts <- tskit$load(normalizePath(x, mustWork = TRUE))
   } else if (inherits(x, "python.builtin.object")) {
+    if (identical(backend, "native")) {
+      stop("native tskit backend only supports `.trees` file paths; use `backend = \"reticulate\"` for Python objects", call. = FALSE)
+    }
     ensure_reticulate_tskit(python = python)
     ts <- x
   } else {
@@ -42,6 +66,21 @@ ldgm_tree_tables_from_tskit <- function(x, python = NULL) {
     node_state = tskit_frame(raw$node_state, c("transition", "node", "prev_parent", "curr_parent", "time", "curr_num_samples")),
     sample_nodes = as.integer(raw$sample_nodes$sample),
     mutations = tskit_frame(raw$mutations, c("site", "position", "ancestral_state", "mutation", "derived_state", "node")),
+    sequence_length = as.numeric(raw$sequence_length),
+    metadata = raw$metadata
+  )
+}
+
+ldgm_tree_tables_from_tskit_native <- function(path) {
+  raw <- RC_tskit_tree_tables_from_file(normalizePath(path, mustWork = TRUE))
+  ldgm_tree_tables(
+    initial_edges = raw$initial_edges,
+    transitions = raw$transitions,
+    edges_out = raw$edges_out,
+    edges_in = raw$edges_in,
+    node_state = raw$node_state,
+    sample_nodes = raw$sample_nodes,
+    mutations = raw$mutations,
     sequence_length = as.numeric(raw$sequence_length),
     metadata = raw$metadata
   )

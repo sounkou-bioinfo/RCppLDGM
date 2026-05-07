@@ -5,7 +5,7 @@
 ^\.circleci$
 ^\.codecov\.yml$
 ^\.pre-commit-config\.yaml$
-^\.sync$
+^\.sync($|/)
 ^.*\.tar\.gz$
 ^.*\.Rcheck$
 ^Makefile$

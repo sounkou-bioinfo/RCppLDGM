@@ -2,17 +2,25 @@
 % Please edit documentation in R/tskit-adapter.R
 \name{ldgm_tree_tables_from_tskit}
 \alias{ldgm_tree_tables_from_tskit}
-\title{Build LDGM Tree Tables from a Python tskit Tree Sequence}
+\title{Build LDGM Tree Tables from tskit Inputs}
 \usage{
-ldgm_tree_tables_from_tskit(x, python = NULL)
+ldgm_tree_tables_from_tskit(
+  x,
+  python = NULL,
+  backend = c("auto", "native", "reticulate")
+)
 }
 \arguments{
 \item{x}{Path to a \code{.trees} file or a Python \code{tskit.TreeSequence} object from
 \code{reticulate}.}
 
-\item{python}{Optional path to the Python executable containing \code{tskit}. If
-omitted, \code{RCPP_LDGM_PYTHON} is honored when set, otherwise reticulate's
-default Python discovery is used.}
+\item{python}{Optional path to the Python executable containing \code{tskit}; used
+only by the \code{reticulate} backend. If omitted, \code{RCPP_LDGM_PYTHON} is honored
+when set, otherwise reticulate's default Python discovery is used.}
+
+\item{backend}{Extraction backend. \code{"auto"} uses the native vendored tskit C
+backend for \code{.trees} file paths and falls back to \code{reticulate}; Python
+objects require \code{"auto"} or \code{"reticulate"}.}
 }
 \value{
 An \code{ldgm_tree_tables} object.
@@ -20,7 +28,8 @@ An \code{ldgm_tree_tables} object.
 \description{
 Optional adapter that extracts the canonical tree-diff tables consumed by the
 native Rcpp LDGM pipeline from a \code{.trees} file or a live Python \code{tskit}
-\code{TreeSequence} object. The adapter uses \code{reticulate} only at the I/O boundary;
-bricking, mutation mapping, graph construction, and reduction still run
-through the R/Rcpp table kernels.
+\code{TreeSequence} object. File paths use the vendored tskit C API by default;
+live Python objects still use \code{reticulate} only at the I/O boundary. Bricking,
+mutation mapping, graph construction, and reduction run through the R/Rcpp
+table kernels in either case.
 }

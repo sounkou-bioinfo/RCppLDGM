@@ -24,7 +24,7 @@ splitting; \code{NULL} follows upstream default behavior.}
 \item{return_intermediates}{Whether to include bricked and derived tables.}
 
 \item{...}{Passed to \code{ldgm_tree_tables_from_tskit()} for \code{.trees} / Python
-tskit inputs; currently supports \code{python}.}
+tskit inputs; currently supports \code{python} and \code{backend}.}
 }
 \value{
 A list containing \code{graph}, optional \code{snplist}, and optional
@@ -32,6 +32,6 @@ intermediates.
 }
 \description{
 Upstream-name wrapper for \code{\link[=ldgm_make_ldgm_from_tree_tables]{ldgm_make_ldgm_from_tree_tables()}}. Accepts an
-\code{ldgm_tree_tables} bundle directly, or uses the optional Python \code{tskit}
-adapter for \code{.trees} paths and live reticulate tree-sequence objects.
+\code{ldgm_tree_tables} bundle directly, or uses the tskit adapter for \code{.trees}
+paths and live reticulate tree-sequence objects.
 }

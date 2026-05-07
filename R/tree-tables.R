@@ -3,8 +3,9 @@
 #' Creates a lightweight R object for the table-backed LDGM pipeline. The object
 #' stores the canonical tree-diff tables consumed by the native bricking and
 #' LDGM kernels. Use `ldgm_tree_tables_from_tskit()` to build this bundle from a
-#' `.trees` file or Python `tskit.TreeSequence` object when `reticulate` and
-#' Python `tskit` are available.
+#' `.trees` file via the vendored tskit C API, or from a Python
+#' `tskit.TreeSequence` object when `reticulate` and Python `tskit` are
+#' available.
 #'
 #' @param initial_edges,transitions,edges_out,edges_in,node_state See
 #'   [ldgm_brick_edges_from_tables()].
@@ -57,15 +58,15 @@ ldgm_tree_tables <- function(initial_edges,
 #' Brick an LDGM Tree-Table Bundle
 #'
 #' Upstream-name wrapper for the table-backed bricking kernel. Accepts an
-#' `ldgm_tree_tables` bundle directly, or uses the optional Python `tskit`
-#' adapter for `.trees` paths and live reticulate tree-sequence objects.
+#' `ldgm_tree_tables` bundle directly, or uses the tskit adapter for `.trees`
+#' paths and live reticulate tree-sequence objects.
 #'
 #' @param x An `ldgm_tree_tables` object, a `.trees` file path, or a Python
 #'   `tskit.TreeSequence` object from `reticulate`.
 #' @param recombination_freq_threshold Minimum frequency for recombination edge
 #'   splitting; `NULL` follows upstream default behavior.
 #' @param ... Passed to `ldgm_tree_tables_from_tskit()` for `.trees` / Python
-#'   tskit inputs; currently supports `python`.
+#'   tskit inputs; currently supports `python` and `backend`.
 #'
 #' @return A bricked edge table.
 #' @export
@@ -101,8 +102,8 @@ ldgm_brick_ts.default <- function(x, recombination_freq_threshold = NULL, ...) {
 #' Make an LDGM from a Tree-Table Bundle
 #'
 #' Upstream-name wrapper for [ldgm_make_ldgm_from_tree_tables()]. Accepts an
-#' `ldgm_tree_tables` bundle directly, or uses the optional Python `tskit`
-#' adapter for `.trees` paths and live reticulate tree-sequence objects.
+#' `ldgm_tree_tables` bundle directly, or uses the tskit adapter for `.trees`
+#' paths and live reticulate tree-sequence objects.
 #'
 #' @param x An `ldgm_tree_tables` object, a `.trees` file path, or a Python
 #'   `tskit.TreeSequence` object from `reticulate`.
@@ -111,7 +112,7 @@ ldgm_brick_ts.default <- function(x, recombination_freq_threshold = NULL, ...) {
 #'   splitting; `NULL` follows upstream default behavior.
 #' @param return_intermediates Whether to include bricked and derived tables.
 #' @param ... Passed to `ldgm_tree_tables_from_tskit()` for `.trees` / Python
-#'   tskit inputs; currently supports `python`.
+#'   tskit inputs; currently supports `python` and `backend`.
 #'
 #' @return A list containing `graph`, optional `snplist`, and optional
 #'   intermediates.

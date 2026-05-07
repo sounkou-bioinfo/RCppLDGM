@@ -190,6 +190,17 @@ BEGIN_RCPP
     return rcpp_result_gen;
 END_RCPP
 }
+// tskit_tree_tables_from_file_cpp
+List tskit_tree_tables_from_file_cpp(std::string path);
+RcppExport SEXP _RcppLDGM_tskit_tree_tables_from_file_cpp(SEXP pathSEXP) {
+BEGIN_RCPP
+    Rcpp::RObject rcpp_result_gen;
+    Rcpp::RNGScope rcpp_rngScope_gen;
+    Rcpp::traits::input_parameter< std::string >::type path(pathSEXP);
+    rcpp_result_gen = Rcpp::wrap(tskit_tree_tables_from_file_cpp(path));
+    return rcpp_result_gen;
+END_RCPP
+}
 
 static const R_CallMethodDef CallEntries[] = {
     {"_RcppLDGM_brick_edges_from_tables_cpp", (DL_FUNC) &_RcppLDGM_brick_edges_from_tables_cpp, 21},
@@ -203,6 +214,7 @@ static const R_CallMethodDef CallEntries[] = {
     {"_RcppLDGM_openmp_info_cpp", (DL_FUNC) &_RcppLDGM_openmp_info_cpp, 0},
     {"_RcppLDGM_set_openmp_threads_cpp", (DL_FUNC) &_RcppLDGM_set_openmp_threads_cpp, 1},
     {"_RcppLDGM_sparse_matmul_cpp", (DL_FUNC) &_RcppLDGM_sparse_matmul_cpp, 2},
+    {"_RcppLDGM_tskit_tree_tables_from_file_cpp", (DL_FUNC) &_RcppLDGM_tskit_tree_tables_from_file_cpp, 1},
     {NULL, NULL, 0}
 };
 

@@ -1,0 +1,23 @@
+Vendored tskit C API for RcppLDGM
+=================================
+
+Source: https://github.com/tskit-dev/tskit, C API release tag C_1.3.1
+(commit 143cd7845774e323fa7992f9f7e6d8ef9cc5bbda).
+
+Copied files:
+- c/tskit.h -> src/tskit.h
+- c/tskit/*.c and c/tskit/*.h -> src/tskit/
+- c/subprojects/kastore/kastore.[ch] -> src/tskit/subprojects/kastore/
+- VERSION.txt files for tskit and kastore.
+
+Local R-package patch:
+- src/tskit/core.h redirects tsk_bug_assert() to Rf_error(), tsk trace errors
+  to Rf_warning() when tracing is enabled, and the default debug stream to the
+  platform null device. This avoids abort/stdout/stderr symbols in R CMD check.
+- No LDGM or tskit algorithm semantics are changed by this patch.
+
+Update procedure:
+1. Replace the copied files from a released C_* tskit tag, not from main.
+2. Re-apply the R-package core.h patch above.
+3. Re-run Rcpp::compileAttributes("."), tinytest, upstream LDGM conformance,
+   benchmark smoke, R CMD build, and R CMD check --no-manual.
