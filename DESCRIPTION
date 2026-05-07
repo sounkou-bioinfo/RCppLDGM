@@ -1,0 +1,30 @@
+Package: RcppLDGM
+Title: Rcpp Port of Linkage Disequilibrium Graphical Models
+Version: 0.0.0.9000
+Authors@R: c(
+    person("Sounkou", "Toure", email = "sounkoutoure@gmail.com", role = c("aut", "cre")),
+    person("Anthony Wilder", "Wohns", role = "cph"),
+    person("Luke", "O'Connor", role = "cph"),
+    person("Pouria Salehi", "Nowbandegani", role = "cph"),
+    person("RcppLDGM contributors", role = "ctb")
+  )
+Description: Provides an incremental Rcpp port of the 'ldgm' algorithms for
+    linkage disequilibrium graphical models. The initial package exposes native
+    graph primitives and documents the compatibility contract used while porting
+    the bricking, brick-haplotype graph, reduction, and SNP-list interfaces from
+    the upstream Python and MATLAB implementation.
+License: GPL (>= 3)
+URL: https://github.com/sounkou-bioinfo/RCppLDGM
+BugReports: https://github.com/sounkou-bioinfo/RCppLDGM/issues
+Encoding: UTF-8
+Roxygen: list(markdown = TRUE)
+RoxygenNote: 7.3.3
+LinkingTo:
+    Rcpp
+Imports:
+    Matrix,
+    methods,
+    Rcpp,
+    utils
+Suggests:
+    tinytest

@@ -1,0 +1,3 @@
+# Use R's toolchain-provided OpenMP flags on Windows when available.
+PKG_CXXFLAGS = $(SHLIB_OPENMP_CXXFLAGS)
+PKG_LIBS = $(SHLIB_OPENMP_CXXFLAGS)

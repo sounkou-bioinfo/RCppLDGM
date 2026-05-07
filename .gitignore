@@ -4,6 +4,12 @@ python/*.pyc
 .DS_Store
 ldgm/__pycache__
 _build/
+.sync/
+RcppLDGM.Rcheck/
+*.tar.gz
+src/*.o
+src/*.so
+src/symbols.rds
 data/ldgms/
 data/genotypes
 data/sumstats

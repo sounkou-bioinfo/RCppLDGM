@@ -1,0 +1,200 @@
+# RcppLDGM Port Interface, Testing, and Conformance Plan
+
+This repository is being converted into an R/Rcpp package while preserving the
+scientific behavior of the upstream `ldgm` Python/MATLAB implementation.
+
+## Upstream and attribution
+
+- Upstream project: <https://github.com/awohns/ldgm>
+- Local baseline commit: `7b3d42450357450b05e11df718dae42a42e1d48e`
+- Upstream package name: `ldgm`
+- Primary paper to cite: Salehi Nowbandegani et al. (2023), *Nature Genetics*,
+  <https://doi.org/10.1038/s41588-023-01487-8>
+- Package license: `GPL (>= 3)`, added with `usethis::use_gpl3_license()`.
+- Original copyright holders are retained in `DESCRIPTION` as copyright holders,
+  with the upstream MIT notice preserved in `LICENSE.upstream.md`.
+
+Compatibility claims must always name the exact upstream commit, dataset, command,
+and comparison tolerance used.
+
+## Porting principles
+
+1. **Small exact slices first.** Port one primitive at a time, add tests, then
+   expand scope.
+2. **Library-first native core.** Keep reusable C++ graph/tree-sequence kernels in
+   `src/`; R code should validate arguments and provide ergonomic data-frame or
+   S3 wrappers.
+3. **No silent semantic improvements.** If behavior differs from Python/networkx
+   or MATLAB outputs, document the difference and gate it behind a new interface.
+4. **Conformance before speed claims.** Benchmarks are useful only after output
+   compatibility is demonstrated on pinned fixtures.
+5. **Dependency discipline.** Start with `Rcpp`, `Matrix`, and base R for graph
+   and precision kernels. Avoid compiled dependencies that make package builds
+   noisy or fragile; add `igraph`, `RcppParallel`, or a vendored `tskit` C layer
+   only when the exact need is clear.
+6. **Linux performance path.** Use R's toolchain OpenMP flags on Linux for
+   explicitly parallel native kernels, with a no-OpenMP fallback and tests that
+   confirm availability via `ldgm_openmp_info()`.
+
+## Public R interface target
+
+The R API mirrors the upstream Python API while using R-native return types.
+
+| Python function | Target R function | Input | Output | Status |
+| --- | --- | --- | --- | --- |
+| `ldgm.utility.remove_node()` | `ldgm_remove_node()` | edge-list data frame | edge-list data frame | initial Rcpp slice implemented |
+| `ldgm.return_edgelist()` | `ldgm_return_edgelist()` | edge-list data frame / LDGM graph | edge-list data frame | initial R wrapper implemented |
+| GraphLD `PrecisionOperator` | `ldgm_sparse_precision()`, `ldgm_precision_select()`, `ldgm_precision_multiply()`, `ldgm_precision_solve()` | sparse precision matrix | matrix/vector results | Rcpp sparse multiply plus Matrix/CHOLMOD solve and Schur-complement slice implemented |
+| GraphLD `merge_snplists()` | `ldgm_merge_snplists()` | LDGM precision object + summary stats | merged selected LDGM object | initial R data-frame slice implemented |
+| GraphLD likelihood kernels | `ldgm_gaussian_likelihood()`, `ldgm_gaussian_likelihood_gradient()`, `ldgm_gaussian_likelihood_hessian()`, `ldgm_inverse_diagonal()` | precision object + pz / probes | likelihood/derivatives/inverse diagonal | exact small-block plus Hutchinson/xdiag stochastic slice implemented |
+| GraphLD BLUP block kernel/scheduler | `ldgm_blup_block()`, `ldgm_partition_variants()`, `ldgm_run_blup()` | sparse precision matrix + Z scores / metadata blocks | BLUP weights | single-block kernel plus serial block scheduler implemented |
+| `ldgm.brick_ts()` | `brick_ts()` | tree sequence object or canonical tables | bricked tree sequence | planned |
+| `ldgm.brick_haplo_graph()` | `brick_haplo_graph()` | bricked tree sequence | native graph external pointer / edge list | planned |
+| `ldgm.reduce_graph()` | `ldgm_reduce_graph()` | canonical brick-haplotype edge list + brick-to-mutation map | LDGM graph edge list | Dijkstra reach-set core implemented; full tree-sequence wiring planned |
+| `ldgm.make_ldgm()` | `make_ldgm()` | tree sequence object or canonical tables | list(graph, bricked_ts) | planned |
+| `ldgm.prune_sites()` | `prune_sites()` | tree sequence object/tables | pruned tree sequence | planned |
+| `ldgm.make_snplist()` | `ldgm_make_snplist()` | brick-to-mutation map + canonical site/mutation tables | data frame | table-oriented slice implemented and checked against upstream goldens |
+
+### Canonical native objects
+
+Until the final tree-sequence backend is selected, all core kernels should accept
+or produce simple canonical forms:
+
+- **Edge list:** `data.frame(from = integer(), to = integer(), weight = numeric())`.
+- **Tree-sequence tables:** nodes, edges, sites, mutations, sequence length, sample
+  ids, and provenance metadata as R data frames/lists.
+- **Native graph:** a C++ directed weighted graph with deterministic edge ordering
+  at R boundaries.
+
+The likely full backend is a small C++ table/tree layer with optional vendoring of
+`tskit` C APIs if file I/O or exact `.trees` loading becomes necessary.
+
+## Initial implemented slice
+
+The first Rcpp slice ports the graph-node elimination primitive used in step 7 of
+`make_ldgm()`:
+
+```r
+ldgm_remove_node(graph, node, path_threshold)
+```
+
+Semantics match upstream `ldgm.utility.remove_node()` for directed graphs:
+
+1. collect all predecessors of `node`;
+2. collect all successors of `node`;
+3. add predecessor-to-successor edges with summed path weights;
+4. retain an existing edge if it has the lower weight;
+5. discard newly combined paths above `path_threshold`;
+6. remove all edges incident to `node`.
+
+## Conformance plan
+
+### Fixture classes
+
+Use the upstream Python `tests/utility_functions.py` fixtures as the reference
+source for small tree sequences:
+
+- single-tree samples with and without mutations;
+- two-tree recombination examples;
+- Figure 1, supplementary, triangle, and multiple-SNP-on-branch examples;
+- singleton and multiallelic edge cases;
+- no-mutation and dangling/unary-node cases.
+
+### Golden outputs
+
+For each fixture and option set, generate reference artifacts from the pinned
+Python implementation:
+
+```bash
+python tools/generate_conformance.py --out inst/extdata/conformance
+```
+
+Artifacts should include:
+
+- bricked edge tables;
+- brick-haplotype graph edge lists;
+- reduced graph edge lists before and after haplotype-node elimination;
+- final `return_edgelist()` output;
+- `make_snplist()` data frames;
+- expected failures for unsupported inputs.
+
+### Comparison rules
+
+- Integer node ids and columns must match exactly.
+- Edge-list comparison is order-insensitive unless an interface explicitly
+  promises ordering.
+- Weights from Python are rounded to four decimals for `return_edgelist()`; internal
+  weighted graph comparisons use absolute tolerance `1e-10` unless a fixture names
+  a looser tolerance.
+- Failure behavior must match by condition class and message intent, not byte-for-
+  byte message text.
+
+### Test layers
+
+1. `inst/tinytest/`: fast R package tests for wrappers and native kernels.
+2. `tools/generate_conformance.py`: Python reference artifact generation.
+3. `tools/check_conformance.R`: R-side comparison against generated artifacts.
+4. `R CMD check`: package installation, documentation, and CRAN-style checks.
+5. Later: large real-data smoke tests and benchmarks outside CRAN checks.
+
+## Implementation phases
+
+### Phase 0: package skeleton and graph primitives
+
+- Add `DESCRIPTION`, package namespace/docs, `R/`, `src/`, `tests/tinytest.R`, and
+  `inst/tinytest/`.
+- Port `remove_node` and `return_edgelist` around canonical edge lists.
+- Verify with `R CMD INSTALL --preclean .` and tinytest.
+
+### Phase 1: reference fixtures and utility parity
+
+- Add `tools/generate_conformance.py` and generated small golden artifacts.
+- Port `get_mut_edges`, `get_brick_frequencies`, `convert_node_ids`, and
+  `make_snplist` against canonical table inputs.
+- Compare every utility output to Python goldens.
+
+### Phase 2: brick-haplotype graph
+
+- Port vertex-id scheme and rules 0, 1, and 2.
+- Validate on Figure 1, supplementary, triangle, and threshold fixtures.
+- Keep graph output deterministic at R boundaries.
+
+### Phase 3: reduction
+
+- Port Dijkstra reach-set calculation and reduced SNP graph construction. Initial
+  Rcpp implementation is exposed as `ldgm_reduce_graph()` for canonical
+  brick-haplotype edge lists.
+- Add upstream golden fixtures from generated brick-haplotype graphs.
+- Add optional parallelism only after single-threaded parity is exact.
+
+### Phase 4: bricking and full `make_ldgm`
+
+- Port `brick_ts()` table transformations.
+- Wire `make_ldgm()` end to end.
+- Validate final edge lists and SNP lists against pinned Python outputs.
+
+### Phase 5: packaging and performance
+
+- Decide whether to vendor `tskit` C for `.trees` file I/O.
+- Add larger conformance and performance datasets outside the installed package.
+- Document supported and out-of-scope features in README and vignettes.
+
+## Current verification commands
+
+```bash
+Rscript -e 'Rcpp::compileAttributes(".")'
+Rscript -e 'roxygen2::roxygenize(load_code = "source")'
+R CMD INSTALL --preclean .
+Rscript -e 'tinytest::test_package("RcppLDGM", testdir = "inst/tinytest")'
+Rscript tools/benchmark-precision.R
+RCPP_LDGM_GRAPHLD_DATA=.sync/graphld/data/test Rscript tools/check-upstream-graphld-data.R
+make upstream-python
+make upstream-ldgm-conformance
+```
+
+The upstream ldgm golden-generation command uses an isolated `.sync/ldgm-python`
+venv and requires the upstream Python test stack (`networkx`, `msprime`,
+`tskit`, `numpy`, `pandas`, `tqdm`).
+
+See also `docs/graphld-port-plan.md` for the GraphLD interface/performance
+roadmap and `docs/upstream-data-sources.md` for upstream-owned real data sources.

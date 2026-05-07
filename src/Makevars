@@ -1,0 +1,4 @@
+# Linux/Unix OpenMP support. R's Makeconf defines SHLIB_OPENMP_CXXFLAGS
+# where OpenMP is available; it expands to an empty value on toolchains without it.
+PKG_CXXFLAGS = $(SHLIB_OPENMP_CXXFLAGS)
+PKG_LIBS = $(SHLIB_OPENMP_CXXFLAGS)
