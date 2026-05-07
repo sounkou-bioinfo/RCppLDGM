@@ -47,6 +47,8 @@ Implemented and exported today:
 - sparse precision/operator layer: multiply, solve, log determinant, Gaussian
   likelihood, BLUP block, exact/Hutchinson/xdiag/XNys inverse diagonal
   estimates, OpenMP controls;
+- initial serial GraphREML-style block likelihood and optimizer:
+  `ldgm_reml_link()`, `ldgm_reml_block()`, and `ldgm_run_reml()`;
 - GraphLD-style R interfaces for LDGM IO, precision objects, allele/snplist
   merging, BLUP scheduling, and clumping.
 
@@ -54,8 +56,8 @@ Still intentionally incomplete:
 
 - direct native tree-sequence object wiring for upstream `brick_haplo_graph()`
   beyond the current `.trees` file-to-table extraction boundary;
-- remaining GraphLD workflows such as graphREML and full Python GraphLD
-  SuiteSparse parity/performance validation.
+- full Python GraphLD graphREML CLI parity, jackknife/score-test outputs,
+  surrogate markers, multiprocessing, and SuiteSparse performance validation.
 
 See [`docs/rcpp-port-plan.md`](docs/rcpp-port-plan.md) and
 [`docs/graphld-port-plan.md`](docs/graphld-port-plan.md) for the interface and
@@ -204,7 +206,7 @@ warning-suppression flags in `src/Makevars`.
 
 Latest audited local validation on 2026-05-07:
 
-- tinytest: 147 results, all OK with `options(warn = 2)`;
+- tinytest: 167 results, all OK with `options(warn = 2)`;
 - upstream LDGM conformance: 10 examples passed for bricked edge tables,
   brick-haplotype graph, reduction, final LDGM, SNP-list outputs, and native
   `.trees` extraction through the vendored tskit C API;

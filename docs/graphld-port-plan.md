@@ -34,7 +34,7 @@ kernels rather than the whole CLI:
 | `gaussian_likelihood_hessian()` | `ldgm_gaussian_likelihood_hessian()` | implemented with exact, Hutchinson, xdiag, or XNys inverse diagonals / exact solves |
 | single-block BLUP kernel | `ldgm_blup_block()` | implemented for full and selected views |
 | GraphLD BLUP block scheduler | `ldgm_partition_variants()`, `ldgm_run_blup()` | implemented as serial R scheduler; multiprocessing remains planned |
-| GraphLD graphREML scheduler | `run_graphREML()` | planned |
+| GraphLD graphREML core/scheduler | `ldgm_reml_link()`, `ldgm_reml_block()`, `ldgm_run_reml()` | initial serial core implemented; full CLI parity, jackknife SEs, surrogate markers, HDF5 score-test output, and multiprocessing remain planned |
 | GraphLD LD clumping | `ldgm_run_clump()` | implemented as serial R scheduler; multiprocessing remains planned |
 | parquet / VCF / LDSC I/O | R-native table readers | planned |
 
@@ -118,8 +118,10 @@ Interpretation rules:
 1. Add GraphLD conformance fixtures from `.sync/graphld/tests` for the implemented
    edgelist/snplist readers, selected precision views, inverse-diagonal
    estimators, and merge behavior.
-2. Add real GraphLD BLUP/clumping conformance checks and then introduce optional
-   R parallelism or OpenMP block scheduling where useful.
+2. Add real GraphLD BLUP/clumping and graphREML conformance checks against
+   upstream outputs, then introduce optional R parallelism or OpenMP block
+   scheduling where useful.
 3. Add larger stochastic inverse-diagonal conformance/performance comparisons
    against Python GraphLD/SuiteSparse on upstream LDGM blocks.
-4. Only then port graphREML and remaining workflow surfaces.
+4. Extend graphREML toward full CLI parity: jackknife SEs, surrogate markers,
+   HDF5 score-test output, and multiprocessing.
