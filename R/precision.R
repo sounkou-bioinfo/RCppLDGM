@@ -177,11 +177,13 @@ ldgm_gaussian_likelihood <- function(pz, precision) {
 #'
 #' Computes diagonal entries of the inverse of a full precision matrix or a
 #' selected Schur-complement view. `method = "exact"` uses dense inversion for
-#' conformance fixtures and small blocks. `"hutchinson"` and `"xdiag"` provide
-#' stochastic estimators aligned with GraphLD's `PrecisionOperator` API.
+#' conformance fixtures and small blocks. `"hutchinson"`, `"xdiag"`, and
+#' `"xnys"` provide stochastic estimators aligned with GraphLD's
+#' `PrecisionOperator` API. The `"xnys"` method is a randomized Nyström
+#' approximation to the inverse precision matrix diagonal.
 #'
 #' @param precision Sparse precision matrix or `ldgm_precision` object.
-#' @param method One of `"exact"`, `"hutchinson"`, or `"xdiag"`.
+#' @param method One of `"exact"`, `"hutchinson"`, `"xdiag"`, or `"xnys"`.
 #' @param n_samples Number of random Rademacher probe vectors for stochastic
 #'   methods. The actual count is `min(n, n_samples)`.
 #' @param seed Optional random seed for probe generation.
@@ -198,7 +200,7 @@ ldgm_gaussian_likelihood <- function(pz, precision) {
 #'   `return_initialization = TRUE` or `initialization` is supplied.
 #' @export
 ldgm_inverse_diagonal <- function(precision,
-                                  method = c("exact", "xdiag", "hutchinson"),
+                                  method = c("exact", "xdiag", "hutchinson", "xnys"),
                                   n_samples = 100L,
                                   seed = NULL,
                                   probes = NULL,
@@ -206,7 +208,7 @@ ldgm_inverse_diagonal <- function(precision,
                                   return_initialization = FALSE,
                                   ...) {
   invisible(list(...))
-  method <- match.arg(tolower(method), c("exact", "xdiag", "hutchinson"))
+  method <- match.arg(tolower(method), c("exact", "xdiag", "hutchinson", "xnys"))
   n <- precision_nrow(precision)
   if (!is.null(initialization)) {
     if (!is.null(probes)) {
@@ -246,10 +248,14 @@ ldgm_inverse_diagonal <- function(precision,
   if (identical(method, "hutchinson")) {
     solved_probes <- ldgm_precision_solve(precision, probes)
     diagonal <- rowMeans(probes * solved_probes)
-  } else {
+  } else if (identical(method, "xdiag")) {
     xdiag <- xdiag_estimator(precision, probes)
     diagonal <- xdiag$diagonal
     solved_probes <- xdiag$solved_probes
+  } else {
+    xnys <- xnys_estimator(precision, probes)
+    diagonal <- xnys$diagonal
+    solved_probes <- xnys$solved_probes
   }
 
   if (isTRUE(return_initialization)) {
@@ -268,7 +274,8 @@ ldgm_inverse_diagonal <- function(precision,
 #'   respect to model parameters.
 #' @param diagonal_method Inverse-diagonal method passed to
 #'   [ldgm_inverse_diagonal()].
-#' @param n_samples Number of stochastic probes for `"xdiag"` or `"hutchinson"`.
+#' @param n_samples Number of stochastic probes for `"xdiag"`, `"xnys"`, or
+#'   `"hutchinson"`.
 #' @param seed Optional random seed for stochastic probes.
 #'
 #' @return Node-level gradient vector, or parameter gradient if `del_M_del_a` is
@@ -309,7 +316,8 @@ ldgm_gaussian_likelihood_gradient <- function(pz,
 #'   respect to model parameters.
 #' @param diagonal_method Method for node-level diagonal output, passed to
 #'   [ldgm_inverse_diagonal()].
-#' @param n_samples Number of stochastic probes for `"xdiag"` or `"hutchinson"`.
+#' @param n_samples Number of stochastic probes for `"xdiag"`, `"xnys"`, or
+#'   `"hutchinson"`.
 #' @param seed Optional random seed for stochastic probes.
 #'
 #' @return Hessian diagonal vector, or parameter Hessian matrix if `del_M_del_a`
@@ -519,6 +527,34 @@ xdiag_estimator <- function(precision, probes) {
 
   list(
     diagonal = as.numeric(d_qz + (-d_qssz + d_om_y - d_om_qt + d_om_qsst) / m),
+    solved_probes = solved_probes
+  )
+}
+
+xnys_estimator <- function(precision, probes, tolerance = sqrt(.Machine$double.eps)) {
+  n <- nrow(probes)
+  m <- ncol(probes)
+  if (m < 1L || m > n) {
+    stop("`probes` must have between 1 and n columns", call. = FALSE)
+  }
+  if (length(tolerance) != 1L || is.na(tolerance) || tolerance <= 0) {
+    stop("`tolerance` must be a single positive number", call. = FALSE)
+  }
+
+  solved_probes <- ldgm_precision_solve(precision, probes)
+  sketch_gram <- crossprod(probes, solved_probes)
+  sketch_gram <- (sketch_gram + t(sketch_gram)) / 2
+  sketch_eigen <- eigen(sketch_gram, symmetric = TRUE)
+  scale <- max(abs(sketch_eigen$values), 1)
+  keep <- sketch_eigen$values > tolerance * scale
+  if (!any(keep)) {
+    stop("xnys sketch Gram matrix was not positive definite", call. = FALSE)
+  }
+
+  basis <- solved_probes %*% sketch_eigen$vectors[, keep, drop = FALSE]
+  basis <- sweep(basis, 2L, sqrt(sketch_eigen$values[keep]), `/`)
+  list(
+    diagonal = as.numeric(rowSums(basis^2)),
     solved_probes = solved_probes
   )
 }

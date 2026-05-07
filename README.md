@@ -44,8 +44,8 @@ Implemented and exported today:
   objects;
 - SNP-list table slice: `ldgm_make_snplist()`;
 - sparse precision/operator layer: multiply, solve, log determinant,
-  Gaussian likelihood, BLUP block, inverse diagonal estimates, OpenMP
-  controls;
+  Gaussian likelihood, BLUP block, exact/Hutchinson/xdiag/XNys inverse
+  diagonal estimates, OpenMP controls;
 - GraphLD-style R interfaces for LDGM IO, precision objects,
   allele/snplist merging, BLUP scheduling, and clumping.
 
@@ -54,8 +54,8 @@ Still intentionally incomplete:
 - direct native tree-sequence object wiring for upstream
   `brick_haplo_graph()` beyond the current `.trees` file-to-table
   extraction boundary;
-- remaining GraphLD workflows such as graphREML and the XNys
-  inverse-diagonal estimator.
+- remaining GraphLD workflows such as graphREML and full Python GraphLD
+  SuiteSparse parity/performance validation.
 
 See [`docs/rcpp-port-plan.md`](docs/rcpp-port-plan.md) and
 [`docs/graphld-port-plan.md`](docs/graphld-port-plan.md) for the
@@ -214,7 +214,7 @@ build without warning-suppression flags in `src/Makevars`.
 
 Latest audited local validation on 2026-05-07:
 
-- tinytest: 139 results, all OK with `options(warn = 2)`;
+- tinytest: 147 results, all OK with `options(warn = 2)`;
 - upstream LDGM conformance: 10 examples passed for bricked edge tables,
   brick-haplotype graph, reduction, final LDGM, SNP-list outputs, and
   native `.trees` extraction through the vendored tskit C API;

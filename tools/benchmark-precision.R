@@ -53,6 +53,7 @@ results <- rbind(
   bench("RcppLDGM Matrix logdet wrapper", ldgm_precision_logdet(P)),
   bench("RcppLDGM Hutchinson inverse diagonal", ldgm_inverse_diagonal(P, method = "hutchinson", probes = probes)),
   bench("RcppLDGM xdiag inverse diagonal", ldgm_inverse_diagonal(P, method = "xdiag", probes = probes)),
+  bench("RcppLDGM XNys inverse diagonal", ldgm_inverse_diagonal(P, method = "xnys", probes = probes)),
   bench("RcppLDGM BLUP block", ldgm_blup_block(P, z, sample_size, sigmasq))
 )
 

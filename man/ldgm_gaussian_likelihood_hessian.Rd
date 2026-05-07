@@ -24,7 +24,8 @@ respect to model parameters.}
 \item{diagonal_method}{Method for node-level diagonal output, passed to
 \code{\link[=ldgm_inverse_diagonal]{ldgm_inverse_diagonal()}}.}
 
-\item{n_samples}{Number of stochastic probes for \code{"xdiag"} or \code{"hutchinson"}.}
+\item{n_samples}{Number of stochastic probes for \code{"xdiag"}, \code{"xnys"}, or
+\code{"hutchinson"}.}
 
 \item{seed}{Optional random seed for stochastic probes.}
 }

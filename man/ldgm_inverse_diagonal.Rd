@@ -6,7 +6,7 @@
 \usage{
 ldgm_inverse_diagonal(
   precision,
-  method = c("exact", "xdiag", "hutchinson"),
+  method = c("exact", "xdiag", "hutchinson", "xnys"),
   n_samples = 100L,
   seed = NULL,
   probes = NULL,
@@ -18,7 +18,7 @@ ldgm_inverse_diagonal(
 \arguments{
 \item{precision}{Sparse precision matrix or \code{ldgm_precision} object.}
 
-\item{method}{One of \code{"exact"}, \code{"hutchinson"}, or \code{"xdiag"}.}
+\item{method}{One of \code{"exact"}, \code{"hutchinson"}, \code{"xdiag"}, or \code{"xnys"}.}
 
 \item{n_samples}{Number of random Rademacher probe vectors for stochastic
 methods. The actual count is \code{min(n, n_samples)}.}
@@ -44,6 +44,8 @@ Numeric vector containing \code{diag(solve(precision))}, or a list when
 \description{
 Computes diagonal entries of the inverse of a full precision matrix or a
 selected Schur-complement view. \code{method = "exact"} uses dense inversion for
-conformance fixtures and small blocks. \code{"hutchinson"} and \code{"xdiag"} provide
-stochastic estimators aligned with GraphLD's \code{PrecisionOperator} API.
+conformance fixtures and small blocks. \code{"hutchinson"}, \code{"xdiag"}, and
+\code{"xnys"} provide stochastic estimators aligned with GraphLD's
+\code{PrecisionOperator} API. The \code{"xnys"} method is a randomized Nyström
+approximation to the inverse precision matrix diagonal.
 }

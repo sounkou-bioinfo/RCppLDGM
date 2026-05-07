@@ -26,12 +26,12 @@ kernels rather than the whole CLI:
 | `PrecisionOperator.__matmul__` / `_matvec()` | `ldgm_precision_multiply()` | implemented for full and selected views |
 | `PrecisionOperator.solve()` | `ldgm_precision_solve()` | implemented for full and selected views |
 | `PrecisionOperator.logdet()` | `ldgm_precision_logdet()` | implemented for full and selected views |
-| `PrecisionOperator.inverse_diagonal()` | `ldgm_inverse_diagonal()` | implemented for exact, Hutchinson, and xdiag methods; XNys remains planned |
+| `PrecisionOperator.inverse_diagonal()` | `ldgm_inverse_diagonal()` | implemented for exact, Hutchinson, xdiag, and randomized Nyström (`xnys`) methods |
 | `merge_alleles()` | `ldgm_merge_alleles()` | implemented |
 | `merge_snplists()` | `ldgm_merge_snplists()` | implemented for data frames |
 | `gaussian_likelihood()` | `ldgm_gaussian_likelihood()` | implemented for full and selected views |
-| `gaussian_likelihood_gradient()` | `ldgm_gaussian_likelihood_gradient()` | implemented with exact, Hutchinson, or xdiag inverse diagonals |
-| `gaussian_likelihood_hessian()` | `ldgm_gaussian_likelihood_hessian()` | implemented with exact, Hutchinson, or xdiag inverse diagonals / exact solves |
+| `gaussian_likelihood_gradient()` | `ldgm_gaussian_likelihood_gradient()` | implemented with exact, Hutchinson, xdiag, or XNys inverse diagonals |
+| `gaussian_likelihood_hessian()` | `ldgm_gaussian_likelihood_hessian()` | implemented with exact, Hutchinson, xdiag, or XNys inverse diagonals / exact solves |
 | single-block BLUP kernel | `ldgm_blup_block()` | implemented for full and selected views |
 | GraphLD BLUP block scheduler | `ldgm_partition_variants()`, `ldgm_run_blup()` | implemented as serial R scheduler; multiprocessing remains planned |
 | GraphLD graphREML scheduler | `run_graphREML()` | planned |
@@ -120,6 +120,6 @@ Interpretation rules:
    estimators, and merge behavior.
 2. Add real GraphLD BLUP/clumping conformance checks and then introduce optional
    R parallelism or OpenMP block scheduling where useful.
-3. Add remaining stochastic inverse-diagonal coverage for XNys and larger
-   GraphLD/SuiteSparse comparisons.
-4. Only then port graphREML and clumping workflows.
+3. Add larger stochastic inverse-diagonal conformance/performance comparisons
+   against Python GraphLD/SuiteSparse on upstream LDGM blocks.
+4. Only then port graphREML and remaining workflow surfaces.

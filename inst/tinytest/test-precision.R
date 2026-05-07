@@ -63,6 +63,22 @@ expect_equal(
   tolerance = 1e-12
 )
 expect_equal(ldgm_inverse_diagonal(P, method = "xdiag", probes = diag(nrow(P))), diag(P_inv), tolerance = 1e-10)
+xnys_estimate <- ldgm_inverse_diagonal(P, method = "xnys", probes = probes, return_initialization = TRUE)
+expect_true(is.list(xnys_estimate))
+expect_true(is.numeric(xnys_estimate$diagonal))
+expect_equal(length(xnys_estimate$diagonal), nrow(P))
+expect_equal(dim(xnys_estimate$solved_probes), dim(probes))
+expect_equal(
+  ldgm_inverse_diagonal(P, method = "xnys", n_samples = 2L, seed = 123),
+  ldgm_inverse_diagonal(P, method = "xnys", n_samples = 2L, seed = 123),
+  tolerance = 1e-12
+)
+expect_equal(
+  ldgm_inverse_diagonal(P, method = "xnys", initialization = list(probes, xnys_estimate$solved_probes))$diagonal,
+  xnys_estimate$diagonal,
+  tolerance = 1e-12
+)
+expect_equal(ldgm_inverse_diagonal(P, method = "xnys", probes = diag(nrow(P))), diag(P_inv), tolerance = 1e-10)
 expected_grad <- -0.5 * (diag(P_inv) - P_solve_b^2)
 expect_equal(ldgm_gaussian_likelihood_gradient(b, P), expected_grad, tolerance = 1e-10)
 deriv <- cbind(c(1, 0, 1), c(0, 1, 1))
@@ -87,7 +103,12 @@ expect_equal(
   ldgm_gaussian_likelihood_gradient(b, P, diagonal_method = "hutchinson", n_samples = 2L, seed = 123),
   tolerance = 1e-12
 )
-expect_error(ldgm_inverse_diagonal(P, method = "xnys"), "arg")
+expect_equal(
+  ldgm_gaussian_likelihood_gradient(b, P, diagonal_method = "xnys", n_samples = 2L, seed = 123),
+  ldgm_gaussian_likelihood_gradient(b, P, diagonal_method = "xnys", n_samples = 2L, seed = 123),
+  tolerance = 1e-12
+)
+expect_error(ldgm_inverse_diagonal(P, method = "not-a-method"), "arg")
 
 sample_size <- 100
 sigmasq <- 0.01
