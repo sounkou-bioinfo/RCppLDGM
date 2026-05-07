@@ -48,10 +48,11 @@ The R API mirrors the upstream Python API while using R-native return types.
 | GraphLD `merge_snplists()` | `ldgm_merge_snplists()` | LDGM precision object + summary stats | merged selected LDGM object | initial R data-frame slice implemented |
 | GraphLD likelihood kernels | `ldgm_gaussian_likelihood()`, `ldgm_gaussian_likelihood_gradient()`, `ldgm_gaussian_likelihood_hessian()`, `ldgm_inverse_diagonal()` | precision object + pz / probes | likelihood/derivatives/inverse diagonal | exact small-block plus Hutchinson/xdiag stochastic slice implemented |
 | GraphLD BLUP block kernel/scheduler | `ldgm_blup_block()`, `ldgm_partition_variants()`, `ldgm_run_blup()` | sparse precision matrix + Z scores / metadata blocks | BLUP weights | single-block kernel plus serial block scheduler implemented |
-| `ldgm.brick_ts()` | `brick_ts()` | tree sequence object or canonical tables | bricked tree sequence | planned |
-| `ldgm.brick_haplo_graph()` | `brick_haplo_graph()` | bricked tree sequence | native graph external pointer / edge list | planned |
+| `ldgm.brick_ts()` | `ldgm_brick_edges_from_tables()` / `ldgm_brick_ts()` now; direct object backend later | canonical tree-diff tables or `ldgm_tree_tables` bundle now; tree sequence object later | bricked edge table now; bricked tree sequence later | native edge-splitting kernel and upstream-name table wrapper implemented and checked against upstream bricked edge tables; full tree-sequence wiring planned |
+| `ldgm.brick_haplo_graph()` | `ldgm_brick_graph_inputs_from_edges()` + `ldgm_brick_haplo_graph()` | bricked edge table + sample nodes, or canonical brick/event tables | brick/event tables and brick-haplotype edge list | native bricked-edge adapter plus Rcpp rules 0/1/2 slice implemented and checked against upstream goldens; direct tree-sequence wiring planned |
+| `ldgm.utility.get_mut_edges()` | `ldgm_mutations_to_bricks()` | bricked edge table + mutation position/node table | brick-to-mutation map | native table slice implemented and checked against upstream goldens |
 | `ldgm.reduce_graph()` | `ldgm_reduce_graph()` | canonical brick-haplotype edge list + brick-to-mutation map | LDGM graph edge list | Dijkstra reach-set core implemented; full tree-sequence wiring planned |
-| `ldgm.make_ldgm()` | `make_ldgm()` | tree sequence object or canonical tables | list(graph, bricked_ts) | planned |
+| `ldgm.make_ldgm()` | `ldgm_make_ldgm_from_tables()` / `ldgm_make_ldgm_from_tree_tables()` / `ldgm_make_ldgm()` now; direct object backend later | canonical bricked tables, tree-diff tables, or `ldgm_tree_tables` bundle now; tree sequence object later | final LDGM edge list, optional SNP list, and optional intermediates now; list(graph, bricked_ts) later | post-bricking and tree-diff table pipelines plus upstream-name table wrapper implemented and checked against upstream final edge lists/SNP lists; full tree-sequence wiring planned |
 | `ldgm.prune_sites()` | `prune_sites()` | tree sequence object/tables | pruned tree sequence | planned |
 | `ldgm.make_snplist()` | `ldgm_make_snplist()` | brick-to-mutation map + canonical site/mutation tables | data frame | table-oriented slice implemented and checked against upstream goldens |
 
@@ -61,8 +62,20 @@ Until the final tree-sequence backend is selected, all core kernels should accep
 or produce simple canonical forms:
 
 - **Edge list:** `data.frame(from = integer(), to = integer(), weight = numeric())`.
-- **Tree-sequence tables:** nodes, edges, sites, mutations, sequence length, sample
-  ids, and provenance metadata as R data frames/lists.
+- **Tree-sequence tables:** nodes, edges, sites, mutations, sequence length,
+  tree-diff transition tables, sample ids, and provenance metadata as R data
+  frames/lists.
+- **Bricked graph inputs:** `ldgm_brick_graph_inputs_from_edges()` derives the
+  brick frequency table and tree-diff event table from bricked edges plus sample
+  node ids.
+- **Mutation mapping:** `ldgm_mutations_to_bricks()` derives the
+  brick-to-mutation map from bricked edges plus mutation position/node tables.
+- **Tree-diff table pipeline:** `ldgm_make_ldgm_from_tree_tables()` composes the
+  native bricking, graph-input, mutation-map, reduction, and SNP-list slices from
+  canonical tree-diff tables without depending on a live tree-sequence runtime.
+- **Table bundle:** `ldgm_tree_tables()` plus `ldgm_brick_ts()` /
+  `ldgm_make_ldgm()` provide upstream-name wrappers for current canonical table
+  inputs while reserving those generics for future `.trees` / tskit adapters.
 - **Native graph:** a C++ directed weighted graph with deterministic edge ordering
   at R boundaries.
 
@@ -106,15 +119,15 @@ For each fixture and option set, generate reference artifacts from the pinned
 Python implementation:
 
 ```bash
-python tools/generate_conformance.py --out inst/extdata/conformance
+.sync/ldgm-python/bin/python tools/generate-upstream-ldgm-goldens.py --out .sync/ldgm-goldens
 ```
 
 Artifacts should include:
 
-- bricked edge tables;
+- bricked edge tables from `brick_ts()`;
 - brick-haplotype graph edge lists;
-- reduced graph edge lists before and after haplotype-node elimination;
-- final `return_edgelist()` output;
+- reduced graph edge lists before haplotype-node elimination;
+- final `make_ldgm()` / `return_edgelist()` output after haplotype-node elimination;
 - `make_snplist()` data frames;
 - expected failures for unsupported inputs.
 
@@ -132,8 +145,8 @@ Artifacts should include:
 ### Test layers
 
 1. `inst/tinytest/`: fast R package tests for wrappers and native kernels.
-2. `tools/generate_conformance.py`: Python reference artifact generation.
-3. `tools/check_conformance.R`: R-side comparison against generated artifacts.
+2. `tools/generate-upstream-ldgm-goldens.py`: Python reference artifact generation.
+3. `tools/check-upstream-ldgm-goldens.R`: R-side comparison against generated artifacts.
 4. `R CMD check`: package installation, documentation, and CRAN-style checks.
 5. Later: large real-data smoke tests and benchmarks outside CRAN checks.
 
@@ -187,6 +200,7 @@ Rscript -e 'roxygen2::roxygenize(load_code = "source")'
 R CMD INSTALL --preclean .
 Rscript -e 'tinytest::test_package("RcppLDGM", testdir = "inst/tinytest")'
 Rscript tools/benchmark-precision.R
+make benchmark-upstream-ldgm
 RCPP_LDGM_GRAPHLD_DATA=.sync/graphld/data/test Rscript tools/check-upstream-graphld-data.R
 make upstream-python
 make upstream-ldgm-conformance

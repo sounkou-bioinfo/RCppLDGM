@@ -10,6 +10,122 @@ Rcpp::Rostream<true>&  Rcpp::Rcout = Rcpp::Rcpp_cout_get();
 Rcpp::Rostream<false>& Rcpp::Rcerr = Rcpp::Rcpp_cerr_get();
 #endif
 
+// brick_edges_from_tables_cpp
+DataFrame brick_edges_from_tables_cpp(NumericVector initial_left, NumericVector initial_right, IntegerVector initial_parent, IntegerVector initial_child, IntegerVector transition_id, NumericVector transition_left, IntegerVector out_transition, IntegerVector out_child, IntegerVector in_transition, NumericVector in_left, NumericVector in_right, IntegerVector in_parent, IntegerVector in_child, IntegerVector state_transition, IntegerVector state_node, IntegerVector state_prev_parent, IntegerVector state_curr_parent, NumericVector state_time, IntegerVector state_num_samples, int num_samples, double recombination_freq_threshold);
+RcppExport SEXP _RcppLDGM_brick_edges_from_tables_cpp(SEXP initial_leftSEXP, SEXP initial_rightSEXP, SEXP initial_parentSEXP, SEXP initial_childSEXP, SEXP transition_idSEXP, SEXP transition_leftSEXP, SEXP out_transitionSEXP, SEXP out_childSEXP, SEXP in_transitionSEXP, SEXP in_leftSEXP, SEXP in_rightSEXP, SEXP in_parentSEXP, SEXP in_childSEXP, SEXP state_transitionSEXP, SEXP state_nodeSEXP, SEXP state_prev_parentSEXP, SEXP state_curr_parentSEXP, SEXP state_timeSEXP, SEXP state_num_samplesSEXP, SEXP num_samplesSEXP, SEXP recombination_freq_thresholdSEXP) {
+BEGIN_RCPP
+    Rcpp::RObject rcpp_result_gen;
+    Rcpp::RNGScope rcpp_rngScope_gen;
+    Rcpp::traits::input_parameter< NumericVector >::type initial_left(initial_leftSEXP);
+    Rcpp::traits::input_parameter< NumericVector >::type initial_right(initial_rightSEXP);
+    Rcpp::traits::input_parameter< IntegerVector >::type initial_parent(initial_parentSEXP);
+    Rcpp::traits::input_parameter< IntegerVector >::type initial_child(initial_childSEXP);
+    Rcpp::traits::input_parameter< IntegerVector >::type transition_id(transition_idSEXP);
+    Rcpp::traits::input_parameter< NumericVector >::type transition_left(transition_leftSEXP);
+    Rcpp::traits::input_parameter< IntegerVector >::type out_transition(out_transitionSEXP);
+    Rcpp::traits::input_parameter< IntegerVector >::type out_child(out_childSEXP);
+    Rcpp::traits::input_parameter< IntegerVector >::type in_transition(in_transitionSEXP);
+    Rcpp::traits::input_parameter< NumericVector >::type in_left(in_leftSEXP);
+    Rcpp::traits::input_parameter< NumericVector >::type in_right(in_rightSEXP);
+    Rcpp::traits::input_parameter< IntegerVector >::type in_parent(in_parentSEXP);
+    Rcpp::traits::input_parameter< IntegerVector >::type in_child(in_childSEXP);
+    Rcpp::traits::input_parameter< IntegerVector >::type state_transition(state_transitionSEXP);
+    Rcpp::traits::input_parameter< IntegerVector >::type state_node(state_nodeSEXP);
+    Rcpp::traits::input_parameter< IntegerVector >::type state_prev_parent(state_prev_parentSEXP);
+    Rcpp::traits::input_parameter< IntegerVector >::type state_curr_parent(state_curr_parentSEXP);
+    Rcpp::traits::input_parameter< NumericVector >::type state_time(state_timeSEXP);
+    Rcpp::traits::input_parameter< IntegerVector >::type state_num_samples(state_num_samplesSEXP);
+    Rcpp::traits::input_parameter< int >::type num_samples(num_samplesSEXP);
+    Rcpp::traits::input_parameter< double >::type recombination_freq_threshold(recombination_freq_thresholdSEXP);
+    rcpp_result_gen = Rcpp::wrap(brick_edges_from_tables_cpp(initial_left, initial_right, initial_parent, initial_child, transition_id, transition_left, out_transition, out_child, in_transition, in_left, in_right, in_parent, in_child, state_transition, state_node, state_prev_parent, state_curr_parent, state_time, state_num_samples, num_samples, recombination_freq_threshold));
+    return rcpp_result_gen;
+END_RCPP
+}
+// brick_graph_inputs_from_edges_cpp
+List brick_graph_inputs_from_edges_cpp(IntegerVector edge_id, NumericVector left, NumericVector right, IntegerVector parent, IntegerVector child, IntegerVector sample_nodes);
+RcppExport SEXP _RcppLDGM_brick_graph_inputs_from_edges_cpp(SEXP edge_idSEXP, SEXP leftSEXP, SEXP rightSEXP, SEXP parentSEXP, SEXP childSEXP, SEXP sample_nodesSEXP) {
+BEGIN_RCPP
+    Rcpp::RObject rcpp_result_gen;
+    Rcpp::RNGScope rcpp_rngScope_gen;
+    Rcpp::traits::input_parameter< IntegerVector >::type edge_id(edge_idSEXP);
+    Rcpp::traits::input_parameter< NumericVector >::type left(leftSEXP);
+    Rcpp::traits::input_parameter< NumericVector >::type right(rightSEXP);
+    Rcpp::traits::input_parameter< IntegerVector >::type parent(parentSEXP);
+    Rcpp::traits::input_parameter< IntegerVector >::type child(childSEXP);
+    Rcpp::traits::input_parameter< IntegerVector >::type sample_nodes(sample_nodesSEXP);
+    rcpp_result_gen = Rcpp::wrap(brick_graph_inputs_from_edges_cpp(edge_id, left, right, parent, child, sample_nodes));
+    return rcpp_result_gen;
+END_RCPP
+}
+// mutations_to_bricks_cpp
+DataFrame mutations_to_bricks_cpp(IntegerVector edge_id, NumericVector edge_left, NumericVector edge_right, IntegerVector edge_child, IntegerVector mutation_id, NumericVector mutation_position, IntegerVector mutation_node);
+RcppExport SEXP _RcppLDGM_mutations_to_bricks_cpp(SEXP edge_idSEXP, SEXP edge_leftSEXP, SEXP edge_rightSEXP, SEXP edge_childSEXP, SEXP mutation_idSEXP, SEXP mutation_positionSEXP, SEXP mutation_nodeSEXP) {
+BEGIN_RCPP
+    Rcpp::RObject rcpp_result_gen;
+    Rcpp::RNGScope rcpp_rngScope_gen;
+    Rcpp::traits::input_parameter< IntegerVector >::type edge_id(edge_idSEXP);
+    Rcpp::traits::input_parameter< NumericVector >::type edge_left(edge_leftSEXP);
+    Rcpp::traits::input_parameter< NumericVector >::type edge_right(edge_rightSEXP);
+    Rcpp::traits::input_parameter< IntegerVector >::type edge_child(edge_childSEXP);
+    Rcpp::traits::input_parameter< IntegerVector >::type mutation_id(mutation_idSEXP);
+    Rcpp::traits::input_parameter< NumericVector >::type mutation_position(mutation_positionSEXP);
+    Rcpp::traits::input_parameter< IntegerVector >::type mutation_node(mutation_nodeSEXP);
+    rcpp_result_gen = Rcpp::wrap(mutations_to_bricks_cpp(edge_id, edge_left, edge_right, edge_child, mutation_id, mutation_position, mutation_node));
+    return rcpp_result_gen;
+END_RCPP
+}
+// make_snplist_index_cpp
+IntegerVector make_snplist_index_cpp(IntegerVector mutation_id, List mutation_groups);
+RcppExport SEXP _RcppLDGM_make_snplist_index_cpp(SEXP mutation_idSEXP, SEXP mutation_groupsSEXP) {
+BEGIN_RCPP
+    Rcpp::RObject rcpp_result_gen;
+    Rcpp::RNGScope rcpp_rngScope_gen;
+    Rcpp::traits::input_parameter< IntegerVector >::type mutation_id(mutation_idSEXP);
+    Rcpp::traits::input_parameter< List >::type mutation_groups(mutation_groupsSEXP);
+    rcpp_result_gen = Rcpp::wrap(make_snplist_index_cpp(mutation_id, mutation_groups));
+    return rcpp_result_gen;
+END_RCPP
+}
+// brick_haplo_graph_cpp
+DataFrame brick_haplo_graph_cpp(IntegerVector brick_id, IntegerVector brick_child, NumericVector frequency, IntegerVector labeled_brick, IntegerVector event_focal_brick, IntegerVector event_parent_brick, List event_child_bricks, List event_sibling_bricks, LogicalVector event_has_parent, bool has_edge_weight_threshold, double edge_weight_threshold, bool make_sibs);
+RcppExport SEXP _RcppLDGM_brick_haplo_graph_cpp(SEXP brick_idSEXP, SEXP brick_childSEXP, SEXP frequencySEXP, SEXP labeled_brickSEXP, SEXP event_focal_brickSEXP, SEXP event_parent_brickSEXP, SEXP event_child_bricksSEXP, SEXP event_sibling_bricksSEXP, SEXP event_has_parentSEXP, SEXP has_edge_weight_thresholdSEXP, SEXP edge_weight_thresholdSEXP, SEXP make_sibsSEXP) {
+BEGIN_RCPP
+    Rcpp::RObject rcpp_result_gen;
+    Rcpp::RNGScope rcpp_rngScope_gen;
+    Rcpp::traits::input_parameter< IntegerVector >::type brick_id(brick_idSEXP);
+    Rcpp::traits::input_parameter< IntegerVector >::type brick_child(brick_childSEXP);
+    Rcpp::traits::input_parameter< NumericVector >::type frequency(frequencySEXP);
+    Rcpp::traits::input_parameter< IntegerVector >::type labeled_brick(labeled_brickSEXP);
+    Rcpp::traits::input_parameter< IntegerVector >::type event_focal_brick(event_focal_brickSEXP);
+    Rcpp::traits::input_parameter< IntegerVector >::type event_parent_brick(event_parent_brickSEXP);
+    Rcpp::traits::input_parameter< List >::type event_child_bricks(event_child_bricksSEXP);
+    Rcpp::traits::input_parameter< List >::type event_sibling_bricks(event_sibling_bricksSEXP);
+    Rcpp::traits::input_parameter< LogicalVector >::type event_has_parent(event_has_parentSEXP);
+    Rcpp::traits::input_parameter< bool >::type has_edge_weight_threshold(has_edge_weight_thresholdSEXP);
+    Rcpp::traits::input_parameter< double >::type edge_weight_threshold(edge_weight_thresholdSEXP);
+    Rcpp::traits::input_parameter< bool >::type make_sibs(make_sibsSEXP);
+    rcpp_result_gen = Rcpp::wrap(brick_haplo_graph_cpp(brick_id, brick_child, frequency, labeled_brick, event_focal_brick, event_parent_brick, event_child_bricks, event_sibling_bricks, event_has_parent, has_edge_weight_threshold, edge_weight_threshold, make_sibs));
+    return rcpp_result_gen;
+END_RCPP
+}
+// finalize_ldgm_cpp
+DataFrame finalize_ldgm_cpp(IntegerVector h1_from, IntegerVector h1_to, NumericVector h1_weight, IntegerVector h2_from, IntegerVector h2_to, NumericVector h2_weight, IntegerVector mutation_id, double path_threshold);
+RcppExport SEXP _RcppLDGM_finalize_ldgm_cpp(SEXP h1_fromSEXP, SEXP h1_toSEXP, SEXP h1_weightSEXP, SEXP h2_fromSEXP, SEXP h2_toSEXP, SEXP h2_weightSEXP, SEXP mutation_idSEXP, SEXP path_thresholdSEXP) {
+BEGIN_RCPP
+    Rcpp::RObject rcpp_result_gen;
+    Rcpp::RNGScope rcpp_rngScope_gen;
+    Rcpp::traits::input_parameter< IntegerVector >::type h1_from(h1_fromSEXP);
+    Rcpp::traits::input_parameter< IntegerVector >::type h1_to(h1_toSEXP);
+    Rcpp::traits::input_parameter< NumericVector >::type h1_weight(h1_weightSEXP);
+    Rcpp::traits::input_parameter< IntegerVector >::type h2_from(h2_fromSEXP);
+    Rcpp::traits::input_parameter< IntegerVector >::type h2_to(h2_toSEXP);
+    Rcpp::traits::input_parameter< NumericVector >::type h2_weight(h2_weightSEXP);
+    Rcpp::traits::input_parameter< IntegerVector >::type mutation_id(mutation_idSEXP);
+    Rcpp::traits::input_parameter< double >::type path_threshold(path_thresholdSEXP);
+    rcpp_result_gen = Rcpp::wrap(finalize_ldgm_cpp(h1_from, h1_to, h1_weight, h2_from, h2_to, h2_weight, mutation_id, path_threshold));
+    return rcpp_result_gen;
+END_RCPP
+}
 // remove_node_cpp
 DataFrame remove_node_cpp(IntegerVector from, IntegerVector to, NumericVector weight, int node, double path_threshold);
 RcppExport SEXP _RcppLDGM_remove_node_cpp(SEXP fromSEXP, SEXP toSEXP, SEXP weightSEXP, SEXP nodeSEXP, SEXP path_thresholdSEXP) {
@@ -76,6 +192,12 @@ END_RCPP
 }
 
 static const R_CallMethodDef CallEntries[] = {
+    {"_RcppLDGM_brick_edges_from_tables_cpp", (DL_FUNC) &_RcppLDGM_brick_edges_from_tables_cpp, 21},
+    {"_RcppLDGM_brick_graph_inputs_from_edges_cpp", (DL_FUNC) &_RcppLDGM_brick_graph_inputs_from_edges_cpp, 6},
+    {"_RcppLDGM_mutations_to_bricks_cpp", (DL_FUNC) &_RcppLDGM_mutations_to_bricks_cpp, 7},
+    {"_RcppLDGM_make_snplist_index_cpp", (DL_FUNC) &_RcppLDGM_make_snplist_index_cpp, 2},
+    {"_RcppLDGM_brick_haplo_graph_cpp", (DL_FUNC) &_RcppLDGM_brick_haplo_graph_cpp, 12},
+    {"_RcppLDGM_finalize_ldgm_cpp", (DL_FUNC) &_RcppLDGM_finalize_ldgm_cpp, 8},
     {"_RcppLDGM_remove_node_cpp", (DL_FUNC) &_RcppLDGM_remove_node_cpp, 5},
     {"_RcppLDGM_reduce_graph_cpp", (DL_FUNC) &_RcppLDGM_reduce_graph_cpp, 6},
     {"_RcppLDGM_openmp_info_cpp", (DL_FUNC) &_RcppLDGM_openmp_info_cpp, 0},

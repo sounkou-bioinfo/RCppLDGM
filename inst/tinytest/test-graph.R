@@ -48,6 +48,31 @@ round_trip <- ldgm_return_edgelist(
 )
 expect_equal(round_trip$weight, c(0.9808, 0.8109))
 
+# Brick-haplotype graph table slice, rule zero only: a labeled brick connects
+# down-before/down-after/out vertices to the child haplotype before/after nodes.
+brick_haplo <- ldgm_brick_haplo_graph(
+  bricks = data.frame(brick = 0L, child = 1L, frequency = 0.5),
+  events = data.frame(focal_brick = integer(), parent_brick = integer(), child_bricks = I(list()), sibling_bricks = I(list())),
+  bricks_to_muts = list(`0` = 0L)
+)
+expect_equal(
+  brick_haplo,
+  ldgm_edge_list(c(2L, 3L, 4L), c(15L, 15L, 14L), c(0, 0, 0))
+)
+expect_error(
+  ldgm_brick_haplo_graph(data.frame(brick = 0L, child = 1L, frequency = 1), NULL, list(`0` = 0L)),
+  "strictly between"
+)
+expect_equal(
+  ldgm_make_ldgm_from_tables(
+    bricks = data.frame(brick = 0L, child = 1L, frequency = 0.5),
+    events = data.frame(focal_brick = integer(), parent_brick = integer(), child_bricks = I(list()), sibling_bricks = I(list())),
+    bricks_to_muts = list(`0` = 0L),
+    path_threshold = 10
+  ),
+  ldgm_edge_list(integer(), integer(), numeric())
+)
+
 # Reduction core: out vertex 4 reaches a labeled brick-before vertex 8 and a
 # haplotype-before vertex 30. The first yields symmetric SNP-SNP edges; the
 # second yields a SNP-haplotype edge with GraphLD/ldgm's negative haplotype id.

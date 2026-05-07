@@ -85,10 +85,131 @@ def snplist_input_rows(bricked) -> list[dict[str, Any]]:
                 "ancestral_state": site.ancestral_state,
                 "mutation": int(mutation.id),
                 "derived_state": mutation.derived_state,
+                "node": int(mutation.node),
             }
         )
     rows.sort(key=lambda row: row["mutation"])
     return rows
+
+
+def join_ints(values) -> str:
+    return ";".join(str(int(value)) for value in values)
+
+
+def brick_table_rows(ldgm, bricked) -> list[dict[str, Any]]:
+    freqs = ldgm.utility.get_brick_frequencies(bricked)
+    rows = []
+    for edge in bricked.edges():
+        rows.append(
+            {
+                "brick": int(edge.id),
+                "parent": int(edge.parent),
+                "child": int(edge.child),
+                "frequency": float(freqs[edge.id]),
+            }
+        )
+    rows.sort(key=lambda row: row["brick"])
+    return rows
+
+
+def brick_event_rows(bricked) -> list[dict[str, Any]]:
+    rows = []
+    node_edge_dict = {}
+    event_id = 0
+    for tree_index, (tree, (_, edges_out, edges_in)) in enumerate(
+        zip(bricked.trees(), bricked.edge_diffs())
+    ):
+        for edge in edges_out:
+            node_edge_dict.pop(edge.child)
+        for edge in edges_in:
+            node_edge_dict[edge.child] = edge.id
+        roots = set(tree.roots)
+        for edge in edges_in:
+            child_bricks = [node_edge_dict[child] for child in tree.children(edge.child)]
+            sibling_bricks = [node_edge_dict[child] for child in tree.children(edge.parent)]
+            parent_brick = ""
+            if edge.parent not in roots and edge.child not in roots:
+                parent_brick = int(node_edge_dict[edge.parent])
+            rows.append(
+                {
+                    "event": event_id,
+                    "tree": int(tree_index),
+                    "focal_brick": int(edge.id),
+                    "parent_brick": parent_brick,
+                    "child_bricks": join_ints(child_bricks),
+                    "sibling_bricks": join_ints(sibling_bricks),
+                }
+            )
+            event_id += 1
+    return rows
+
+
+def table_edge_row(edge) -> dict[str, Any]:
+    return {
+        "left": float(edge.left),
+        "right": float(edge.right),
+        "parent": int(edge.parent),
+        "child": int(edge.child),
+    }
+
+
+def bricked_edge_rows(bricked) -> list[dict[str, Any]]:
+    rows = []
+    for edge in bricked.edges():
+        row = {"id": int(edge.id)}
+        row.update(table_edge_row(edge))
+        rows.append(row)
+    rows.sort(key=lambda row: (row["left"], row["right"], row["parent"], row["child"]))
+    return rows
+
+
+def sample_node_rows(ts) -> list[dict[str, Any]]:
+    return [{"sample": int(node)} for node in ts.samples()]
+
+
+def bricking_input_tables(ts) -> dict[str, list[dict[str, Any]]]:
+    trees = ts.trees()
+    first_tree = next(trees)
+    edge_diffs = ts.edge_diffs()
+    _, _, first_edges_in = next(edge_diffs)
+
+    initial_edges = [table_edge_row(edge) for edge in first_edges_in]
+    transitions = []
+    edges_out_rows = []
+    edges_in_rows = []
+    node_state_rows = []
+
+    prev_tree = first_tree.copy()
+    for transition_id, (tree, (interval, edges_out, edges_in)) in enumerate(
+        zip(trees, edge_diffs), start=1
+    ):
+        transitions.append({"transition": transition_id, "left": float(interval.left)})
+        for edge in edges_out:
+            edges_out_rows.append({"transition": transition_id, "child": int(edge.child)})
+        for edge in edges_in:
+            row = {"transition": transition_id}
+            row.update(table_edge_row(edge))
+            edges_in_rows.append(row)
+        for node_id in range(ts.num_nodes):
+            node_state_rows.append(
+                {
+                    "transition": transition_id,
+                    "node": int(node_id),
+                    "prev_parent": int(prev_tree.parent(node_id)),
+                    "curr_parent": int(tree.parent(node_id)),
+                    "time": float(ts.node(node_id).time),
+                    "curr_num_samples": int(tree.num_samples(node_id)),
+                }
+            )
+        prev_tree = tree.copy()
+
+    return {
+        "initial_edges": initial_edges,
+        "transitions": transitions,
+        "edges_out": edges_out_rows,
+        "edges_in": edges_in_rows,
+        "node_state": node_state_rows,
+    }
 
 
 def default_examples(utility_functions) -> list[str]:
@@ -184,18 +305,37 @@ def main() -> int:
                 num_processes=1,
                 progress=False,
             )
+            final_ldgm, _ = ldgm.make_ldgm(
+                ts,
+                path_weight_threshold=args.path_weight_threshold,
+                recombination_freq_threshold=None,
+                num_processes=1,
+                progress=False,
+            )
             snplist = ldgm.make_snplist(bricked)
+            bricking_inputs = bricking_input_tables(ts)
 
             prefix = out_dir / name
             brick_graph_file = prefix.with_suffix(".brick_graph.csv").name
             brick_map_file = prefix.with_suffix(".bricks_to_muts.csv").name
             reduced_file = prefix.with_suffix(".reduced_edgelist.csv").name
+            final_file = prefix.with_suffix(".final_edgelist.csv").name
             snplist_file = prefix.with_suffix(".snplist.csv").name
             snplist_input_file = prefix.with_suffix(".snplist_input.csv").name
+            brick_table_file = prefix.with_suffix(".brick_table.csv").name
+            brick_events_file = prefix.with_suffix(".brick_events.csv").name
+            bricked_edges_file = prefix.with_suffix(".bricked_edges.csv").name
+            bricking_initial_file = prefix.with_suffix(".bricking_initial_edges.csv").name
+            bricking_transitions_file = prefix.with_suffix(".bricking_transitions.csv").name
+            bricking_edges_out_file = prefix.with_suffix(".bricking_edges_out.csv").name
+            bricking_edges_in_file = prefix.with_suffix(".bricking_edges_in.csv").name
+            bricking_node_state_file = prefix.with_suffix(".bricking_node_state.csv").name
+            sample_nodes_file = prefix.with_suffix(".sample_nodes.csv").name
             metadata_file = prefix.with_suffix(".metadata.json").name
 
             write_csv(out_dir / brick_graph_file, edge_rows(brick_graph), ["from", "to", "weight"])
             write_csv(out_dir / reduced_file, edge_rows(reduced), ["from", "to", "weight"])
+            write_csv(out_dir / final_file, edge_rows(final_ldgm), ["from", "to", "weight"])
             write_csv(
                 out_dir / brick_map_file,
                 [
@@ -208,7 +348,52 @@ def main() -> int:
             write_csv(
                 out_dir / snplist_input_file,
                 snplist_input_rows(bricked),
-                ["site", "position", "ancestral_state", "mutation", "derived_state"],
+                ["site", "position", "ancestral_state", "mutation", "derived_state", "node"],
+            )
+            write_csv(
+                out_dir / brick_table_file,
+                brick_table_rows(ldgm, bricked),
+                ["brick", "parent", "child", "frequency"],
+            )
+            write_csv(
+                out_dir / brick_events_file,
+                brick_event_rows(bricked),
+                ["event", "tree", "focal_brick", "parent_brick", "child_bricks", "sibling_bricks"],
+            )
+            write_csv(
+                out_dir / bricked_edges_file,
+                bricked_edge_rows(bricked),
+                ["id", "left", "right", "parent", "child"],
+            )
+            write_csv(
+                out_dir / bricking_initial_file,
+                bricking_inputs["initial_edges"],
+                ["left", "right", "parent", "child"],
+            )
+            write_csv(
+                out_dir / bricking_transitions_file,
+                bricking_inputs["transitions"],
+                ["transition", "left"],
+            )
+            write_csv(
+                out_dir / bricking_edges_out_file,
+                bricking_inputs["edges_out"],
+                ["transition", "child"],
+            )
+            write_csv(
+                out_dir / bricking_edges_in_file,
+                bricking_inputs["edges_in"],
+                ["transition", "left", "right", "parent", "child"],
+            )
+            write_csv(
+                out_dir / bricking_node_state_file,
+                bricking_inputs["node_state"],
+                ["transition", "node", "prev_parent", "curr_parent", "time", "curr_num_samples"],
+            )
+            write_csv(
+                out_dir / sample_nodes_file,
+                sample_node_rows(ts),
+                ["sample"],
             )
 
             metadata = {
@@ -218,11 +403,13 @@ def main() -> int:
                 "path_weight_threshold": args.path_weight_threshold,
                 "edge_weight_threshold": args.edge_weight_threshold,
                 "make_sibs": args.make_sibs,
+                "num_samples": int(ts.num_samples),
                 "num_sites": int(bricked.num_sites),
                 "num_mutations": int(bricked.num_mutations),
                 "num_edges": int(bricked.num_edges),
                 "brick_graph_edges": int(brick_graph.number_of_edges()),
                 "reduced_edges": int(reduced.number_of_edges()),
+                "final_edges": int(final_ldgm.number_of_edges()),
             }
             (out_dir / metadata_file).write_text(json.dumps(metadata, indent=2) + "\n")
 
@@ -232,8 +419,19 @@ def main() -> int:
                     "brick_graph": brick_graph_file,
                     "bricks_to_muts": brick_map_file,
                     "reduced_edgelist": reduced_file,
+                    "final_edgelist": final_file,
                     "snplist": snplist_file,
                     "snplist_input": snplist_input_file,
+                    "brick_table": brick_table_file,
+                    "brick_events": brick_events_file,
+                    "bricked_edges": bricked_edges_file,
+                    "bricking_initial_edges": bricking_initial_file,
+                    "bricking_transitions": bricking_transitions_file,
+                    "bricking_edges_out": bricking_edges_out_file,
+                    "bricking_edges_in": bricking_edges_in_file,
+                    "bricking_node_state": bricking_node_state_file,
+                    "sample_nodes": sample_nodes_file,
+                    "num_samples": int(ts.num_samples),
                     "metadata": metadata_file,
                     "path_weight_threshold": args.path_weight_threshold,
                     "edge_weight_threshold": "" if args.edge_weight_threshold is None else args.edge_weight_threshold,
@@ -256,8 +454,19 @@ def main() -> int:
             "brick_graph",
             "bricks_to_muts",
             "reduced_edgelist",
+            "final_edgelist",
             "snplist",
             "snplist_input",
+            "brick_table",
+            "brick_events",
+            "bricked_edges",
+            "bricking_initial_edges",
+            "bricking_transitions",
+            "bricking_edges_out",
+            "bricking_edges_in",
+            "bricking_node_state",
+            "sample_nodes",
+            "num_samples",
             "metadata",
             "path_weight_threshold",
             "edge_weight_threshold",

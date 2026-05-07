@@ -28,6 +28,16 @@ Implemented and exported today:
 - graph primitives: `ldgm_edge_list()`, `ldgm_remove_node()`,
   `ldgm_return_edgelist()`;
 - LDGM reduction core: `ldgm_reduce_graph()`;
+- bricking edge-table kernel: `ldgm_brick_edges_from_tables()`;
+- native bricked-edge to graph-input adapter:
+  `ldgm_brick_graph_inputs_from_edges()`;
+- native mutation-to-brick mapper: `ldgm_mutations_to_bricks()`;
+- post-bricking table pipeline: `ldgm_brick_haplo_graph()` and
+  `ldgm_make_ldgm_from_tables()`;
+- high-level tree-diff table pipeline:
+  `ldgm_make_ldgm_from_tree_tables()`;
+- current user-facing table bundle/wrappers: `ldgm_tree_tables()`,
+  `ldgm_brick_ts()`, and `ldgm_make_ldgm()`;
 - SNP-list table slice: `ldgm_make_snplist()`;
 - sparse precision/operator layer: multiply, solve, log determinant,
   Gaussian likelihood, BLUP block, inverse diagonal estimates, OpenMP
@@ -37,10 +47,9 @@ Implemented and exported today:
 
 Still intentionally incomplete:
 
-- full tree-sequence bricking: upstream `brick_ts()`;
-- full brick-haplotype graph construction: upstream
-  `brick_haplo_graph()`;
-- end-to-end tree-sequence `make_ldgm()` wiring;
+- direct `.trees` file or live tree-sequence object wiring behind
+  `ldgm_brick_ts()` / `ldgm_make_ldgm()`;
+- direct tree-sequence object wiring for upstream `brick_haplo_graph()`;
 - remaining GraphLD workflows such as graphREML and the XNys
   inverse-diagonal estimator.
 
@@ -93,9 +102,22 @@ constructors from the pinned upstream test suite:
 
 The checker validates both:
 
-1.  `ldgm_reduce_graph()` against upstream reduced graph edge lists; and
-2.  `ldgm_make_snplist()` against upstream `ldgm.make_snplist()`
-    outputs.
+1.  `ldgm_brick_edges_from_tables()` against upstream bricked edge
+    tables;
+2.  `ldgm_brick_graph_inputs_from_edges()` by feeding its output into
+    `ldgm_brick_haplo_graph()`;
+3.  `ldgm_mutations_to_bricks()` against upstream `get_mut_edges()`
+    output;
+4.  `ldgm_brick_haplo_graph()` against upstream brick-haplotype graph
+    edge lists;
+5.  `ldgm_reduce_graph()` against upstream reduced graph edge lists;
+6.  `ldgm_make_ldgm_from_tables()` against upstream final `make_ldgm()`
+    edge lists;
+7.  `ldgm_make_snplist()` against upstream `ldgm.make_snplist()`
+    outputs; and
+8.  `ldgm_make_ldgm_from_tree_tables()` against upstream
+    `ldgm.make_ldgm()` final graphs/SNP lists using only canonical
+    tree-diff tables as input.
 
 Expected success message:
 
@@ -124,6 +146,49 @@ RCPP_LDGM_GRAPHLD_CLUMP=true \
 Rscript tools/check-upstream-graphld-data.R
 ```
 
+### Upstream performance benchmarks
+
+Performance comparisons against pinned upstream Python `ldgm` are
+available with:
+
+``` sh
+make benchmark-upstream-ldgm
+```
+
+This target depends on the regenerated upstream golden artifacts and
+then runs:
+
+``` sh
+RCPP_LDGM_UPSTREAM_GOLDENS=.sync/ldgm-goldens Rscript tools/benchmark-upstream-ldgm.R
+```
+
+The benchmark validates correctness before timing and writes CSV results
+under `.sync/ldgm-benchmark/`:
+
+- `upstream-python-results.csv`: timings for upstream Python
+  `brick_ts()`, `brick_haplo_graph()`, `reduce_graph()`,
+  `make_snplist()`, and `make_ldgm()`;
+- `rcpp-ldgm-results.csv`: timings for the Rcpp/R table-slice ports
+  `ldgm_brick_edges_from_tables()`, `ldgm_brick_haplo_graph()`,
+  `ldgm_reduce_graph()`, `ldgm_make_snplist()`, and
+  `ldgm_make_ldgm_from_tables()`;
+- `upstream-comparison-results.csv`: combined raw timing rows;
+- `upstream-comparison-summary.csv`: median elapsed seconds by
+  implementation and operation.
+
+Benchmark knobs:
+
+``` sh
+RCPP_LDGM_BENCH_ITERATIONS=20 make benchmark-upstream-ldgm
+RCPP_LDGM_BENCH_BATCH=1000 make benchmark-upstream-ldgm
+RCPP_LDGM_BENCH_OUT=/tmp/ldgm-bench make benchmark-upstream-ldgm
+```
+
+Important scope note: the Rcpp timings currently measure table-oriented
+slices fed by canonical bricked tree-sequence artifacts. Full R-native
+`brick_ts()` and direct tree-sequence-object `make_ldgm()` timing will
+be added when the tree-sequence layer is ported.
+
 ### R package gates
 
 Core package checks are:
@@ -140,9 +205,12 @@ build without warning-suppression flags in `src/Makevars`.
 
 Latest audited local validation on 2026-05-07:
 
-- tinytest: 109 results, all OK;
-- upstream LDGM conformance: 10 examples passed for reduction and
-  SNP-list outputs;
+- tinytest: 121 results, all OK;
+- upstream LDGM conformance: 10 examples passed for bricked edge tables,
+  brick-haplotype graph, reduction, final LDGM, and SNP-list outputs;
+- upstream LDGM benchmark target: validated and timed 10 examples
+  against pinned upstream Python with
+  `RCPP_LDGM_BENCH_ITERATIONS=1 RCPP_LDGM_BENCH_BATCH=1`;
 - `R CMD build .`: 0 warnings;
 - `R CMD check --no-manual RcppLDGM_0.0.0.9000.tar.gz`: `Status: OK`, 0
   WARNING, 0 NOTE.

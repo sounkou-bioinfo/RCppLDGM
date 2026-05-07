@@ -67,6 +67,12 @@ upstream-ldgm-conformance: dev-install upstream-ldgm-goldens
 upstream-graphld-smoke:
 	RCPP_LDGM_GRAPHLD_DATA=.sync/graphld/data/test Rscript tools/check-upstream-graphld-data.R
 
+benchmark-precision: dev-install
+	Rscript tools/benchmark-precision.R
+
+benchmark-upstream-ldgm: dev-install upstream-ldgm-goldens
+	RCPP_LDGM_UPSTREAM_GOLDENS=.sync/ldgm-goldens Rscript tools/benchmark-upstream-ldgm.R
+
 rdm: install
 	R -e "rmarkdown::render('README.Rmd')"
-.PHONY: all rd vig vig-md build check install_deps install clean dev-install dev-install-debug-win test0 test1 test2 test warn-test upstream-python upstream-ldgm-goldens upstream-ldgm-conformance upstream-graphld-smoke rdm
+.PHONY: all rd vig vig-md build check install_deps install clean dev-install dev-install-debug-win test0 test1 test2 test warn-test upstream-python upstream-ldgm-goldens upstream-ldgm-conformance upstream-graphld-smoke benchmark-precision benchmark-upstream-ldgm rdm

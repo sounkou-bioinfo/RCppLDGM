@@ -52,14 +52,7 @@ ldgm_make_snplist <- function(bricks_to_muts,
   }
 
   mutation_groups <- normalize_bricks_to_mutation_groups(bricks_to_muts)
-  index <- rep.int(-1L, nrow(mutations))
-  for (group_id in seq_along(mutation_groups)) {
-    positions <- match(mutation_groups[[group_id]], mutation_ids)
-    if (anyNA(positions)) {
-      stop("`bricks_to_muts` references mutation ids absent from `mutations`", call. = FALSE)
-    }
-    index[positions] <- group_id - 1L
-  }
+  index <- RC_make_snplist_index(mutation_ids, mutation_groups)
 
   result <- data.frame(
     index = as.integer(index),
