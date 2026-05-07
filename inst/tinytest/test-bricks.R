@@ -99,7 +99,62 @@ expect_equal(ldgm_brick_ts(bundle), two_edge_bricks[, c("left", "right", "parent
 wrapped <- ldgm_make_ldgm(bundle, path_threshold = 4, return_intermediates = TRUE)
 expect_equal(wrapped$bricked_edges, two_edge_bricks)
 expect_equal(wrapped$snplist, pipeline$snplist)
-expect_error(ldgm_brick_ts("not-a-tree-table"), "ldgm_tree_tables")
+expect_error(ldgm_brick_ts("not-a-tree-table"), "does not exist")
+expect_error(ldgm_brick_ts(42), "ldgm_tree_tables")
+
+if (requireNamespace("reticulate", quietly = TRUE)) {
+  test_python <- Sys.getenv("RCPP_LDGM_PYTHON", unset = "")
+  if (!nzchar(test_python) && nzchar(Sys.which("python3"))) {
+    test_python <- Sys.which("python3")
+  }
+  if (!nzchar(test_python) && file.exists(file.path(".sync", "ldgm-python", "bin", "python"))) {
+    test_python <- file.path(".sync", "ldgm-python", "bin", "python")
+  }
+  if (nzchar(test_python)) {
+    reticulate::use_python(test_python, required = FALSE)
+  }
+}
+if (requireNamespace("reticulate", quietly = TRUE) &&
+  reticulate::py_module_available("tskit") &&
+  reticulate::py_module_available("msprime")) {
+  py <- reticulate::py_run_string(
+    "
+import msprime
+import tempfile
+for seed in range(1, 50):
+    ts = msprime.sim_ancestry(
+        samples=3,
+        sequence_length=10,
+        recombination_rate=0.05,
+        random_seed=seed,
+    )
+    ts = msprime.sim_mutations(ts, rate=1.0, random_seed=seed + 1000)
+    if ts.num_mutations > 0:
+        break
+if ts.num_mutations == 0:
+    raise RuntimeError('failed to generate mutated test tree sequence')
+path = tempfile.NamedTemporaryFile(suffix='.trees', delete=False).name
+ts.dump(path)
+",
+    convert = FALSE
+  )
+  trees_path <- reticulate::py_to_r(py$path)
+  on.exit(unlink(trees_path), add = TRUE)
+  from_path <- ldgm_tree_tables_from_tskit(trees_path)
+  from_object <- ldgm_tree_tables_from_tskit(py$ts)
+  expect_true(inherits(from_path, "ldgm_tree_tables"))
+  expect_equal(from_path$sample_nodes, from_object$sample_nodes)
+  expect_equal(from_path$initial_edges, from_object$initial_edges)
+  expect_true(nrow(from_path$mutations) > 0L)
+  expect_equal(ldgm_brick_ts(trees_path), ldgm_brick_ts(from_path))
+  path_ldgm <- ldgm_make_ldgm(trees_path, path_threshold = 100, return_intermediates = TRUE)
+  bundle_ldgm <- ldgm_make_ldgm(from_path, path_threshold = 100, return_intermediates = TRUE)
+  expect_equal(path_ldgm$bricked_edges, bundle_ldgm$bricked_edges)
+  expect_equal(ldgm_return_edgelist(path_ldgm$graph), ldgm_return_edgelist(bundle_ldgm$graph))
+  if (!is.null(path_ldgm$snplist)) {
+    expect_equal(path_ldgm$snplist, bundle_ldgm$snplist)
+  }
+}
 
 expect_error(
   ldgm_brick_edges_from_tables(initial, data.frame(transition = 1L, left = 1), NULL,

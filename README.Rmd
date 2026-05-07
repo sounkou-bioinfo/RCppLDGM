@@ -40,6 +40,8 @@ Implemented and exported today:
 - high-level tree-diff table pipeline: `ldgm_make_ldgm_from_tree_tables()`;
 - current user-facing table bundle/wrappers: `ldgm_tree_tables()`,
   `ldgm_brick_ts()`, and `ldgm_make_ldgm()`;
+- optional Python `tskit` / `.trees` adapter: `ldgm_tree_tables_from_tskit()`
+  feeding the same Rcpp kernels;
 - SNP-list table slice: `ldgm_make_snplist()`;
 - sparse precision/operator layer: multiply, solve, log determinant, Gaussian
   likelihood, BLUP block, inverse diagonal estimates, OpenMP controls;
@@ -48,8 +50,9 @@ Implemented and exported today:
 
 Still intentionally incomplete:
 
-- direct `.trees` file or live tree-sequence object wiring behind
-  `ldgm_brick_ts()` / `ldgm_make_ldgm()`;
+- dependency-light native C/C++ tskit file I/O backend; current `.trees`
+  support uses optional `reticulate` + Python `tskit` only at the adapter
+  boundary;
 - direct tree-sequence object wiring for upstream `brick_haplo_graph()`;
 - remaining GraphLD workflows such as graphREML and the XNys inverse-diagonal
   estimator.
@@ -113,7 +116,10 @@ The checker validates both:
    lists;
 7. `ldgm_make_snplist()` against upstream `ldgm.make_snplist()` outputs; and
 8. `ldgm_make_ldgm_from_tree_tables()` against upstream `ldgm.make_ldgm()`
-   final graphs/SNP lists using only canonical tree-diff tables as input.
+   final graphs/SNP lists using only canonical tree-diff tables as input; and
+9. when `reticulate` + Python `tskit` are available, `.trees` files generated
+   from pinned upstream examples through `ldgm_tree_tables_from_tskit()`,
+   `ldgm_brick_ts()`, and `ldgm_make_ldgm()`.
 
 Expected success message:
 

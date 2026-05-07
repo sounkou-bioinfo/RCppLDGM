@@ -13,7 +13,8 @@ ldgm_make_ldgm(
 )
 }
 \arguments{
-\item{x}{An \code{ldgm_tree_tables} object.}
+\item{x}{An \code{ldgm_tree_tables} object, a \code{.trees} file path, or a Python
+\code{tskit.TreeSequence} object from \code{reticulate}.}
 
 \item{path_threshold}{Maximum path weight retained by LDGM reduction.}
 
@@ -22,13 +23,15 @@ splitting; \code{NULL} follows upstream default behavior.}
 
 \item{return_intermediates}{Whether to include bricked and derived tables.}
 
-\item{...}{Reserved for future tree-sequence backends.}
+\item{...}{Passed to \code{ldgm_tree_tables_from_tskit()} for \code{.trees} / Python
+tskit inputs; currently supports \code{python}.}
 }
 \value{
 A list containing \code{graph}, optional \code{snplist}, and optional
 intermediates.
 }
 \description{
-Upstream-name wrapper for \code{\link[=ldgm_make_ldgm_from_tree_tables]{ldgm_make_ldgm_from_tree_tables()}}. Direct \code{.trees}
-files and live tree-sequence objects are planned but not yet implemented.
+Upstream-name wrapper for \code{\link[=ldgm_make_ldgm_from_tree_tables]{ldgm_make_ldgm_from_tree_tables()}}. Accepts an
+\code{ldgm_tree_tables} bundle directly, or uses the optional Python \code{tskit}
+adapter for \code{.trees} paths and live reticulate tree-sequence objects.
 }

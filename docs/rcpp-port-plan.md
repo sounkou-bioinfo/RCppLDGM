@@ -48,11 +48,11 @@ The R API mirrors the upstream Python API while using R-native return types.
 | GraphLD `merge_snplists()` | `ldgm_merge_snplists()` | LDGM precision object + summary stats | merged selected LDGM object | initial R data-frame slice implemented |
 | GraphLD likelihood kernels | `ldgm_gaussian_likelihood()`, `ldgm_gaussian_likelihood_gradient()`, `ldgm_gaussian_likelihood_hessian()`, `ldgm_inverse_diagonal()` | precision object + pz / probes | likelihood/derivatives/inverse diagonal | exact small-block plus Hutchinson/xdiag stochastic slice implemented |
 | GraphLD BLUP block kernel/scheduler | `ldgm_blup_block()`, `ldgm_partition_variants()`, `ldgm_run_blup()` | sparse precision matrix + Z scores / metadata blocks | BLUP weights | single-block kernel plus serial block scheduler implemented |
-| `ldgm.brick_ts()` | `ldgm_brick_edges_from_tables()` / `ldgm_brick_ts()` now; direct object backend later | canonical tree-diff tables or `ldgm_tree_tables` bundle now; tree sequence object later | bricked edge table now; bricked tree sequence later | native edge-splitting kernel and upstream-name table wrapper implemented and checked against upstream bricked edge tables; full tree-sequence wiring planned |
+| `ldgm.brick_ts()` | `ldgm_brick_edges_from_tables()` / `ldgm_tree_tables_from_tskit()` / `ldgm_brick_ts()` now; native tskit backend later | canonical tree-diff tables, `ldgm_tree_tables` bundle, `.trees` path, or reticulate tskit object now | bricked edge table now; bricked tree sequence later | native edge-splitting kernel, upstream-name wrapper, and optional Python tskit adapter implemented and checked against upstream bricked edge tables; dependency-light native tskit file I/O remains planned |
 | `ldgm.brick_haplo_graph()` | `ldgm_brick_graph_inputs_from_edges()` + `ldgm_brick_haplo_graph()` | bricked edge table + sample nodes, or canonical brick/event tables | brick/event tables and brick-haplotype edge list | native bricked-edge adapter plus Rcpp rules 0/1/2 slice implemented and checked against upstream goldens; direct tree-sequence wiring planned |
 | `ldgm.utility.get_mut_edges()` | `ldgm_mutations_to_bricks()` | bricked edge table + mutation position/node table | brick-to-mutation map | native table slice implemented and checked against upstream goldens |
 | `ldgm.reduce_graph()` | `ldgm_reduce_graph()` | canonical brick-haplotype edge list + brick-to-mutation map | LDGM graph edge list | Dijkstra reach-set core implemented; full tree-sequence wiring planned |
-| `ldgm.make_ldgm()` | `ldgm_make_ldgm_from_tables()` / `ldgm_make_ldgm_from_tree_tables()` / `ldgm_make_ldgm()` now; direct object backend later | canonical bricked tables, tree-diff tables, or `ldgm_tree_tables` bundle now; tree sequence object later | final LDGM edge list, optional SNP list, and optional intermediates now; list(graph, bricked_ts) later | post-bricking and tree-diff table pipelines plus upstream-name table wrapper implemented and checked against upstream final edge lists/SNP lists; full tree-sequence wiring planned |
+| `ldgm.make_ldgm()` | `ldgm_make_ldgm_from_tables()` / `ldgm_make_ldgm_from_tree_tables()` / `ldgm_make_ldgm()` now; native tskit backend later | canonical bricked tables, tree-diff tables, `ldgm_tree_tables` bundle, `.trees` path, or reticulate tskit object now | final LDGM edge list, optional SNP list, and optional intermediates now; list(graph, bricked_ts) later | post-bricking and tree-diff table pipelines plus upstream-name wrapper implemented and checked against upstream final edge lists/SNP lists, including optional `.trees` adapter conformance |
 | `ldgm.prune_sites()` | `prune_sites()` | tree sequence object/tables | pruned tree sequence | planned |
 | `ldgm.make_snplist()` | `ldgm_make_snplist()` | brick-to-mutation map + canonical site/mutation tables | data frame | table-oriented slice implemented and checked against upstream goldens |
 
@@ -75,7 +75,11 @@ or produce simple canonical forms:
   canonical tree-diff tables without depending on a live tree-sequence runtime.
 - **Table bundle:** `ldgm_tree_tables()` plus `ldgm_brick_ts()` /
   `ldgm_make_ldgm()` provide upstream-name wrappers for current canonical table
-  inputs while reserving those generics for future `.trees` / tskit adapters.
+  inputs and optional `.trees` / Python tskit inputs.
+- **Optional tskit adapter:** `ldgm_tree_tables_from_tskit()` uses `reticulate`
+  and Python `tskit` only at the extraction boundary, then hands canonical tables
+  to the native Rcpp kernels. A dependency-light native C/C++ tskit file I/O
+  backend remains the long-term portability target.
 - **Native graph:** a C++ directed weighted graph with deterministic edge ordering
   at R boundaries.
 
@@ -125,6 +129,7 @@ Python implementation:
 Artifacts should include:
 
 - bricked edge tables from `brick_ts()`;
+- `.trees` files for optional adapter conformance;
 - brick-haplotype graph edge lists;
 - reduced graph edge lists before haplotype-node elimination;
 - final `make_ldgm()` / `return_edgelist()` output after haplotype-node elimination;
@@ -147,8 +152,10 @@ Artifacts should include:
 1. `inst/tinytest/`: fast R package tests for wrappers and native kernels.
 2. `tools/generate-upstream-ldgm-goldens.py`: Python reference artifact generation.
 3. `tools/check-upstream-ldgm-goldens.R`: R-side comparison against generated artifacts.
-4. `R CMD check`: package installation, documentation, and CRAN-style checks.
-5. Later: large real-data smoke tests and benchmarks outside CRAN checks.
+4. optional `reticulate` + Python `tskit` `.trees` adapter checks when the
+   upstream Python environment is available.
+5. `R CMD check`: package installation, documentation, and CRAN-style checks.
+6. Later: large real-data smoke tests and benchmarks outside CRAN checks.
 
 ## Implementation phases
 
@@ -184,6 +191,8 @@ Artifacts should include:
 
 - Port `brick_ts()` table transformations.
 - Wire `make_ldgm()` end to end.
+- Add optional Python `tskit` / `.trees` extraction while preserving native Rcpp
+  kernels downstream of the adapter.
 - Validate final edge lists and SNP lists against pinned Python outputs.
 
 ### Phase 5: packaging and performance

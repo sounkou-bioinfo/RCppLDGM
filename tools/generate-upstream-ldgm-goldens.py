@@ -332,7 +332,9 @@ def main() -> int:
             bricking_node_state_file = prefix.with_suffix(".bricking_node_state.csv").name
             sample_nodes_file = prefix.with_suffix(".sample_nodes.csv").name
             metadata_file = prefix.with_suffix(".metadata.json").name
+            trees_file = prefix.with_suffix(".trees").name
 
+            ts.dump(out_dir / trees_file)
             write_csv(out_dir / brick_graph_file, edge_rows(brick_graph), ["from", "to", "weight"])
             write_csv(out_dir / reduced_file, edge_rows(reduced), ["from", "to", "weight"])
             write_csv(out_dir / final_file, edge_rows(final_ldgm), ["from", "to", "weight"])
@@ -431,6 +433,7 @@ def main() -> int:
                     "bricking_edges_in": bricking_edges_in_file,
                     "bricking_node_state": bricking_node_state_file,
                     "sample_nodes": sample_nodes_file,
+                    "trees_file": trees_file,
                     "num_samples": int(ts.num_samples),
                     "metadata": metadata_file,
                     "path_weight_threshold": args.path_weight_threshold,
@@ -466,6 +469,7 @@ def main() -> int:
             "bricking_edges_in",
             "bricking_node_state",
             "sample_nodes",
+            "trees_file",
             "num_samples",
             "metadata",
             "path_weight_threshold",

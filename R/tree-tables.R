@@ -2,8 +2,9 @@
 #'
 #' Creates a lightweight R object for the table-backed LDGM pipeline. The object
 #' stores the canonical tree-diff tables consumed by the native bricking and
-#' LDGM kernels; it is not a live tree-sequence runtime. Use this as the current
-#' user-facing adapter while direct `.trees` / tskit object wiring is developed.
+#' LDGM kernels. Use `ldgm_tree_tables_from_tskit()` to build this bundle from a
+#' `.trees` file or Python `tskit.TreeSequence` object when `reticulate` and
+#' Python `tskit` are available.
 #'
 #' @param initial_edges,transitions,edges_out,edges_in,node_state See
 #'   [ldgm_brick_edges_from_tables()].
@@ -55,14 +56,16 @@ ldgm_tree_tables <- function(initial_edges,
 
 #' Brick an LDGM Tree-Table Bundle
 #'
-#' Upstream-name wrapper for the table-backed bricking kernel. Direct tree-
-#' sequence objects and `.trees` files are not yet accepted; pass a bundle made
-#' with `ldgm_tree_tables()`.
+#' Upstream-name wrapper for the table-backed bricking kernel. Accepts an
+#' `ldgm_tree_tables` bundle directly, or uses the optional Python `tskit`
+#' adapter for `.trees` paths and live reticulate tree-sequence objects.
 #'
-#' @param x An `ldgm_tree_tables` object.
+#' @param x An `ldgm_tree_tables` object, a `.trees` file path, or a Python
+#'   `tskit.TreeSequence` object from `reticulate`.
 #' @param recombination_freq_threshold Minimum frequency for recombination edge
 #'   splitting; `NULL` follows upstream default behavior.
-#' @param ... Reserved for future tree-sequence backends.
+#' @param ... Passed to `ldgm_tree_tables_from_tskit()` for `.trees` / Python
+#'   tskit inputs; currently supports `python`.
 #'
 #' @return A bricked edge table.
 #' @export
@@ -85,23 +88,30 @@ ldgm_brick_ts.ldgm_tree_tables <- function(x, recombination_freq_threshold = NUL
 
 #' @export
 ldgm_brick_ts.default <- function(x, recombination_freq_threshold = NULL, ...) {
+  if (is_tskit_adapter_input(x)) {
+    tables <- ldgm_tree_tables_from_tskit(x, ...)
+    return(ldgm_brick_ts(tables, recombination_freq_threshold = recombination_freq_threshold))
+  }
   stop(
-    "direct tree-sequence inputs are not implemented yet; pass canonical tables with `ldgm_tree_tables()`",
+    "`x` must be an `ldgm_tree_tables` object, a `.trees` path, or a Python tskit TreeSequence object",
     call. = FALSE
   )
 }
 
 #' Make an LDGM from a Tree-Table Bundle
 #'
-#' Upstream-name wrapper for [ldgm_make_ldgm_from_tree_tables()]. Direct `.trees`
-#' files and live tree-sequence objects are planned but not yet implemented.
+#' Upstream-name wrapper for [ldgm_make_ldgm_from_tree_tables()]. Accepts an
+#' `ldgm_tree_tables` bundle directly, or uses the optional Python `tskit`
+#' adapter for `.trees` paths and live reticulate tree-sequence objects.
 #'
-#' @param x An `ldgm_tree_tables` object.
+#' @param x An `ldgm_tree_tables` object, a `.trees` file path, or a Python
+#'   `tskit.TreeSequence` object from `reticulate`.
 #' @param path_threshold Maximum path weight retained by LDGM reduction.
 #' @param recombination_freq_threshold Minimum frequency for recombination edge
 #'   splitting; `NULL` follows upstream default behavior.
 #' @param return_intermediates Whether to include bricked and derived tables.
-#' @param ... Reserved for future tree-sequence backends.
+#' @param ... Passed to `ldgm_tree_tables_from_tskit()` for `.trees` / Python
+#'   tskit inputs; currently supports `python`.
 #'
 #' @return A list containing `graph`, optional `snplist`, and optional
 #'   intermediates.
@@ -140,8 +150,17 @@ ldgm_make_ldgm.default <- function(x,
                                    recombination_freq_threshold = NULL,
                                    return_intermediates = FALSE,
                                    ...) {
+  if (is_tskit_adapter_input(x)) {
+    tables <- ldgm_tree_tables_from_tskit(x, ...)
+    return(ldgm_make_ldgm(
+      tables,
+      path_threshold = path_threshold,
+      recombination_freq_threshold = recombination_freq_threshold,
+      return_intermediates = return_intermediates
+    ))
+  }
   stop(
-    "direct tree-sequence inputs are not implemented yet; pass canonical tables with `ldgm_tree_tables()`",
+    "`x` must be an `ldgm_tree_tables` object, a `.trees` path, or a Python tskit TreeSequence object",
     call. = FALSE
   )
 }

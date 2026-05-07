@@ -62,6 +62,21 @@ if (nrow(manifest) == 0L) {
   stop("manifest contains no upstream examples", call. = FALSE)
 }
 
+tskit_python <- arg("RCPP_LDGM_PYTHON", "")
+if (!nzchar(tskit_python)) {
+  candidate <- file.path(".sync", "ldgm-python", "bin", "python")
+  if (file.exists(candidate)) {
+    tskit_python <- candidate
+  }
+}
+have_reticulate_tskit <- FALSE
+if (requireNamespace("reticulate", quietly = TRUE)) {
+  if (nzchar(tskit_python)) {
+    reticulate::use_python(tskit_python, required = FALSE)
+  }
+  have_reticulate_tskit <- reticulate::py_module_available("tskit")
+}
+
 for (row in seq_len(nrow(manifest))) {
   entry <- manifest[row, , drop = FALSE]
   example <- entry$example[[1L]]
@@ -190,6 +205,23 @@ for (row in seq_len(nrow(manifest))) {
     stop("ldgm_brick_ts() table wrapper mismatch for upstream example `", example, "`", call. = FALSE)
   }
   wrapped_result <- ldgm_make_ldgm(tree_bundle, path_threshold = threshold, return_intermediates = TRUE)
+  trees_result <- NULL
+  if (have_reticulate_tskit && "trees_file" %in% names(entry)) {
+    trees_path <- file.path(golden_dir, entry$trees_file[[1L]])
+    if (file.exists(trees_path)) {
+      trees_tables <- ldgm_tree_tables_from_tskit(trees_path, python = if (nzchar(tskit_python)) tskit_python else NULL)
+      trees_bricked <- ldgm_brick_ts(trees_path, python = if (nzchar(tskit_python)) tskit_python else NULL)
+      if (!isTRUE(all.equal(canonical_bricked_edges(trees_bricked), expected_bricked_edges, tolerance = 1e-10, check.attributes = FALSE))) {
+        print(canonical_bricked_edges(trees_bricked))
+        print(expected_bricked_edges)
+        stop(".trees adapter bricking mismatch for upstream example `", example, "`", call. = FALSE)
+      }
+      if (!isTRUE(all.equal(canonical_bricked_edges(ldgm_brick_ts(trees_tables)), expected_bricked_edges, tolerance = 1e-10, check.attributes = FALSE))) {
+        stop(".trees adapter table extraction mismatch for upstream example `", example, "`", call. = FALSE)
+      }
+      trees_result <- ldgm_make_ldgm(trees_path, path_threshold = threshold, return_intermediates = TRUE, python = if (nzchar(tskit_python)) tskit_python else NULL)
+    }
+  }
 
   tree_table_final <- canonical_undirected_edges(tree_table_result$graph, digits = 4L)
   if (!isTRUE(all.equal(tree_table_final, expected_final, tolerance = 5e-5, check.attributes = FALSE))) {
@@ -202,6 +234,14 @@ for (row in seq_len(nrow(manifest))) {
     print(wrapped_final)
     print(expected_final)
     stop("ldgm_make_ldgm() table wrapper mismatch for upstream example `", example, "`", call. = FALSE)
+  }
+  if (!is.null(trees_result)) {
+    trees_final <- canonical_undirected_edges(trees_result$graph, digits = 4L)
+    if (!isTRUE(all.equal(trees_final, expected_final, tolerance = 5e-5, check.attributes = FALSE))) {
+      print(trees_final)
+      print(expected_final)
+      stop(".trees adapter LDGM mismatch for upstream example `", example, "`", call. = FALSE)
+    }
   }
 
   sites <- data.frame(ancestral_state = snplist_input$ancestral_state, stringsAsFactors = FALSE)
@@ -226,6 +266,11 @@ for (row in seq_len(nrow(manifest))) {
     print(wrapped_result$snplist)
     print(expected_snplist)
     stop("ldgm_make_ldgm() wrapper SNP-list mismatch for upstream example `", example, "`", call. = FALSE)
+  }
+  if (!is.null(trees_result) && !is.null(trees_result$snplist) && !isTRUE(all.equal(trees_result$snplist, expected_snplist, check.attributes = FALSE))) {
+    print(trees_result$snplist)
+    print(expected_snplist)
+    stop(".trees adapter SNP-list mismatch for upstream example `", example, "`", call. = FALSE)
   }
 }
 

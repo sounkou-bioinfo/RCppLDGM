@@ -35,6 +35,7 @@ An object of class \code{ldgm_tree_tables}.
 \description{
 Creates a lightweight R object for the table-backed LDGM pipeline. The object
 stores the canonical tree-diff tables consumed by the native bricking and
-LDGM kernels; it is not a live tree-sequence runtime. Use this as the current
-user-facing adapter while direct \code{.trees} / tskit object wiring is developed.
+LDGM kernels. Use \code{ldgm_tree_tables_from_tskit()} to build this bundle from a
+\code{.trees} file or Python \code{tskit.TreeSequence} object when \code{reticulate} and
+Python \code{tskit} are available.
 }

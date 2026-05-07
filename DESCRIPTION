@@ -27,4 +27,5 @@ Imports:
     Rcpp,
     utils
 Suggests:
+    reticulate,
     tinytest
