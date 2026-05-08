@@ -46,10 +46,11 @@ This writes a tiny RcppLDGM HDF5 file, verifies it with the native R reader, the
 loads `/row_data`, trait names, and `/traits/<trait>/{gradient,hessian}` plus
 parameter datasets through the pinned upstream GraphLD Python I/O code. If
 `h5py` is unavailable the check skips by default; set
-`RCPP_LDGM_REQUIRE_H5PY=1` to make that a hard failure. The default
-compression is `none` for baseline schema interop; set
-`RCPP_LDGM_HDF5_COMPRESSION=gzip` or `lzf` to exercise filters in environments
-with matching Python/HDF5 filter support.
+`RCPP_LDGM_REQUIRE_H5PY=1` to make that a hard failure. The repository also runs
+this strict `h5py` interop path in GitHub Actions via
+`.github/workflows/hdf5-interop.yaml`. The default compression is `none` for
+baseline schema interop; set `RCPP_LDGM_HDF5_COMPRESSION=gzip` or `lzf` to
+exercise filters in environments with matching Python/HDF5 filter support.
 
 ## Larger upstream GraphLD/LDGM downloads
 

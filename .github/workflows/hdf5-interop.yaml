@@ -1,0 +1,43 @@
+on:
+  push:
+    branches: [main]
+  pull_request:
+    branches: [main]
+  workflow_dispatch:
+
+name: HDF5-interop
+
+permissions: read-all
+
+jobs:
+  graphld-hdf5-interop:
+    runs-on: ubuntu-latest
+
+    env:
+      GITHUB_PAT: ${{ secrets.GITHUB_TOKEN }}
+      RCPP_LDGM_REQUIRE_H5PY: '1'
+      RCPP_LDGM_PYTHON: python
+      FORCE_JAVASCRIPT_ACTIONS_TO_NODE24: true
+
+    steps:
+      - uses: actions/checkout@v4
+
+      - uses: r-lib/actions/setup-r@v2
+        with:
+          use-public-rspm: true
+
+      - uses: r-lib/actions/setup-pandoc@v2
+
+      - uses: actions/setup-python@v5
+        with:
+          python-version: '3.x'
+
+      - uses: r-lib/actions/setup-r-dependencies@v2
+        with:
+          needs: check
+
+      - name: Install Python HDF5 interop dependencies
+        run: python -m pip install --upgrade numpy polars h5py
+
+      - name: Check GraphLD score-test HDF5 interop through h5py
+        run: make upstream-graphld-hdf5-interop
