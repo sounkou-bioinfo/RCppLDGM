@@ -1,0 +1,80 @@
+url: https://sounkou-bioinfo.github.io/RCppLDGM/
+destination: pkgdown
+
+template:
+  bootstrap: 5
+
+navbar:
+  structure:
+    left: [intro, reference, articles, news]
+    right: [search, github]
+
+articles:
+- title: Workflows
+  navbar: Workflows
+  contents:
+  - tree-table-pipeline
+  - precision-operators
+  - validation-conformance
+
+reference:
+- title: LDGM construction
+  contents:
+  - ldgm_tree_tables
+  - ldgm_tree_tables_from_tskit
+  - ldgm_brick_ts
+  - ldgm_make_ldgm
+  - ldgm_make_ldgm_from_tree_tables
+  - ldgm_make_ldgm_from_tables
+  - ldgm_brick_edges_from_tables
+  - ldgm_brick_graph_inputs_from_edges
+  - ldgm_mutations_to_bricks
+  - ldgm_brick_haplo_graph
+  - ldgm_make_snplist
+- title: Graph operations
+  contents:
+  - ldgm_edge_list
+  - ldgm_remove_node
+  - ldgm_reduce_graph
+  - ldgm_return_edgelist
+- title: Precision operators
+  contents:
+  - ldgm_sparse_precision
+  - ldgm_precision
+  - ldgm_precision_select
+  - ldgm_precision_matrix
+  - ldgm_precision_multiply
+  - ldgm_precision_solve
+  - ldgm_precision_scale
+  - ldgm_precision_update
+  - ldgm_precision_update_element
+  - ldgm_precision_logdet
+  - ldgm_inverse_diagonal
+  - ldgm_gaussian_likelihood
+  - ldgm_gaussian_likelihood_gradient
+  - ldgm_gaussian_likelihood_hessian
+  - ldgm_variant_solve
+  - ldgm_variant_info
+- title: GraphLD workflows
+  contents:
+  - ldgm_load_ldgm
+  - ldgm_read_edgelist
+  - ldgm_read_snplist
+  - ldgm_merge_alleles
+  - ldgm_merge_snplists
+  - ldgm_partition_variants
+  - ldgm_blup_block
+  - ldgm_run_blup
+  - ldgm_run_clump
+  - ldgm_reml_link
+  - ldgm_reml_block
+  - ldgm_run_reml
+- title: Score-test HDF5
+  contents:
+  - ldgm_hdf5_filter_info
+  - ldgm_write_score_test_hdf5
+  - ldgm_read_score_test_hdf5
+- title: Native runtime
+  contents:
+  - ldgm_openmp_info
+  - ldgm_set_openmp_threads

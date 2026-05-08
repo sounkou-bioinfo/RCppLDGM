@@ -1,0 +1,86 @@
+---
+title: "Table-backed LDGM construction"
+output: rmarkdown::html_vignette
+vignette: >
+  %\VignetteIndexEntry{Table-backed LDGM construction}
+  %\VignetteEngine{knitr::rmarkdown}
+  %\VignetteEncoding{UTF-8}
+---
+
+```{r, include = FALSE}
+knitr::opts_chunk$set(collapse = TRUE, comment = "#>")
+```
+
+```{r setup}
+library(RcppLDGM)
+```
+
+RcppLDGM ports the upstream LDGM construction pipeline around a narrow,
+table-first boundary. The native kernels consume canonical tree-diff tables. In
+production these tables can be extracted from a `.trees` file with
+`ldgm_tree_tables_from_tskit()`, which uses the vendored tskit C API.
+
+This vignette uses a tiny in-memory table bundle so it can run during package
+checks without Python or external data.
+
+```{r toy-tables}
+initial_edges <- data.frame(
+  left = c(0, 0),
+  right = c(1, 1),
+  parent = c(2L, 2L),
+  child = c(0L, 1L)
+)
+empty_transitions <- data.frame(transition = integer(), left = numeric())
+empty_edges_out <- data.frame(transition = integer(), child = integer())
+empty_edges_in <- data.frame(
+  transition = integer(), left = numeric(), right = numeric(),
+  parent = integer(), child = integer()
+)
+empty_node_state <- data.frame(
+  transition = integer(), node = integer(), prev_parent = integer(),
+  curr_parent = integer(), time = numeric(), curr_num_samples = integer()
+)
+mutations <- data.frame(
+  mutation = c(0L, 1L),
+  site = c(0L, 1L),
+  position = c(0.1, 0.2),
+  node = c(0L, 1L),
+  ancestral_state = c("A", "C"),
+  derived_state = c("G", "T")
+)
+
+tables <- ldgm_tree_tables(
+  initial_edges = initial_edges,
+  transitions = empty_transitions,
+  edges_out = empty_edges_out,
+  edges_in = empty_edges_in,
+  node_state = empty_node_state,
+  sample_nodes = 0:1,
+  mutations = mutations
+)
+tables
+```
+
+`ldgm_brick_ts()` exposes the upstream-style bricking entry point.
+
+```{r brick-ts}
+ldgm_brick_ts(tables)
+```
+
+`ldgm_make_ldgm()` runs bricking, mutation mapping, brick-haplotype graph
+construction, reduction, and SNP-list generation.
+
+```{r make-ldgm}
+result <- ldgm_make_ldgm(tables, path_threshold = 4, return_intermediates = TRUE)
+result$bricked_edges
+result$bricks_to_muts
+result$snplist
+ldgm_return_edgelist(result$graph)
+```
+
+For real conformance, use goldens generated from pinned upstream Python code:
+
+```{sh, eval = FALSE}
+make upstream-python
+make upstream-ldgm-conformance
+```

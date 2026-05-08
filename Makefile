@@ -78,4 +78,5 @@ benchmark-upstream-ldgm: dev-install upstream-ldgm-goldens
 
 rdm: install
 	R -e "rmarkdown::render('README.Rmd')"
+	perl -pi -e 's/[ \t]+$$//' README.md
 .PHONY: all rd vig vig-md build check install_deps install clean dev-install dev-install-debug-win test0 test1 test2 test warn-test upstream-python upstream-ldgm-goldens upstream-ldgm-conformance upstream-graphld-smoke upstream-graphld-hdf5-interop benchmark-precision benchmark-upstream-ldgm rdm

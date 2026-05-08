@@ -1,5 +1,7 @@
 ^\.git$
 ^\.gitignore$
+^\.github$
+^_pkgdown\.yml$
 ^README\.Rmd$
 ^README_files$
 ^\.circleci$
@@ -19,6 +21,7 @@
 ^examples$
 ^data$
 ^docs$
+^pkgdown$
 ^tests/.*\.py$
 ^ldgm/_version\.py$
 ^__pycache__$

@@ -1,0 +1,87 @@
+---
+title: "GraphLD-style precision operators"
+output: rmarkdown::html_vignette
+vignette: >
+  %\VignetteIndexEntry{GraphLD-style precision operators}
+  %\VignetteEngine{knitr::rmarkdown}
+  %\VignetteEncoding{UTF-8}
+---
+
+```{r, include = FALSE}
+knitr::opts_chunk$set(collapse = TRUE, comment = "#>")
+```
+
+```{r setup}
+library(RcppLDGM)
+library(Matrix)
+```
+
+GraphLD represents LDGM precision blocks as sparse linear operators. RcppLDGM
+keeps the same zero-based indexing convention at the file/API boundary while
+returning ordinary R vectors, matrices, sparse matrices, and data frames.
+
+```{r precision}
+edges <- ldgm_edge_list(
+  from = c(0L, 1L, 2L, 0L, 1L),
+  to = c(0L, 1L, 2L, 1L, 2L),
+  weight = c(2, 3, 4, 0.1, 0.2)
+)
+P <- ldgm_sparse_precision(edges)
+P
+
+x <- c(1, 2, 3)
+ldgm_precision_multiply(P, x)
+ldgm_precision_solve(P, x)
+ldgm_inverse_diagonal(P, method = "exact")
+```
+
+An `ldgm_precision` object stores sparse precision data plus variant metadata.
+Selected views use GraphLD-style Schur-complement semantics.
+
+```{r selected-view}
+variant_info <- data.frame(
+  index = c(0L, 0L, 1L, 2L),
+  SNP = c("rs1", "rs1_proxy", "rs2", "rs3")
+)
+block <- ldgm_precision(P, variant_info)
+selected <- ldgm_precision_select(block, c(0L, 2L))
+ldgm_precision_matrix(selected)
+ldgm_precision_multiply(selected, c(1, 1))
+```
+
+The R API is functional: update helpers return a modified copy instead of
+mutating in place.
+
+```{r updates}
+scaled <- ldgm_precision_scale(selected, 2)
+updated <- ldgm_precision_update_element(selected, index = 1L, value = 0.5)
+ldgm_precision_multiply(scaled, c(1, 1))
+ldgm_precision_multiply(updated, c(1, 1))
+```
+
+When multiple variants share the same precision index, `ldgm_variant_solve()`
+sums right-hand-side values by index, solves once, and broadcasts the solution
+back to variant rows. This mirrors GraphLD's `variant_solve()` behavior.
+
+```{r variant-solve}
+ldgm_variant_solve(block, c(1, 2, 3, 4))
+```
+
+A small deterministic graphREML block can be evaluated with exact inverse
+diagonals for testing and examples.
+
+```{r reml-block}
+z <- c(1.2, -0.4, 0.7)
+annotations <- cbind(baseline = 1, coding = c(0, 1, 0))
+fit <- ldgm_reml_block(
+  P,
+  z,
+  annotations,
+  params = c(0, 0),
+  sample_size = 1000,
+  diagonal_method = "exact"
+)
+fit$likelihood
+fit$gradient
+fit$hessian
+```

@@ -6,6 +6,8 @@ ldgm/__pycache__
 _build/
 .sync/
 RcppLDGM.Rcheck/
+pkgdown/
+vignettes/*.html
 *.tar.gz
 src/*.o
 src/*.so

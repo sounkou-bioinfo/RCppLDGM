@@ -16,7 +16,8 @@ Description: Provides an incremental Rcpp port of the 'ldgm' algorithms for
     tree-sequence file interfaces from the upstream Python and MATLAB
     implementation.
 License: GPL (>= 3)
-URL: https://github.com/sounkou-bioinfo/RCppLDGM
+URL: https://github.com/sounkou-bioinfo/RCppLDGM,
+    https://sounkou-bioinfo.github.io/RCppLDGM/
 BugReports: https://github.com/sounkou-bioinfo/RCppLDGM/issues
 Encoding: UTF-8
 Roxygen: list(markdown = TRUE)
@@ -30,5 +31,9 @@ Imports:
     Rcpp,
     utils
 Suggests:
+    knitr,
+    pkgdown,
     reticulate,
+    rmarkdown,
     tinytest
+VignetteBuilder: knitr
