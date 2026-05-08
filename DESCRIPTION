@@ -35,7 +35,9 @@ Imports:
     s7contract,
     utils
 Suggests:
+    arrow,
     knitr,
+    nanoparquet,
     pkgdown,
     reticulate,
     rmarkdown,

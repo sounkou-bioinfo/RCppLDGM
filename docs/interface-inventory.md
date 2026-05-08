@@ -43,8 +43,8 @@ arguments as stable interfaces unless they are deliberately exposed in R.
 | Surrogate marker maps | GraphLD surrogate-marker path and score/surrogate HDF5 files | `ldgm_reml_surrogate_markers()`, `ldgm_write_surrogate_map_hdf5()`, `ldgm_read_surrogate_map_hdf5()` | tinytest hdf5/reml; optional h5py interop tool | Larger upstream score/surrogate files |
 | GraphREML score-test HDF5 | GraphLD `_write_variant_data()`, `_write_trait_stats()`, `score_test_io.py` | `ldgm_write_score_test_hdf5()`, `ldgm_read_score_test_hdf5()` | tinytest HDF5/score-test; optional `tools/check-graphld-hdf5-python-interop.R` | Broader CLI schema, gene-level score outputs, h5py-required CI on systems with Python deps |
 | Variant-annotation score-test statistic | `.sync/graphld/src/score_test/score_test.py` | `ldgm_score_test()`, `ldgm_score_test_hdf5()`, `ldgm_score_test_meta()`, `ldgm_score_test_hdf5_meta()` | tinytest score-test; optional Python interop checks against pinned GraphLD | Gene-set/GMT conversion and full score-test CLI parity |
-| Parquet multi-trait summary stats | `.sync/graphld/src/graphld/parquet_io.py`, `.sync/graphld/data/test/example_multi_trait.parquet` | Planned | Existing upstream test data only | Add optional parquet reader/conformance, likely via an R package dependency or explicit no-dependency stance |
-| GWAS VCF input | `.sync/graphld/src/graphld/vcf_io.py`, `.sync/graphld/data/test/example.gwas.vcf` | Planned | Existing upstream test data only | Add VCF reader/conformance or document out-of-scope |
+| Parquet multi-trait summary stats | `.sync/graphld/src/graphld/parquet_io.py`, `.sync/graphld/data/test/example_multi_trait.parquet` | `ldgm_parquet_traits()`, `ldgm_read_parquet_sumstats()`, `ldgm_read_parquet_sumstats_multi()` using optional `nanoparquet` | tinytest sumstats readers; GraphLD data smoke when `nanoparquet` is installed | Add pinned Python value conformance across more schemas and missingness edge cases |
+| GWAS VCF input | `.sync/graphld/src/graphld/vcf_io.py`, `.sync/graphld/data/test/example.gwas.vcf` | `ldgm_read_gwas_vcf()`, `ldgm_validate_gwas_vcf_format()` | tinytest sumstats readers; GraphLD data smoke | Add pinned Python value conformance and multi-sample/out-of-scope behavior notes |
 | BED/range and annotation directory inputs | GraphLD `read_bed()`, `load_annotations()`, `.sync/graphld/data/test/annot/` | `ldgm_read_bed()`, `ldgm_annotate_ranges()`, `ldgm_load_annotations()` | tinytest annotations; GraphLD data smoke on `.sync/graphld/data/test/annot/` | Add pinned Python GraphLD conformance for nontrivial BED overlaps and optional position/allele augmentation |
 | Simulation workflow inputs | `.sync/graphld/src/graphld/simulate.py`, GraphLD `simulate` CLI | Planned | None in R yet | Define minimal R simulation interface and upstream conformance expectations |
 | Gene-set and gene-table inputs | `.sync/graphld/src/score_test/genesets.py`, `convert_scores.py` | Planned | None in R yet | Implement GMT/gene-table score-test conversion or mark future scope |
@@ -88,9 +88,9 @@ arguments as stable interfaces unless they are deliberately exposed in R.
 
 1. Finish and keep green the current score-test meta-analysis and HDF5 interop
    gate.
-2. Add R-native readers or explicit adapters for parquet and VCF summary-stat
-   inputs from `.sync/graphld/data/test`.
-3. Add gene-set/GMT and gene-table score-test conversion interfaces.
+2. Add gene-set/GMT and gene-table score-test conversion interfaces.
+3. Add pinned Python value conformance for parquet, VCF, annotation, and BED
+   readers beyond local schema smokes.
 4. Add upstream Python conformance for BLUP, clumping, graphREML summaries, and
    stochastic inverse diagonal estimators.
 5. Wire `LdgmBlockCatalog` into any remaining GraphREML/block-manager paths that

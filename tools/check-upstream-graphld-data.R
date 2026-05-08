@@ -57,6 +57,24 @@ if (dir.exists(annot_dir)) {
   message("Annotation smoke: rows=", nrow(annotations), ", columns=", ncol(annotations))
 }
 
+vcf_path <- file.path(data_dir, "example.gwas.vcf")
+if (file.exists(vcf_path)) {
+  vcf_sumstats <- ldgm_read_gwas_vcf(vcf_path, num_rows = 10L)
+  stopifnot(is.data.frame(vcf_sumstats), nrow(vcf_sumstats) > 0L)
+  stopifnot(all(c("CHR", "POS", "SNP", "REF", "ALT", "Z") %in% names(vcf_sumstats)))
+  message("GWAS-VCF smoke: rows=", nrow(vcf_sumstats))
+}
+
+parquet_path <- file.path(data_dir, "example_multi_trait.parquet")
+if (file.exists(parquet_path) && requireNamespace("nanoparquet", quietly = TRUE)) {
+  parquet_traits <- ldgm_parquet_traits(parquet_path)
+  stopifnot(length(parquet_traits) > 0L)
+  parquet_sumstats <- ldgm_read_parquet_sumstats(parquet_path, trait = parquet_traits[[1L]])
+  stopifnot(is.data.frame(parquet_sumstats), nrow(parquet_sumstats) > 0L)
+  stopifnot(all(c("SNP", "CHR", "POS", "REF", "ALT", "N", "Z") %in% names(parquet_sumstats)))
+  message("Parquet smoke: trait=", parquet_traits[[1L]], ", rows=", nrow(parquet_sumstats))
+}
+
 loaded <- vector("list", nrow(metadata))
 for (i in seq_len(nrow(metadata))) {
   edge_path <- file.path(data_dir, metadata$name[[i]])
