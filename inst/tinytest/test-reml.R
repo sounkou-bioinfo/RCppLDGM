@@ -101,6 +101,28 @@ expect_equal(length(fit_jk$variant_h2), 2L * nrow(annotations_reml))
 expect_true(all(is.finite(fit_jk$parameters_se)))
 expect_true(all(fit_jk$parameters_se >= 0))
 
+fit_threshold <- ldgm_run_reml(
+  list(good = P_reml, high_chisq = P_reml),
+  list(z_reml, c(2, 0, 0)),
+  list(annotations_reml, annotations_reml),
+  params = params_reml,
+  sample_size = 100,
+  link_fn_denominator = 10,
+  diagonal_method = "exact",
+  num_iterations = 1L,
+  annotation_names = colnames(annotations_reml),
+  max_chisq_threshold = 1
+)
+expect_equal(fit_threshold$block_names, "good")
+expect_equal(fit_threshold$dropped_blocks$block_name, "high_chisq")
+expect_equal(fit_threshold$dropped_blocks$reason, "max_chisq_threshold")
+expect_equal(unname(fit_threshold$block_max_chisq["high_chisq"]), 4, tolerance = 1e-12)
+expect_equal(length(fit_threshold$variant_h2), nrow(annotations_reml))
+expect_error(
+  ldgm_run_reml(P_reml, c(2, 0, 0), annotations_reml, sample_size = 100, max_chisq_threshold = 1),
+  "all blocks"
+)
+
 annotations_interface <- ldgm_annotation_data(data.frame(
   SNP = c("rs1", "rs2", "rs3"),
   CHR = c(1L, 1L, 1L),

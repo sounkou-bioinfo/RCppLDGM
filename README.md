@@ -259,9 +259,10 @@ Implemented today: native graph/bricking/reduction/SNP-list kernels,
 native `.trees` file extraction through vendored tskit C, GraphLD-style
 sparse precision operators, BLUP/clumping helpers, S7/s7contract
 GraphREML input interfaces, a serial graphREML core with an initial
-surrogate-marker path and GraphLD-style surrogate-map HDF5 input,
-pseudo-jackknife summaries, staged score-test HDF5 writing, and an
-initial variant-annotation score-test statistic.
+surrogate-marker path, GraphLD-style surrogate-map HDF5 input,
+max-chi-square block exclusion, pseudo-jackknife summaries, staged
+score-test HDF5 writing, and an initial variant-annotation score-test
+statistic.
 
 Still intentionally staged:
 

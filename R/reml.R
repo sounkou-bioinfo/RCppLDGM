@@ -220,6 +220,9 @@ ldgm_reml_block <- function(precision,
 #'   replicates used for parameter, heritability, and enrichment standard errors.
 #' @param max_step_halving Maximum number of step halvings for a proposed Newton
 #'   step.
+#' @param max_chisq_threshold Optional maximum block chi-square threshold. Blocks
+#'   whose maximum `z^2` exceeds this value are excluded, matching GraphLD's
+#'   high-chi-square block guard.
 #' @param use_surrogate_markers If `TRUE`, replace missing per-variant Z scores
 #'   using [ldgm_reml_surrogate_markers()] before fitting.
 #' @param surrogate_maps Optional one-based surrogate index map, or list of maps,
@@ -268,6 +271,7 @@ ldgm_run_reml <- function(ldgms,
                           seed = NULL,
                           num_jackknife_blocks = 100L,
                           max_step_halving = 12L,
+                          max_chisq_threshold = NULL,
                           use_surrogate_markers = FALSE,
                           surrogate_maps = NULL,
                           surrogate_markers_path = NULL,
@@ -294,7 +298,8 @@ ldgm_run_reml <- function(ldgms,
     use_surrogate_markers = use_surrogate_markers,
     surrogate_maps = surrogate_maps,
     surrogate_markers_path = surrogate_markers_path,
-    block_names = block_names
+    block_names = block_names,
+    max_chisq_threshold = max_chisq_threshold
   )
   p <- ncol(blocks$annotations[[1L]])
   params <- if (is.null(params)) rep(0, p) else as.numeric(params)
@@ -471,6 +476,8 @@ ldgm_run_reml <- function(ldgms,
     hessian = current$hessian,
     score_test_hdf5 = score_test,
     block_names = blocks$block_names,
+    block_max_chisq = blocks$block_max_chisq,
+    dropped_blocks = blocks$dropped_blocks,
     blocks = current$blocks,
     log = list(
       converged = converged,
@@ -522,7 +529,8 @@ normalize_reml_blocks <- function(ldgms,
                                   use_surrogate_markers = FALSE,
                                   surrogate_maps = NULL,
                                   surrogate_markers_path = NULL,
-                                  block_names = NULL) {
+                                  block_names = NULL,
+                                  max_chisq_threshold = NULL) {
   if (!is.list(ldgms) || inherits(ldgms, "ldgm_precision") || inherits(ldgms, "sparseMatrix")) {
     ldgms <- list(ldgms)
   }
@@ -562,11 +570,91 @@ normalize_reml_blocks <- function(ldgms,
   }
   annotations <- lapply(annotations, ldgm_annotation_matrix)
   z <- lapply(z, as.numeric)
+  filtered <- reml_filter_blocks_by_chisq(
+    ldgms,
+    z,
+    annotations,
+    block_names,
+    max_chisq_threshold
+  )
+  ldgms <- filtered$ldgms
+  z <- filtered$z
+  annotations <- filtered$annotations
+  block_names <- filtered$block_names
   n_cols <- vapply(annotations, ncol, integer(1))
   if (length(unique(n_cols)) != 1L) {
     stop("all annotation blocks must have the same number of columns", call. = FALSE)
   }
-  list(ldgms = ldgms, z = z, annotations = annotations, block_names = block_names)
+  list(
+    ldgms = ldgms,
+    z = z,
+    annotations = annotations,
+    block_names = block_names,
+    block_max_chisq = filtered$block_max_chisq,
+    dropped_blocks = filtered$dropped_blocks
+  )
+}
+
+reml_filter_blocks_by_chisq <- function(ldgms,
+                                         z,
+                                         annotations,
+                                         block_names,
+                                         max_chisq_threshold = NULL) {
+  block_max_chisq <- vapply(z, function(values) {
+    values <- as.numeric(values)
+    if (length(values) < 1L || anyNA(values) || any(!is.finite(values))) {
+      NA_real_
+    } else {
+      max(values^2)
+    }
+  }, numeric(1))
+  names(block_max_chisq) <- block_names
+
+  dropped_blocks <- data.frame(
+    block_name = character(),
+    max_chisq = numeric(),
+    threshold = numeric(),
+    reason = character(),
+    stringsAsFactors = FALSE
+  )
+  if (is.null(max_chisq_threshold)) {
+    return(list(
+      ldgms = ldgms,
+      z = z,
+      annotations = annotations,
+      block_names = block_names,
+      block_max_chisq = block_max_chisq,
+      dropped_blocks = dropped_blocks
+    ))
+  }
+  if (length(max_chisq_threshold) != 1L || is.na(max_chisq_threshold) ||
+      !is.finite(max_chisq_threshold) || max_chisq_threshold < 0) {
+    stop("`max_chisq_threshold` must be `NULL` or a single non-negative finite number", call. = FALSE)
+  }
+  if (anyNA(block_max_chisq)) {
+    stop("Z scores must be finite and non-missing when `max_chisq_threshold` is supplied", call. = FALSE)
+  }
+  keep <- block_max_chisq <= max_chisq_threshold
+  if (!any(keep)) {
+    stop("all blocks were excluded by `max_chisq_threshold`", call. = FALSE)
+  }
+  if (any(!keep)) {
+    dropped_blocks <- data.frame(
+      block_name = block_names[!keep],
+      max_chisq = unname(block_max_chisq[!keep]),
+      threshold = as.numeric(max_chisq_threshold),
+      reason = "max_chisq_threshold",
+      stringsAsFactors = FALSE
+    )
+  }
+  list(
+    ldgms = ldgms[keep],
+    z = z[keep],
+    annotations = annotations[keep],
+    block_names = block_names[keep],
+    block_max_chisq = block_max_chisq,
+    dropped_blocks = dropped_blocks
+  )
 }
 
 normalize_reml_block_names <- function(ldgms, n_blocks, block_names = NULL) {

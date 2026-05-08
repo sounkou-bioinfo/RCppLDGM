@@ -20,6 +20,7 @@ ldgm_run_reml(
   seed = NULL,
   num_jackknife_blocks = 100L,
   max_step_halving = 12L,
+  max_chisq_threshold = NULL,
   use_surrogate_markers = FALSE,
   surrogate_maps = NULL,
   surrogate_markers_path = NULL,
@@ -63,6 +64,10 @@ replicates used for parameter, heritability, and enrichment standard errors.}
 
 \item{max_step_halving}{Maximum number of step halvings for a proposed Newton
 step.}
+
+\item{max_chisq_threshold}{Optional maximum block chi-square threshold. Blocks
+whose maximum \code{z^2} exceeds this value are excluded, matching GraphLD's
+high-chi-square block guard.}
 
 \item{use_surrogate_markers}{If \code{TRUE}, replace missing per-variant Z scores
 using \code{\link[=ldgm_reml_surrogate_markers]{ldgm_reml_surrogate_markers()}} before fitting.}
