@@ -37,8 +37,8 @@ RC_hdf5_filter_info <- function() {
     .Call(`_RcppLDGM_hdf5_filter_info_cpp`)
 }
 
-RC_write_graphld_score_hdf5 <- function(filename, variant_data, gradient, trait_name, jackknife_blocks, overwrite, source, compression, chunk_size, parameters, jackknife_parameters) {
-    .Call(`_RcppLDGM_write_graphld_score_hdf5_cpp`, filename, variant_data, gradient, trait_name, jackknife_blocks, overwrite, source, compression, chunk_size, parameters, jackknife_parameters)
+RC_write_graphld_score_hdf5 <- function(filename, variant_data, gradient, hessian, trait_name, jackknife_blocks, overwrite, source, compression, chunk_size, parameters, jackknife_parameters) {
+    .Call(`_RcppLDGM_write_graphld_score_hdf5_cpp`, filename, variant_data, gradient, hessian, trait_name, jackknife_blocks, overwrite, source, compression, chunk_size, parameters, jackknife_parameters)
 }
 
 RC_read_graphld_score_hdf5 <- function(filename, trait_name) {

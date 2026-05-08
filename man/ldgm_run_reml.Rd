@@ -26,6 +26,7 @@ ldgm_run_reml(
   score_test_jackknife_blocks = NULL,
   score_test_diagonal_method = diagonal_method,
   score_test_n_samples = 200L,
+  score_test_write_hessian = FALSE,
   score_test_project_annotations = TRUE,
   score_test_overwrite = FALSE
 )
@@ -72,7 +73,12 @@ with \code{CHR}, \code{POS}, and \code{RSID}/\code{SNP} columns for HDF5 row dat
 row data.}
 
 \item{score_test_diagonal_method, score_test_n_samples}{Inverse-diagonal
-estimator and probe count used for final per-variant score gradients.}
+estimator and probe count used for final per-variant score gradients and
+optional Hessian/correction vectors.}
+
+\item{score_test_write_hessian}{If \code{TRUE}, also compute and write the
+GraphLD-style per-variant Hessian/correction vector to the score-test HDF5
+trait group.}
 
 \item{score_test_project_annotations}{If \code{TRUE}, project annotation columns
 out of final per-variant score-test gradients before writing, matching

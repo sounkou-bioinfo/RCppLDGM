@@ -14,6 +14,7 @@ ldgm_hdf5_filter_info <- function() {
 #' Writes the HDF5 layout used by GraphLD's graphREML score-test path: root
 #' metadata attributes, `/row_data/{CHR,POS,RSID,jackknife_blocks}`, `/groups`,
 #' `/traits/<trait_name>/gradient`, and optionally
+#' `/traits/<trait_name>/hessian` plus
 #' `/traits/<trait_name>/parameters/{parameters,jackknife_parameters}`. Native
 #' HDF5 support is linked through the CRAN `hdf5lib` package, including its
 #' bundled LZF/gzip filters.
@@ -27,6 +28,8 @@ ldgm_hdf5_filter_info <- function() {
 #' @param jackknife_blocks Optional integer jackknife block assignment vector. If
 #'   omitted, `variant_data$jackknife_blocks` is used when present, otherwise all
 #'   variants are assigned to block zero.
+#' @param hessian Optional numeric variant Hessian/correction vector, one value
+#'   per row of `variant_data`, stored as `/traits/<trait_name>/hessian`.
 #' @param parameters Optional numeric fitted parameter vector stored under the
 #'   trait's `parameters` group for GraphLD score-test I/O compatibility.
 #' @param jackknife_parameters Optional numeric matrix with one row per
@@ -45,6 +48,7 @@ ldgm_write_score_test_hdf5 <- function(file,
                                        gradient,
                                        trait_name = "trait",
                                        jackknife_blocks = NULL,
+                                       hessian = NULL,
                                        parameters = NULL,
                                        jackknife_parameters = NULL,
                                        overwrite = FALSE,
@@ -74,6 +78,12 @@ ldgm_write_score_test_hdf5 <- function(file,
   if (length(gradient) != n || anyNA(gradient)) {
     stop("`gradient` must contain one non-missing value per variant", call. = FALSE)
   }
+  if (!is.null(hessian)) {
+    hessian <- as.numeric(hessian)
+    if (length(hessian) != n || anyNA(hessian)) {
+      stop("`hessian` must contain one non-missing value per variant", call. = FALSE)
+    }
+  }
   if (is.null(jackknife_blocks)) {
     jackknife_blocks <- variant_data$jackknife_blocks %||% rep.int(0L, n)
   }
@@ -102,6 +112,7 @@ ldgm_write_score_test_hdf5 <- function(file,
     file,
     variant_data[, c("CHR", "POS", "RSID"), drop = FALSE],
     gradient,
+    hessian,
     trait_name,
     jackknife_blocks,
     isTRUE(overwrite),
@@ -125,7 +136,7 @@ ldgm_write_score_test_hdf5 <- function(file,
 #'   available trait names are returned.
 #'
 #' @return A list with `variant_data`, `trait_names`, and, when requested,
-#'   `gradient`.
+#'   `gradient`, optional `hessian`, and optional fitted parameter datasets.
 #' @export
 ldgm_read_score_test_hdf5 <- function(file, trait_name = NULL) {
   if (!is.character(file) || length(file) != 1L || is.na(file) || !nzchar(file)) {

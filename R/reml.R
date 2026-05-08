@@ -125,7 +125,11 @@ ldgm_reml_block <- function(precision,
 #' @param score_test_jackknife_blocks Optional jackknife assignments for the HDF5
 #'   row data.
 #' @param score_test_diagonal_method,score_test_n_samples Inverse-diagonal
-#'   estimator and probe count used for final per-variant score gradients.
+#'   estimator and probe count used for final per-variant score gradients and
+#'   optional Hessian/correction vectors.
+#' @param score_test_write_hessian If `TRUE`, also compute and write the
+#'   GraphLD-style per-variant Hessian/correction vector to the score-test HDF5
+#'   trait group.
 #' @param score_test_project_annotations If `TRUE`, project annotation columns
 #'   out of final per-variant score-test gradients before writing, matching
 #'   GraphLD's score-test path.
@@ -157,6 +161,7 @@ ldgm_run_reml <- function(ldgms,
                           score_test_jackknife_blocks = NULL,
                           score_test_diagonal_method = diagonal_method,
                           score_test_n_samples = 200L,
+                          score_test_write_hessian = FALSE,
                           score_test_project_annotations = TRUE,
                           score_test_overwrite = FALSE) {
   blocks <- normalize_reml_blocks(ldgms, z, annotations)
@@ -180,6 +185,9 @@ ldgm_run_reml <- function(ldgms,
   }
   if (length(max_step_halving) != 1L || is.na(max_step_halving) || max_step_halving < 0) {
     stop("`max_step_halving` must be a non-negative integer", call. = FALSE)
+  }
+  if (!is.logical(score_test_write_hessian) || length(score_test_write_hessian) != 1L || is.na(score_test_write_hessian)) {
+    stop("`score_test_write_hessian` must be `TRUE` or `FALSE`", call. = FALSE)
   }
   if (!is.logical(score_test_project_annotations) || length(score_test_project_annotations) != 1L || is.na(score_test_project_annotations)) {
     stop("`score_test_project_annotations` must be `TRUE` or `FALSE`", call. = FALSE)
@@ -270,6 +278,19 @@ ldgm_run_reml <- function(ldgms,
       n_samples = score_test_n_samples,
       seed = seed
     )
+    score_hessian <- NULL
+    if (isTRUE(score_test_write_hessian)) {
+      score_hessian <- reml_variant_hessians(
+        current$blocks,
+        blocks$ldgms,
+        blocks$annotations,
+        params,
+        denominator = link_fn_denominator,
+        diagonal_method = score_test_diagonal_method,
+        n_samples = score_test_n_samples,
+        seed = seed
+      )
+    }
     if (isTRUE(score_test_project_annotations)) {
       score <- reml_project_out(score, do.call(rbind, blocks$annotations))
     }
@@ -282,6 +303,7 @@ ldgm_run_reml <- function(ldgms,
       score_test_hdf5,
       variant_data = score_variant_data,
       gradient = score,
+      hessian = score_hessian,
       trait_name = score_test_trait_name,
       jackknife_blocks = score_jackknife_blocks,
       parameters = params,
@@ -608,6 +630,44 @@ reml_variant_scores <- function(block_results,
     scores[[i]] <- as.numeric(node_grad[indices] * del_h2_del_x)
   }
   unlist(scores, use.names = FALSE)
+}
+
+reml_variant_hessians <- function(block_results,
+                                  ldgms,
+                                  annotation_blocks,
+                                  params,
+                                  denominator,
+                                  diagonal_method,
+                                  n_samples,
+                                  seed) {
+  hessians <- vector("list", length(block_results))
+  for (i in seq_along(block_results)) {
+    annotations <- as_numeric_matrix(annotation_blocks[[i]])
+    params_matrix <- as_reml_params(params, ncol(annotations))
+    node_grad <- ldgm_gaussian_likelihood_gradient(
+      block_results[[i]]$p_z,
+      block_results[[i]]$model_precision,
+      del_M_del_a = NULL,
+      diagonal_method = diagonal_method,
+      n_samples = n_samples,
+      seed = if (is.null(seed)) NULL else seed + i - 1L
+    )
+    node_hessian <- ldgm_gaussian_likelihood_hessian(
+      block_results[[i]]$p_z,
+      block_results[[i]]$model_precision,
+      del_M_del_a = NULL,
+      diagonal_method = diagonal_method,
+      n_samples = n_samples,
+      seed = if (is.null(seed)) NULL else seed + i - 1L
+    )
+    eta <- as.numeric(annotations %*% params_matrix)
+    sigmoid <- sigmoid_stable(eta)
+    del_h2_del_x <- sigmoid / denominator
+    del2_h2_del_x2 <- sigmoid * (1 - sigmoid) / denominator
+    indices <- reml_variant_indices(ldgms[[i]], length(node_grad), nrow(annotations))
+    hessians[[i]] <- as.numeric(node_hessian[indices] * del_h2_del_x^2 + node_grad[indices] * del2_h2_del_x2)
+  }
+  unlist(hessians, use.names = FALSE)
 }
 
 reml_variant_indices <- function(precision, n_nodes, n_variants) {

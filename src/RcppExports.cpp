@@ -168,14 +168,15 @@ BEGIN_RCPP
 END_RCPP
 }
 // write_graphld_score_hdf5_cpp
-Rcpp::List write_graphld_score_hdf5_cpp(const std::string& filename, Rcpp::DataFrame variant_data, Rcpp::NumericVector gradient, const std::string& trait_name, Rcpp::IntegerVector jackknife_blocks, bool overwrite, const std::string& source, const std::string& compression, int chunk_size, SEXP parameters, SEXP jackknife_parameters);
-RcppExport SEXP _RcppLDGM_write_graphld_score_hdf5_cpp(SEXP filenameSEXP, SEXP variant_dataSEXP, SEXP gradientSEXP, SEXP trait_nameSEXP, SEXP jackknife_blocksSEXP, SEXP overwriteSEXP, SEXP sourceSEXP, SEXP compressionSEXP, SEXP chunk_sizeSEXP, SEXP parametersSEXP, SEXP jackknife_parametersSEXP) {
+Rcpp::List write_graphld_score_hdf5_cpp(const std::string& filename, Rcpp::DataFrame variant_data, Rcpp::NumericVector gradient, SEXP hessian, const std::string& trait_name, Rcpp::IntegerVector jackknife_blocks, bool overwrite, const std::string& source, const std::string& compression, int chunk_size, SEXP parameters, SEXP jackknife_parameters);
+RcppExport SEXP _RcppLDGM_write_graphld_score_hdf5_cpp(SEXP filenameSEXP, SEXP variant_dataSEXP, SEXP gradientSEXP, SEXP hessianSEXP, SEXP trait_nameSEXP, SEXP jackknife_blocksSEXP, SEXP overwriteSEXP, SEXP sourceSEXP, SEXP compressionSEXP, SEXP chunk_sizeSEXP, SEXP parametersSEXP, SEXP jackknife_parametersSEXP) {
 BEGIN_RCPP
     Rcpp::RObject rcpp_result_gen;
     Rcpp::RNGScope rcpp_rngScope_gen;
     Rcpp::traits::input_parameter< const std::string& >::type filename(filenameSEXP);
     Rcpp::traits::input_parameter< Rcpp::DataFrame >::type variant_data(variant_dataSEXP);
     Rcpp::traits::input_parameter< Rcpp::NumericVector >::type gradient(gradientSEXP);
+    Rcpp::traits::input_parameter< SEXP >::type hessian(hessianSEXP);
     Rcpp::traits::input_parameter< const std::string& >::type trait_name(trait_nameSEXP);
     Rcpp::traits::input_parameter< Rcpp::IntegerVector >::type jackknife_blocks(jackknife_blocksSEXP);
     Rcpp::traits::input_parameter< bool >::type overwrite(overwriteSEXP);
@@ -184,7 +185,7 @@ BEGIN_RCPP
     Rcpp::traits::input_parameter< int >::type chunk_size(chunk_sizeSEXP);
     Rcpp::traits::input_parameter< SEXP >::type parameters(parametersSEXP);
     Rcpp::traits::input_parameter< SEXP >::type jackknife_parameters(jackknife_parametersSEXP);
-    rcpp_result_gen = Rcpp::wrap(write_graphld_score_hdf5_cpp(filename, variant_data, gradient, trait_name, jackknife_blocks, overwrite, source, compression, chunk_size, parameters, jackknife_parameters));
+    rcpp_result_gen = Rcpp::wrap(write_graphld_score_hdf5_cpp(filename, variant_data, gradient, hessian, trait_name, jackknife_blocks, overwrite, source, compression, chunk_size, parameters, jackknife_parameters));
     return rcpp_result_gen;
 END_RCPP
 }
@@ -255,7 +256,7 @@ static const R_CallMethodDef CallEntries[] = {
     {"_RcppLDGM_remove_node_cpp", (DL_FUNC) &_RcppLDGM_remove_node_cpp, 5},
     {"_RcppLDGM_reduce_graph_cpp", (DL_FUNC) &_RcppLDGM_reduce_graph_cpp, 6},
     {"_RcppLDGM_hdf5_filter_info_cpp", (DL_FUNC) &_RcppLDGM_hdf5_filter_info_cpp, 0},
-    {"_RcppLDGM_write_graphld_score_hdf5_cpp", (DL_FUNC) &_RcppLDGM_write_graphld_score_hdf5_cpp, 11},
+    {"_RcppLDGM_write_graphld_score_hdf5_cpp", (DL_FUNC) &_RcppLDGM_write_graphld_score_hdf5_cpp, 12},
     {"_RcppLDGM_read_graphld_score_hdf5_cpp", (DL_FUNC) &_RcppLDGM_read_graphld_score_hdf5_cpp, 2},
     {"_RcppLDGM_openmp_info_cpp", (DL_FUNC) &_RcppLDGM_openmp_info_cpp, 0},
     {"_RcppLDGM_set_openmp_threads_cpp", (DL_FUNC) &_RcppLDGM_set_openmp_threads_cpp, 1},

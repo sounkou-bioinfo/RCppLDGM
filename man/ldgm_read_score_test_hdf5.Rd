@@ -14,7 +14,7 @@ available trait names are returned.}
 }
 \value{
 A list with \code{variant_data}, \code{trait_names}, and, when requested,
-\code{gradient}.
+\code{gradient}, optional \code{hessian}, and optional fitted parameter datasets.
 }
 \description{
 Lightweight native reader for files produced by \code{\link[=ldgm_write_score_test_hdf5]{ldgm_write_score_test_hdf5()}}.

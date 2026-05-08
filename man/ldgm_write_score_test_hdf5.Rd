@@ -10,6 +10,7 @@ ldgm_write_score_test_hdf5(
   gradient,
   trait_name = "trait",
   jackknife_blocks = NULL,
+  hessian = NULL,
   parameters = NULL,
   jackknife_parameters = NULL,
   overwrite = FALSE,
@@ -32,6 +33,9 @@ trait unless \code{overwrite = TRUE}.}
 \item{jackknife_blocks}{Optional integer jackknife block assignment vector. If
 omitted, \code{variant_data$jackknife_blocks} is used when present, otherwise all
 variants are assigned to block zero.}
+
+\item{hessian}{Optional numeric variant Hessian/correction vector, one value
+per row of \code{variant_data}, stored as \verb{/traits/<trait_name>/hessian}.}
 
 \item{parameters}{Optional numeric fitted parameter vector stored under the
 trait's \code{parameters} group for GraphLD score-test I/O compatibility.}
@@ -56,6 +60,7 @@ Invisibly, a list describing the written file and trait.
 Writes the HDF5 layout used by GraphLD's graphREML score-test path: root
 metadata attributes, \verb{/row_data/\{CHR,POS,RSID,jackknife_blocks\}}, \verb{/groups},
 \verb{/traits/<trait_name>/gradient}, and optionally
+\verb{/traits/<trait_name>/hessian} plus
 \verb{/traits/<trait_name>/parameters/\{parameters,jackknife_parameters\}}. Native
 HDF5 support is linked through the CRAN \code{hdf5lib} package, including its
 bundled LZF/gzip filters.

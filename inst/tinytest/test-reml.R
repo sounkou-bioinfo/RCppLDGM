@@ -138,6 +138,7 @@ fit_h5 <- ldgm_run_reml(
   score_test_variant_data = reml_variant_data,
   score_test_jackknife_blocks = c(0L, 0L, 1L),
   score_test_diagonal_method = "exact",
+  score_test_write_hessian = TRUE,
   score_test_overwrite = TRUE
 )
 expect_true(file.exists(reml_h5_file))
@@ -146,6 +147,8 @@ reml_h5 <- ldgm_read_score_test_hdf5(reml_h5_file, "h5_trait")
 expect_equal(reml_h5$variant_data$RSID, reml_variant_data$RSID)
 expect_equal(length(reml_h5$gradient), nrow(annotations_reml))
 expect_true(all(is.finite(reml_h5$gradient)))
+expect_equal(length(reml_h5$hessian), nrow(annotations_reml))
+expect_true(all(is.finite(reml_h5$hessian)))
 expect_equal(reml_h5$parameters, unname(fit_h5$parameters), tolerance = 1e-12)
 expect_equal(reml_h5$jackknife_parameters, unname(fit_h5$jackknife_params), tolerance = 1e-12)
 expect_equal(as.numeric(crossprod(annotations_reml, reml_h5$gradient)), rep(0, ncol(annotations_reml)), tolerance = 1e-10)

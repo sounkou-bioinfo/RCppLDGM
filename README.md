@@ -185,6 +185,7 @@ ldgm_write_score_test_hdf5(
   h5,
   variant_data = variant_data,
   gradient = c(0.1, -0.2, 0.3),
+  hessian = c(-0.01, -0.02, -0.03),
   trait_name = "toy",
   jackknife_blocks = c(0L, 1L, 1L),
   parameters = fit$parameters,
@@ -207,6 +208,9 @@ ldgm_read_score_test_hdf5(h5, "toy")
 #>
 #> $gradient
 #> [1]  0.1 -0.2  0.3
+#>
+#> $hessian
+#> [1] -0.01 -0.02 -0.03
 #>
 #> $parameters
 #> [1]  4482.845 -1575.055

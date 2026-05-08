@@ -503,6 +503,7 @@ Rcpp::List hdf5_filter_info_cpp() {
 Rcpp::List write_graphld_score_hdf5_cpp(const std::string& filename,
                                         Rcpp::DataFrame variant_data,
                                         Rcpp::NumericVector gradient,
+                                        SEXP hessian,
                                         const std::string& trait_name,
                                         Rcpp::IntegerVector jackknife_blocks,
                                         bool overwrite,
@@ -545,6 +546,15 @@ Rcpp::List write_graphld_score_hdf5_cpp(const std::string& filename,
   H5Handle trait_group = create_group(traits.get(), trait_name);
   write_dataset_double(trait_group.get(), "gradient", gradient, compression, chunk_size);
 
+  bool wrote_hessian = !Rf_isNull(hessian);
+  if (wrote_hessian) {
+    Rcpp::NumericVector hessian_values(hessian);
+    if (hessian_values.size() != gradient.size()) {
+      Rcpp::stop("`hessian` length must equal `gradient` length");
+    }
+    write_dataset_double(trait_group.get(), "hessian", hessian_values, compression, chunk_size);
+  }
+
   bool wrote_parameters = !Rf_isNull(parameters);
   if (wrote_parameters) {
     if (Rf_isNull(jackknife_parameters)) {
@@ -566,6 +576,7 @@ Rcpp::List write_graphld_score_hdf5_cpp(const std::string& filename,
                             Rcpp::Named("trait_name") = trait_name,
                             Rcpp::Named("n_variants") = gradient.size(),
                             Rcpp::Named("compression") = compression,
+                            Rcpp::Named("hessian") = wrote_hessian,
                             Rcpp::Named("parameters") = wrote_parameters);
 }
 
@@ -595,6 +606,9 @@ Rcpp::List read_graphld_score_hdf5_cpp(const std::string& filename, const std::s
     H5Handle trait_group = open_group(traits.get(), trait_name);
     out["trait_name"] = trait_name;
     out["gradient"] = read_dataset_double(trait_group.get(), "gradient");
+    if (link_exists(trait_group.get(), "hessian")) {
+      out["hessian"] = read_dataset_double(trait_group.get(), "hessian");
+    }
     if (link_exists(trait_group.get(), "parameters")) {
       H5Handle parameter_group = open_group(trait_group.get(), "parameters");
       out["parameters"] = read_dataset_double(parameter_group.get(), "parameters");
