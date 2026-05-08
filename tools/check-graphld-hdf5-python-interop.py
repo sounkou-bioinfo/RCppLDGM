@@ -29,8 +29,12 @@ def _require_or_skip(message: str) -> None:
     raise SystemExit(0)
 
 
+def _score_test_module_dir(repo_root: Path) -> Path:
+    return repo_root / ".sync" / "graphld" / "src" / "score_test"
+
+
 def _load_score_test_io(repo_root: Path):
-    module_path = repo_root / ".sync" / "graphld" / "src" / "score_test" / "score_test_io.py"
+    module_path = _score_test_module_dir(repo_root) / "score_test_io.py"
     if not module_path.exists():
         _require_or_skip(f"upstream GraphLD score_test_io.py not found at {module_path}")
 
@@ -40,6 +44,18 @@ def _load_score_test_io(repo_root: Path):
     module = importlib.util.module_from_spec(spec)
     spec.loader.exec_module(module)
     return module
+
+
+def _load_score_test(repo_root: Path):
+    module_dir = _score_test_module_dir(repo_root)
+    if not (module_dir / "score_test.py").exists():
+        _require_or_skip(f"upstream GraphLD score_test.py not found at {module_dir}")
+    sys.path.insert(0, str(module_dir))
+    try:
+        import score_test  # type: ignore
+    except Exception as exc:  # pragma: no cover - depends on optional Python env
+        _require_or_skip(f"could not import upstream GraphLD score_test.py: {exc}")
+    return score_test
 
 
 def _to_list(series_or_array):
@@ -54,8 +70,12 @@ def _to_list(series_or_array):
 
 
 def main(argv: list[str]) -> int:
-    if len(argv) != 3:
-        print("usage: check-graphld-hdf5-python-interop.py <file.h5> <trait>", file=sys.stderr)
+    if len(argv) not in {3, 5}:
+        print(
+            "usage: check-graphld-hdf5-python-interop.py <file.h5> <trait> "
+            "[expected-score.tsv expected-jackknife.tsv]",
+            file=sys.stderr,
+        )
         return 2
 
     try:
@@ -64,7 +84,7 @@ def main(argv: list[str]) -> int:
         _require_or_skip(f"Python h5py is unavailable: {exc}")
 
     try:
-        import polars  # noqa: F401
+        import polars as pl
     except Exception as exc:  # pragma: no cover - depends on local Python environment
         _require_or_skip(f"Python polars is unavailable: {exc}")
 
@@ -108,6 +128,32 @@ def main(argv: list[str]) -> int:
         rtol=0,
         atol=1e-12,
     )
+
+    if len(argv) == 5:
+        score_test = _load_score_test(repo_root)
+        expected_score = pl.read_csv(argv[3], separator="\t")
+        expected_jackknife = pl.read_csv(argv[4], separator="\t")
+        annotations = pl.DataFrame(
+            {
+                "RSID": ["rs1", "rs2", "rs3"],
+                "annot_a": [1.0, 0.0, 1.0],
+                "annot_b": [0.0, 1.0, 1.0],
+            }
+        )
+        trait_object = score_test_io.load_trait_data(str(hdf5_path), trait_name, row_data)
+        annot_object = score_test.VariantAnnot(annotations, ["annot_a", "annot_b"])
+        point_estimates, jackknife_estimates = score_test.run_score_test(trait_object, annot_object)
+        np.testing.assert_allclose(
+            point_estimates.ravel(), expected_score["score"].to_numpy(), rtol=0, atol=1e-12
+        )
+        np.testing.assert_allclose(
+            jackknife_estimates,
+            expected_jackknife.select(["annot_a", "annot_b"]).to_numpy(),
+            rtol=0,
+            atol=1e-12,
+        )
+        z_scores = point_estimates.ravel() / np.std(jackknife_estimates, axis=0) / np.sqrt(jackknife_estimates.shape[0] - 1)
+        np.testing.assert_allclose(z_scores, expected_score["z"].to_numpy(), rtol=0, atol=1e-12)
 
     print("GraphLD Python score_test_io HDF5 interop check passed.")
     return 0

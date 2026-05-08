@@ -47,19 +47,24 @@ ldgm_score_test <- function(gradient,
     stop("`annotation_names` must contain one non-empty name per annotation column", call. = FALSE)
   }
 
-  block_ids <- unique(jackknife_blocks)
-  block_scores <- matrix(0, nrow = length(block_ids), ncol = p)
-  for (i in seq_along(block_ids)) {
-    rows <- jackknife_blocks == block_ids[[i]]
-    block_scores[i, ] <- colSums(annotations[rows, , drop = FALSE] * gradient[rows])
+  boundaries <- score_test_block_boundaries(jackknife_blocks)
+  n_blocks <- length(boundaries) - 1L
+  block_scores <- matrix(0, nrow = n_blocks, ncol = p)
+  for (i in seq_len(n_blocks)) {
+    start <- boundaries[[i]] + 1L
+    end <- boundaries[[i + 1L]]
+    if (end >= start) {
+      rows <- seq.int(start, end)
+      block_scores[i, ] <- colSums(annotations[rows, , drop = FALSE] * gradient[rows])
+    }
   }
   colnames(block_scores) <- annotation_names
-  rownames(block_scores) <- as.character(block_ids)
+  rownames(block_scores) <- as.character(seq_len(n_blocks) - 1L)
 
   score <- colSums(block_scores)
-  jackknife_scores <- matrix(rep(score, each = length(block_ids)), nrow = length(block_ids)) - block_scores
+  jackknife_scores <- matrix(rep(score, each = n_blocks), nrow = n_blocks) - block_scores
   colnames(jackknife_scores) <- annotation_names
-  rownames(jackknife_scores) <- as.character(block_ids)
+  rownames(jackknife_scores) <- as.character(seq_len(n_blocks) - 1L)
 
   standard_error <- score_test_jackknife_se(jackknife_scores)
   z <- score / standard_error
@@ -187,6 +192,11 @@ align_score_test_annotations <- function(variant_data, annotations, by, annotati
     variant_data = variant_data[keep, , drop = FALSE],
     annotations = score_test_annotation_matrix(annotations[matched[keep], , drop = FALSE], annotation_cols)
   )
+}
+
+score_test_block_boundaries <- function(blocks) {
+  change <- which(diff(blocks) != 0L) - 1L
+  c(0L, change, length(blocks))
 }
 
 score_test_jackknife_se <- function(jackknife_scores) {

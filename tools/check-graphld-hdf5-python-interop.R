@@ -38,6 +38,24 @@ ldgm_write_score_test_hdf5(
 )
 
 native <- ldgm_read_score_test_hdf5(h5, trait_name = trait_name)
+score_annotations <- data.frame(
+  RSID = c("rs1", "rs2", "rs3"),
+  annot_a = c(1, 0, 1),
+  annot_b = c(0, 1, 1),
+  stringsAsFactors = FALSE
+)
+score_result <- ldgm_score_test_hdf5(h5, trait_name, score_annotations)
+score_result_path <- tempfile("rcppldgm-score-test-result-", fileext = ".tsv")
+score_jackknife_path <- tempfile("rcppldgm-score-test-jackknife-", fileext = ".tsv")
+write.table(score_result$results, score_result_path, sep = "\t", row.names = FALSE, quote = FALSE)
+write.table(
+  data.frame(block = rownames(score_result$jackknife_scores), score_result$jackknife_scores, check.names = FALSE),
+  score_jackknife_path,
+  sep = "\t",
+  row.names = FALSE,
+  quote = FALSE
+)
+
 stopifnot(
   identical(as.integer(native$variant_data$CHR), variant_data$CHR),
   identical(as.integer(native$variant_data$POS), variant_data$POS),
@@ -50,7 +68,7 @@ stopifnot(
 )
 
 script <- file.path("tools", "check-graphld-hdf5-python-interop.py")
-status <- system2(python, c(script, h5, trait_name))
+status <- system2(python, c(script, h5, trait_name, score_result_path, score_jackknife_path))
 if (!identical(status, 0L)) {
   stop("GraphLD Python HDF5 interop check failed with status ", status, call. = FALSE)
 }

@@ -37,7 +37,7 @@ jobs:
           needs: check
 
       - name: Install Python HDF5 interop dependencies
-        run: python -m pip install --upgrade numpy polars h5py
+        run: python -m pip install --upgrade numpy polars h5py click scipy
 
       - name: Fetch pinned upstream GraphLD I/O module
         run: |

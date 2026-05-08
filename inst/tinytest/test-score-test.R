@@ -6,12 +6,12 @@ annotations_score <- cbind(
 blocks_score <- c(0L, 0L, 1L, 1L)
 
 score_result <- ldgm_score_test(gradient_score, annotations_score, blocks_score)
-expect_equal(score_result$block_scores, matrix(c(1, 2, 3, 4), nrow = 2, byrow = TRUE, dimnames = list(c("0", "1"), colnames(annotations_score))))
-expect_equal(score_result$jackknife_scores, matrix(c(3, 4, 1, 2), nrow = 2, byrow = TRUE, dimnames = list(c("0", "1"), colnames(annotations_score))))
+expect_equal(score_result$block_scores, matrix(c(1, 0, 3, 6), nrow = 2, byrow = TRUE, dimnames = list(c("0", "1"), colnames(annotations_score))))
+expect_equal(score_result$jackknife_scores, matrix(c(3, 6, 1, 0), nrow = 2, byrow = TRUE, dimnames = list(c("0", "1"), colnames(annotations_score))))
 expect_equal(score_result$results$annotation, colnames(annotations_score))
 expect_equal(score_result$results$score, c(4, 6))
-expect_equal(score_result$results$standard_error, c(1, 1), tolerance = 1e-12)
-expect_equal(score_result$results$z, c(4, 6), tolerance = 1e-12)
+expect_equal(score_result$results$standard_error, c(1, 3), tolerance = 1e-12)
+expect_equal(score_result$results$z, c(4, 2), tolerance = 1e-12)
 expect_true(all(score_result$results$log10pval < 0))
 
 one_block <- ldgm_score_test(gradient_score, annotations_score)

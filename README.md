@@ -225,7 +225,7 @@ score_annotations <- data.frame(
 )
 ldgm_score_test_hdf5(h5, "toy", score_annotations)$results
 #>   annotation score standard_error z log10pval
-#> 1   enhancer   0.4            0.1 4 -4.198305
+#> 1   enhancer   0.4            0.2 2 -1.341986
 ```
 
 ## Real conformance checks

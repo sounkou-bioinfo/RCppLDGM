@@ -43,8 +43,9 @@ make upstream-graphld-hdf5-interop
 ```
 
 This writes a tiny RcppLDGM HDF5 file, verifies it with the native R reader, then
-loads `/row_data`, trait names, and `/traits/<trait>/{gradient,hessian}` plus
-parameter datasets through the pinned upstream GraphLD Python I/O code. If
+loads `/row_data`, trait names, `/traits/<trait>/{gradient,hessian}`, parameter
+datasets, and a tiny variant-annotation score-test statistic through the pinned
+upstream GraphLD Python I/O code. If
 `h5py` is unavailable the check skips by default; set
 `RCPP_LDGM_REQUIRE_H5PY=1` to make that a hard failure. The repository also runs
 this strict `h5py` interop path in GitHub Actions via
