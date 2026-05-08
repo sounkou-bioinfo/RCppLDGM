@@ -1,0 +1,52 @@
+# Construct a Brick-Haplotype Graph from Canonical Tables
+
+Native table-oriented port of upstream `ldgm.brick_haplo_graph()`. This
+helper accepts canonical tables extracted from a bricked tree sequence:
+one row per brick with child-node frequency information, and one row per
+tree-diff event with active parent/child/sibling brick ids. A future
+tree-sequence adapter can feed these tables after `brick_ts()` is
+ported.
+
+## Usage
+
+``` r
+ldgm_brick_haplo_graph(
+  bricks,
+  events,
+  bricks_to_muts,
+  edge_weight_threshold = NULL,
+  make_sibs = FALSE
+)
+```
+
+## Arguments
+
+- bricks:
+
+  Data frame with columns `brick`, `child`, and `frequency`.
+
+- events:
+
+  Data frame with columns `focal_brick`, `parent_brick`, `child_bricks`,
+  and `sibling_bricks`. The brick-list columns may be list columns of
+  integer vectors or semicolon-separated strings.
+
+- bricks_to_muts:
+
+  Named list or data frame mapping zero-based brick ids to mutation ids.
+  Bricks present here are treated as labeled bricks.
+
+- edge_weight_threshold:
+
+  Optional threshold; when supplied, generated brick-haplotype edges
+  with weight greater than or equal to this value are omitted, matching
+  upstream's strict threshold check.
+
+- make_sibs:
+
+  Logical; whether to apply upstream rule two sibling edges and u-turn
+  edges.
+
+## Value
+
+A canonical directed brick-haplotype edge list.
