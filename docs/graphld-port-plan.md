@@ -42,9 +42,10 @@ kernels rather than the whole CLI:
 | GraphLD `summary_stats: pl.DataFrame` / `annotation_data: pl.DataFrame` graphREML inputs | `LdgmSummaryStats`, `LdgmAnnotationData`, `ldgm_summary_stats()`, `ldgm_annotation_data()` | implemented as S7/s7contract structural interfaces with data-frame-backed default implementations |
 | GraphLD graphREML core/scheduler | `ldgm_reml_link()`, `ldgm_reml_surrogate_markers()`, `ldgm_reml_block()`, `ldgm_run_reml()` | initial serial core, S7/s7contract annotation inputs, GraphLD-style pseudo-jackknife summaries, serial surrogate-marker handling, GraphLD-style surrogate-map HDF5 input, and max-chi-square block exclusion implemented; full CLI parity, upstream-scale jackknife conformance, and multiprocessing remain planned |
 | GraphLD graphREML score-test HDF5 output | `ldgm_write_score_test_hdf5()`, optional `ldgm_run_reml(score_test_hdf5=...)` | native `hdf5lib` writer implemented for row data, `/traits/<trait>/{gradient,hessian}`, and `/traits/<trait>/parameters/{parameters,jackknife_parameters}`; broader score-test CLI schema remains planned |
-| GraphLD `score_test.py` variant-annotation statistic | `ldgm_score_test()`, `ldgm_score_test_hdf5()`, `ldgm_score_test_meta()`, `ldgm_score_test_hdf5_meta()` | R-native score/jackknife/Z statistic and caller-specified multi-trait meta-analysis implemented against GraphLD's gradient + variant-annotation path; gene-set conversion remains planned |
+| GraphLD `score_test.py` variant-annotation statistic | `ldgm_score_test()`, `ldgm_score_test_hdf5()`, `ldgm_score_test_meta()`, `ldgm_score_test_hdf5_meta()` | R-native score/jackknife/Z statistic and caller-specified multi-trait meta-analysis implemented against GraphLD's gradient + variant-annotation path |
+| GraphLD score-test gene conversion | `ldgm_read_gmt()`, `ldgm_read_gene_table()`, `ldgm_gene_variant_matrix()`, `ldgm_gene_set_annotations()`, `ldgm_gene_set_variant_annotations()`, `ldgm_write_gene_score_hdf5()`, `ldgm_convert_variant_to_gene_scores()` | GraphLD-style GMT/gene-table readers, nearest-gene projection, gene-set annotations, gene-level score HDF5 writer, and variant-to-gene score conversion implemented |
 | GraphLD LD clumping | `ldgm_run_clump()` | implemented as serial R scheduler; multiprocessing remains planned |
-| parquet / VCF / LDSC I/O | R-native table readers | planned |
+| parquet / VCF / LDSC / BED I/O | `ldgm_parquet_traits()`, `ldgm_read_parquet_sumstats()`, `ldgm_read_parquet_sumstats_multi()`, `ldgm_read_gwas_vcf()`, `ldgm_validate_gwas_vcf_format()`, `ldgm_read_ldsc_annot()`, `ldgm_load_annotations()`, `ldgm_read_bed()`, `ldgm_annotate_ranges()` | implemented with tinytest coverage, GraphLD data smoke, and pinned Python value conformance on upstream test files |
 
 ## Matrix/CHOLMOD, native Rcpp loops, and SuiteSparse
 
@@ -100,6 +101,8 @@ RCPP_LDGM_GRAPHLD_DATA=.sync/graphld/data/test \
 RCPP_LDGM_GRAPHLD_POP=EUR \
 RCPP_LDGM_GRAPHLD_MAX_BLOCKS=2 \
 Rscript tools/check-upstream-graphld-data.R
+
+Rscript tools/check-upstream-graphld-readers.R
 ```
 
 See `docs/upstream-data-sources.md` for where real upstream data lives and which
@@ -123,13 +126,16 @@ Interpretation rules:
 
 ## Next implementation phases
 
-1. Add GraphLD conformance fixtures from `.sync/graphld/tests` for the implemented
-   edgelist/snplist readers, selected precision views, inverse-diagonal
-   estimators, and merge behavior.
+1. Add GraphLD conformance fixtures from `.sync/graphld/tests` for selected
+   precision views, inverse-diagonal estimators, merge behavior, BLUP, clumping,
+   graphREML summaries, and score-test meta-analysis outputs.
 2. Add real GraphLD BLUP/clumping and graphREML conformance checks against
    upstream outputs, then introduce optional R parallelism or OpenMP block
    scheduling where useful.
 3. Add larger stochastic inverse-diagonal conformance/performance comparisons
    against Python GraphLD/SuiteSparse on upstream LDGM blocks.
-4. Extend graphREML toward full CLI parity: richer HDF5 score-test outputs,
-   multiprocessing, and upstream-scale jackknife conformance.
+4. Extend graphREML toward full CLI parity: multiprocessing/block-manager
+   behavior, upstream-scale jackknife conformance, and remaining score-test CLI
+   schema details.
+5. Define simulation and MATLAB-only workflow scope explicitly: port only when an
+   R interface, upstream fixture, and conformance gate are named.
