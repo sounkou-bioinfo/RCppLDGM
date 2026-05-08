@@ -28,6 +28,8 @@ kernels rather than the whole CLI:
 | `PrecisionOperator.logdet()` | `ldgm_precision_logdet()` | implemented for full and selected views |
 | `PrecisionOperator.inverse_diagonal()` | `ldgm_inverse_diagonal()` | implemented for exact, Hutchinson, xdiag, and randomized Nyström (`xnys`) methods |
 | `PrecisionOperator.update_matrix()` | `ldgm_precision_update()` | implemented as copy-return diagonal update for sparse matrices and selected precision views |
+| `PrecisionOperator.variant_solve()` | `ldgm_variant_solve()` | implemented for duplicate `variant_info$index` rows by summing RHS values, solving once, and broadcasting back to variants |
+| chained `PrecisionOperator.__getitem__` | `ldgm_precision_select()` on selected views | implemented with relative-to-active indexing mapped back to full precision rows |
 | `merge_alleles()` | `ldgm_merge_alleles()` | implemented |
 | `merge_snplists()` | `ldgm_merge_snplists()` | implemented for data frames |
 | `gaussian_likelihood()` | `ldgm_gaussian_likelihood()` | implemented for full and selected views |

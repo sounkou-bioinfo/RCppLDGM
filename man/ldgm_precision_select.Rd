@@ -10,7 +10,10 @@ ldgm_precision_select(x, indices)
 \item{x}{An \code{ldgm_precision} object.}
 
 \item{indices}{Zero-based integer row/column indices, or a logical mask with
-length equal to the full precision matrix dimension.}
+length equal to the active precision dimension. When \code{x} is already a
+selected view, \code{indices} are interpreted relative to that active view and
+then mapped back to the underlying full precision matrix, matching GraphLD's
+chained \code{PrecisionOperator} indexing semantics.}
 }
 \value{
 An \code{ldgm_precision} object with a selected view.

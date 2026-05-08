@@ -58,6 +58,32 @@ expect_equal(
   as.numeric(ldgm_precision_matrix(ldgm4_updated) %*% c(1, 1)),
   tolerance = 1e-10
 )
+ldgm4_sub1 <- ldgm_precision_select(ldgm4, c(1L, 2L))
+ldgm4_sub2 <- ldgm_precision_select(ldgm4_sub1, 1L)
+expect_equal(ldgm4_sub2$which_indices, 2L)
+ldgm4_sub3 <- ldgm_precision_select(ldgm4, c(0L, 2L, 3L))
+ldgm4_sub4 <- ldgm_precision_select(ldgm4_sub3, c(1L, 2L))
+expect_equal(ldgm4_sub4$which_indices, c(2L, 3L))
+ldgm4_sub5 <- ldgm_precision_select(ldgm4_sub3, c(FALSE, TRUE, TRUE))
+expect_equal(ldgm4_sub5$which_indices, c(2L, 3L))
+expect_error(ldgm_precision_select(ldgm4_sub3, c(TRUE, FALSE)), "length")
+
+P_dup <- Matrix::Matrix(matrix(c(2, -1, -1, 2), nrow = 2), sparse = TRUE)
+ldgm_dup <- ldgm_precision(
+  P_dup,
+  data.frame(index = c(0L, 0L, 1L), SNP = c("rs1", "rs2", "rs3"))
+)
+variant_rhs <- c(1, 2, 3)
+expected_variant <- ldgm_precision_solve(ldgm_dup, c(3, 3))[c(1L, 1L, 2L)]
+expect_equal(ldgm_variant_solve(ldgm_dup, variant_rhs), expected_variant, tolerance = 1e-10)
+variant_rhs_matrix <- cbind(variant_rhs, 2 * variant_rhs)
+expect_equal(
+  unname(ldgm_variant_solve(ldgm_dup, variant_rhs_matrix)),
+  unname(cbind(expected_variant, 2 * expected_variant)),
+  tolerance = 1e-10
+)
+expect_error(ldgm_variant_solve(ldgm_dup, c(1, 2)), "one row")
+expect_error(ldgm_variant_solve(ldgm_precision(P_dup, data.frame(index = c(0L, 2L))), c(1, 2)), "within")
 
 expect_equal(
   ldgm_gaussian_likelihood(b, P),

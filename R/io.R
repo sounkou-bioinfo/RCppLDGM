@@ -169,7 +169,10 @@ ldgm_precision_matrix <- function(x) {
 #'
 #' @param x An `ldgm_precision` object.
 #' @param indices Zero-based integer row/column indices, or a logical mask with
-#'   length equal to the full precision matrix dimension.
+#'   length equal to the active precision dimension. When `x` is already a
+#'   selected view, `indices` are interpreted relative to that active view and
+#'   then mapped back to the underlying full precision matrix, matching GraphLD's
+#'   chained `PrecisionOperator` indexing semantics.
 #'
 #' @return An `ldgm_precision` object with a selected view.
 #' @export
@@ -177,7 +180,13 @@ ldgm_precision_select <- function(x, indices) {
   if (!inherits(x, "ldgm_precision")) {
     stop("`x` must be an `ldgm_precision` object", call. = FALSE)
   }
-  which_indices <- normalize_zero_based_indices(indices, nrow(x$precision))
+  if (is.null(x$which_indices)) {
+    which_indices <- normalize_zero_based_indices(indices, nrow(x$precision))
+  } else {
+    active_indices <- x$which_indices
+    relative_indices <- normalize_zero_based_indices(indices, length(active_indices))
+    which_indices <- active_indices[relative_indices + 1L]
+  }
   ldgm_precision(x$precision, x$variant_info, which_indices = which_indices)
 }
 

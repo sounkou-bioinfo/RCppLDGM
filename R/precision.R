@@ -125,6 +125,54 @@ ldgm_precision_solve <- function(precision, b) {
   drop_if_vector(out, vector_input)
 }
 
+#' Solve Variant-Level Right-Hand Sides with Duplicate Precision Indices
+#'
+#' GraphLD SNP lists can contain multiple variants with the same LDGM precision
+#' index, representing variants in perfect LD. This helper mirrors GraphLD's
+#' `PrecisionOperator.variant_solve()`: variant-level right-hand-side values are
+#' first summed by shared `variant_info$index`, the precision system is solved on
+#' the unique-index scale, and each solved index value is copied back to all
+#' variants that share it.
+#'
+#' @param precision An `ldgm_precision` object whose `variant_info` contains an
+#'   integer zero-based `index` column.
+#' @param b Numeric vector or matrix with one row/value per variant metadata row.
+#'
+#' @return Numeric vector or matrix with one row/value per variant metadata row.
+#' @export
+ldgm_variant_solve <- function(precision, b) {
+  if (!inherits(precision, "ldgm_precision")) {
+    stop("`precision` must be an `ldgm_precision` object", call. = FALSE)
+  }
+  variant_info <- precision$variant_info
+  if (!"index" %in% names(variant_info)) {
+    stop("`precision$variant_info` must contain an `index` column", call. = FALSE)
+  }
+  indices <- variant_info$index
+  if (anyNA(indices) || any(indices != as.integer(indices))) {
+    stop("variant `index` values must be non-missing integers", call. = FALSE)
+  }
+  indices <- as.integer(indices)
+  n_active <- precision_nrow(precision)
+  if (any(indices < 0L) || any(indices >= n_active)) {
+    stop("variant `index` values must be zero-based and within the active precision dimension", call. = FALSE)
+  }
+
+  vector_input <- is.null(dim(b))
+  b_matrix <- as_numeric_matrix(b)
+  if (nrow(b_matrix) != length(indices)) {
+    stop("`b` must have one row/value per variant metadata row", call. = FALSE)
+  }
+
+  rhs <- matrix(0, nrow = n_active, ncol = ncol(b_matrix))
+  index1 <- indices + 1L
+  summed_rhs <- rowsum(b_matrix, group = index1, reorder = FALSE)
+  rhs[as.integer(row.names(summed_rhs)), ] <- summed_rhs
+  solved <- as_numeric_matrix(ldgm_precision_solve(precision, rhs))
+  out <- solved[index1, , drop = FALSE]
+  drop_if_vector(out, vector_input)
+}
+
 #' Update an LDGM Precision Matrix Diagonal
 #'
 #' Returns a copy of `precision` with `update` added to the relevant diagonal
