@@ -94,10 +94,10 @@ ldgm_reml_block <- function(precision,
 #' and uses step-halving to require non-decreasing likelihood.
 #'
 #' This function is intended as the first R-native workflow surface and
-#' conformance target for graphREML kernels. It includes an optional initial
-#' GraphLD-style score-test HDF5 writer, but does not yet implement GraphLD's
-#' multiprocessing manager, surrogate-marker handling, or jackknife standard
-#' errors.
+#' conformance target for graphREML kernels. It includes initial GraphLD-style
+#' pseudo-jackknife standard errors and optional score-test HDF5 output, but does
+#' not yet implement GraphLD's multiprocessing manager or surrogate-marker
+#' handling.
 #'
 #' @param ldgms An `ldgm_precision`/sparse precision block or a list of blocks.
 #' @param z Numeric Z-score vector or list of vectors, one per block.
@@ -112,6 +112,8 @@ ldgm_reml_block <- function(precision,
 #'   threshold.
 #' @param intercept,link_fn_denominator,diagonal_method,n_samples,seed Passed to
 #'   `ldgm_reml_block()`.
+#' @param num_jackknife_blocks Maximum number of grouped block jackknife
+#'   replicates used for parameter, heritability, and enrichment standard errors.
 #' @param max_step_halving Maximum number of step halvings for a proposed Newton
 #'   step.
 #' @param score_test_hdf5 Optional HDF5 path. When supplied, final per-variant
@@ -124,12 +126,15 @@ ldgm_reml_block <- function(precision,
 #'   row data.
 #' @param score_test_diagonal_method,score_test_n_samples Inverse-diagonal
 #'   estimator and probe count used for final per-variant score gradients.
+#' @param score_test_project_annotations If `TRUE`, project annotation columns
+#'   out of final per-variant score-test gradients before writing, matching
+#'   GraphLD's score-test path.
 #' @param score_test_overwrite If `TRUE`, replace an existing HDF5 file.
 #'
-#' @return A list containing estimated `parameters`, `heritability`,
-#'   `enrichment`, `likelihood_history`, convergence diagnostics,
-#'   `score_test_hdf5` write metadata when requested, and final block
-#'   derivatives.
+#' @return A list containing estimated `parameters`, jackknife standard errors
+#'   and log10 p-values, `heritability`, `enrichment`, `likelihood_history`,
+#'   convergence diagnostics, `score_test_hdf5` write metadata when requested,
+#'   and final block derivatives.
 #' @export
 ldgm_run_reml <- function(ldgms,
                           z,
@@ -144,6 +149,7 @@ ldgm_run_reml <- function(ldgms,
                           diagonal_method = "xdiag",
                           n_samples = 100L,
                           seed = NULL,
+                          num_jackknife_blocks = 100L,
                           max_step_halving = 12L,
                           score_test_hdf5 = NULL,
                           score_test_trait_name = "trait",
@@ -151,6 +157,7 @@ ldgm_run_reml <- function(ldgms,
                           score_test_jackknife_blocks = NULL,
                           score_test_diagonal_method = diagonal_method,
                           score_test_n_samples = 200L,
+                          score_test_project_annotations = TRUE,
                           score_test_overwrite = FALSE) {
   blocks <- normalize_reml_blocks(ldgms, z, annotations)
   p <- ncol(blocks$annotations[[1L]])
@@ -168,8 +175,14 @@ ldgm_run_reml <- function(ldgms,
   if (length(convergence_tol) != 1L || is.na(convergence_tol) || convergence_tol < 0) {
     stop("`convergence_tol` must be a single non-negative number", call. = FALSE)
   }
+  if (length(num_jackknife_blocks) != 1L || is.na(num_jackknife_blocks) || num_jackknife_blocks < 1L) {
+    stop("`num_jackknife_blocks` must be a positive integer", call. = FALSE)
+  }
   if (length(max_step_halving) != 1L || is.na(max_step_halving) || max_step_halving < 0) {
     stop("`max_step_halving` must be a non-negative integer", call. = FALSE)
+  }
+  if (!is.logical(score_test_project_annotations) || length(score_test_project_annotations) != 1L || is.na(score_test_project_annotations)) {
+    stop("`score_test_project_annotations` must be `TRUE` or `FALSE`", call. = FALSE)
   }
 
   evaluate <- function(theta) {
@@ -232,6 +245,15 @@ ldgm_run_reml <- function(ldgms,
     current <- candidate
   }
 
+  jackknife <- reml_jackknife_summary(
+    current$blocks,
+    blocks$annotations,
+    params,
+    denominator = link_fn_denominator,
+    num_jackknife_blocks = as.integer(num_jackknife_blocks)
+  )
+  variant_h2 <- unlist(lapply(current$blocks, `[[`, "per_variant_h2"), use.names = FALSE)
+
   score_test <- NULL
   if (!is.null(score_test_hdf5)) {
     if (is.null(score_test_variant_data)) {
@@ -248,10 +270,14 @@ ldgm_run_reml <- function(ldgms,
       n_samples = score_test_n_samples,
       seed = seed
     )
+    if (isTRUE(score_test_project_annotations)) {
+      score <- reml_project_out(score, do.call(rbind, blocks$annotations))
+    }
     if (nrow(score_variant_data) != length(score)) {
       stop("`score_test_variant_data` rows must match the number of scored variants", call. = FALSE)
     }
     score_jackknife_blocks <- normalize_reml_score_jackknife_blocks(score_test_jackknife_blocks)
+    score_jackknife_blocks <- score_jackknife_blocks %||% jackknife$variant_assignments
     score_test <- ldgm_write_score_test_hdf5(
       score_test_hdf5,
       variant_data = score_variant_data,
@@ -263,16 +289,29 @@ ldgm_run_reml <- function(ldgms,
   }
 
   totals <- reml_heritability_totals(current$blocks, blocks$annotations)
+  params <- as.numeric(params)
   names(params) <- annotation_names
   names(totals$heritability) <- annotation_names
   names(totals$enrichment) <- annotation_names
+  jackknife <- name_reml_jackknife(jackknife, annotation_names)
   list(
     parameters = params,
+    parameters_se = jackknife$parameters_se,
+    parameters_log10pval = jackknife$parameters_log10pval,
     heritability = totals$heritability,
+    heritability_se = jackknife$heritability_se,
+    heritability_log10pval = jackknife$heritability_log10pval,
     enrichment = totals$enrichment,
+    enrichment_se = jackknife$enrichment_se,
+    enrichment_log10pval = jackknife$enrichment_log10pval,
     likelihood_history = likelihood_history,
+    jackknife_params = jackknife$jackknife_params,
+    jackknife_h2 = jackknife$jackknife_h2,
+    jackknife_enrichment = jackknife$jackknife_enrichment,
+    variant_h2 = variant_h2,
     converged = converged,
     num_iterations = iterations_run,
+    num_jackknife_blocks = jackknife$num_jackknife_blocks,
     gradient = current$gradient,
     hessian = current$hessian,
     score_test_hdf5 = score_test,
@@ -381,6 +420,165 @@ reml_heritability_totals <- function(block_results, annotation_blocks) {
     enrichment <- annot_sums[[1L]] * h2 / (h2[[1L]] * annot_sums)
   }
   list(heritability = h2, enrichment = enrichment)
+}
+
+reml_jackknife_summary <- function(block_results,
+                                   annotation_blocks,
+                                   params,
+                                   denominator,
+                                   num_jackknife_blocks) {
+  n_blocks <- length(block_results)
+  p <- length(block_results[[1L]]$gradient)
+  n_jk <- min(as.integer(num_jackknife_blocks), n_blocks)
+  gradient_blocks <- matrix(0, nrow = n_blocks, ncol = p)
+  hessian_blocks <- array(0, dim = c(n_blocks, p, p))
+  for (i in seq_along(block_results)) {
+    gradient_blocks[i, ] <- block_results[[i]]$gradient
+    hessian_blocks[i, , ] <- block_results[[i]]$hessian
+  }
+
+  grouped <- reml_group_derivative_blocks(gradient_blocks, hessian_blocks, n_jk)
+  jackknife_params <- reml_pseudojackknife(grouped$gradient, grouped$hessian, params)
+  heritability <- reml_jackknife_heritability(annotation_blocks, jackknife_params, denominator)
+  jackknife_enrichment <- reml_jackknife_enrichment(heritability$h2, heritability$annotation_sums)
+  enrichment_diff <- reml_jackknife_enrichment_diff(heritability$h2, heritability$annotation_sums)
+
+  list(
+    num_jackknife_blocks = n_jk,
+    parameters_se = reml_jackknife_se(jackknife_params),
+    parameters_log10pval = apply(jackknife_params, 2L, reml_wald_log10pvalue),
+    heritability_se = reml_jackknife_se(heritability$h2),
+    heritability_log10pval = apply(heritability$h2, 2L, reml_wald_log10pvalue),
+    enrichment_se = reml_jackknife_se(jackknife_enrichment),
+    enrichment_log10pval = apply(enrichment_diff, 2L, reml_wald_log10pvalue),
+    jackknife_params = jackknife_params,
+    jackknife_h2 = heritability$h2,
+    jackknife_enrichment = jackknife_enrichment,
+    variant_assignments = reml_variant_jackknife_assignments(annotation_blocks, n_jk)
+  )
+}
+
+reml_group_sizes <- function(n_blocks, n_groups) {
+  base_size <- n_blocks %/% n_groups
+  remainder <- n_blocks %% n_groups
+  base_size + as.integer(seq_len(n_groups) <= remainder)
+}
+
+reml_group_derivative_blocks <- function(gradient_blocks, hessian_blocks, n_groups) {
+  p <- ncol(gradient_blocks)
+  grouped_gradient <- matrix(0, nrow = n_groups, ncol = p)
+  grouped_hessian <- array(0, dim = c(n_groups, p, p))
+  sizes <- reml_group_sizes(nrow(gradient_blocks), n_groups)
+  start <- 1L
+  for (group in seq_len(n_groups)) {
+    end <- start + sizes[[group]] - 1L
+    rows <- start:end
+    grouped_gradient[group, ] <- colSums(gradient_blocks[rows, , drop = FALSE])
+    grouped_hessian[group, , ] <- apply(hessian_blocks[rows, , , drop = FALSE], c(2L, 3L), sum)
+    start <- end + 1L
+  }
+  list(gradient = grouped_gradient, hessian = grouped_hessian)
+}
+
+reml_pseudojackknife <- function(gradient_blocks, hessian_blocks, params) {
+  p <- ncol(gradient_blocks)
+  params <- as.numeric(params)
+  total_gradient <- colSums(gradient_blocks)
+  total_hessian <- apply(hessian_blocks, c(2L, 3L), sum)
+  jackknife <- matrix(NA_real_, nrow = nrow(gradient_blocks), ncol = p)
+  for (block in seq_len(nrow(gradient_blocks))) {
+    loo_gradient <- total_gradient - gradient_blocks[block, ]
+    loo_hessian <- total_hessian - hessian_blocks[block, , ] + 1e-12 * diag(p)
+    jackknife[block, ] <- tryCatch(
+      params + as.numeric(solve(loo_hessian, loo_gradient)),
+      error = function(e) rep(NA_real_, p)
+    )
+  }
+  jackknife
+}
+
+reml_jackknife_heritability <- function(annotation_blocks, jackknife_params, denominator) {
+  n_jk <- nrow(jackknife_params)
+  p <- ncol(jackknife_params)
+  jackknife_h2 <- matrix(0, nrow = n_jk, ncol = p)
+  jackknife_annot_sums <- matrix(0, nrow = n_jk, ncol = p)
+  for (jk in seq_len(n_jk)) {
+    for (annotations in annotation_blocks) {
+      annotations <- as_numeric_matrix(annotations)
+      per_variant_h2 <- ldgm_reml_link(annotations, jackknife_params[jk, ], denominator = denominator)
+      jackknife_h2[jk, ] <- jackknife_h2[jk, ] + colSums(annotations * as.numeric(per_variant_h2))
+      jackknife_annot_sums[jk, ] <- jackknife_annot_sums[jk, ] + colSums(annotations)
+    }
+  }
+  list(h2 = jackknife_h2, annotation_sums = jackknife_annot_sums)
+}
+
+reml_jackknife_enrichment <- function(jackknife_h2, jackknife_annot_sums) {
+  normalized <- jackknife_h2 / jackknife_annot_sums
+  normalized / normalized[, 1L]
+}
+
+reml_jackknife_enrichment_diff <- function(jackknife_h2, jackknife_annot_sums) {
+  normalized <- jackknife_h2 / jackknife_annot_sums
+  normalized - normalized[, 1L]
+}
+
+reml_jackknife_se <- function(estimates) {
+  estimates <- as.matrix(estimates)
+  if (nrow(estimates) < 2L) {
+    return(rep(NA_real_, ncol(estimates)))
+  }
+  sqrt((nrow(estimates) - 1) * apply(estimates, 2L, stats::var))
+}
+
+reml_wald_log10pvalue <- function(jackknife_estimates) {
+  jackknife_estimates <- as.numeric(jackknife_estimates)
+  if (length(jackknife_estimates) < 2L || anyNA(jackknife_estimates)) {
+    return(NA_real_)
+  }
+  point_estimate <- mean(jackknife_estimates)
+  if (isTRUE(all.equal(jackknife_estimates, rep(point_estimate, length(jackknife_estimates)), tolerance = 1e-24))) {
+    return(0)
+  }
+  standard_error <- sqrt((length(jackknife_estimates) - 1) * stats::var(jackknife_estimates))
+  if (!is.finite(standard_error) || standard_error <= 0) {
+    return(NA_real_)
+  }
+  (log(2) + stats::pnorm(-abs(point_estimate / standard_error), log.p = TRUE)) / log(10)
+}
+
+reml_variant_jackknife_assignments <- function(annotation_blocks, n_groups) {
+  block_sizes <- vapply(annotation_blocks, nrow, integer(1))
+  group_sizes <- reml_group_sizes(length(block_sizes), n_groups)
+  block_assignments <- rep(seq_len(n_groups) - 1L, times = group_sizes)
+  rep(block_assignments, times = block_sizes)
+}
+
+name_reml_jackknife <- function(jackknife, annotation_names) {
+  vector_fields <- c(
+    "parameters_se", "parameters_log10pval",
+    "heritability_se", "heritability_log10pval",
+    "enrichment_se", "enrichment_log10pval"
+  )
+  for (field in vector_fields) {
+    names(jackknife[[field]]) <- annotation_names
+  }
+  matrix_fields <- c("jackknife_params", "jackknife_h2", "jackknife_enrichment")
+  for (field in matrix_fields) {
+    colnames(jackknife[[field]]) <- annotation_names
+  }
+  jackknife
+}
+
+reml_project_out <- function(y, annotations) {
+  y <- as.numeric(y)
+  x <- as_numeric_matrix(annotations)
+  beta <- tryCatch(
+    solve(crossprod(x), crossprod(x, y)),
+    error = function(e) stats::lm.fit(x, y)$coefficients
+  )
+  beta[is.na(beta)] <- 0
+  as.numeric(y - x %*% beta)
 }
 
 reml_variant_scores <- function(block_results,

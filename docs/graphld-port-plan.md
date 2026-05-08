@@ -34,7 +34,7 @@ kernels rather than the whole CLI:
 | `gaussian_likelihood_hessian()` | `ldgm_gaussian_likelihood_hessian()` | implemented with exact, Hutchinson, xdiag, or XNys inverse diagonals / exact solves |
 | single-block BLUP kernel | `ldgm_blup_block()` | implemented for full and selected views |
 | GraphLD BLUP block scheduler | `ldgm_partition_variants()`, `ldgm_run_blup()` | implemented as serial R scheduler; multiprocessing remains planned |
-| GraphLD graphREML core/scheduler | `ldgm_reml_link()`, `ldgm_reml_block()`, `ldgm_run_reml()` | initial serial core implemented; jackknife SEs, surrogate markers, full CLI parity, and multiprocessing remain planned |
+| GraphLD graphREML core/scheduler | `ldgm_reml_link()`, `ldgm_reml_block()`, `ldgm_run_reml()` | initial serial core and GraphLD-style pseudo-jackknife summaries implemented; surrogate markers, full CLI parity, upstream-scale jackknife conformance, and multiprocessing remain planned |
 | GraphLD graphREML score-test HDF5 output | `ldgm_write_score_test_hdf5()`, optional `ldgm_run_reml(score_test_hdf5=...)` | initial native `hdf5lib` writer implemented for row data and `/traits/<trait>/gradient`; broader score-test CLI schema remains planned |
 | GraphLD LD clumping | `ldgm_run_clump()` | implemented as serial R scheduler; multiprocessing remains planned |
 | parquet / VCF / LDSC I/O | R-native table readers | planned |
@@ -124,5 +124,5 @@ Interpretation rules:
    scheduling where useful.
 3. Add larger stochastic inverse-diagonal conformance/performance comparisons
    against Python GraphLD/SuiteSparse on upstream LDGM blocks.
-4. Extend graphREML toward full CLI parity: jackknife SEs, surrogate markers,
-   richer HDF5 score-test outputs, and multiprocessing.
+4. Extend graphREML toward full CLI parity: surrogate markers, richer HDF5
+   score-test outputs, multiprocessing, and upstream-scale jackknife conformance.

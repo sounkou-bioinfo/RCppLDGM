@@ -18,6 +18,7 @@ ldgm_run_reml(
   diagonal_method = "xdiag",
   n_samples = 100L,
   seed = NULL,
+  num_jackknife_blocks = 100L,
   max_step_halving = 12L,
   score_test_hdf5 = NULL,
   score_test_trait_name = "trait",
@@ -25,6 +26,7 @@ ldgm_run_reml(
   score_test_jackknife_blocks = NULL,
   score_test_diagonal_method = diagonal_method,
   score_test_n_samples = 200L,
+  score_test_project_annotations = TRUE,
   score_test_overwrite = FALSE
 )
 }
@@ -51,6 +53,9 @@ threshold.}
 \item{intercept, link_fn_denominator, diagonal_method, n_samples, seed}{Passed to
 \code{ldgm_reml_block()}.}
 
+\item{num_jackknife_blocks}{Maximum number of grouped block jackknife
+replicates used for parameter, heritability, and enrichment standard errors.}
+
 \item{max_step_halving}{Maximum number of step halvings for a proposed Newton
 step.}
 
@@ -69,13 +74,17 @@ row data.}
 \item{score_test_diagonal_method, score_test_n_samples}{Inverse-diagonal
 estimator and probe count used for final per-variant score gradients.}
 
+\item{score_test_project_annotations}{If \code{TRUE}, project annotation columns
+out of final per-variant score-test gradients before writing, matching
+GraphLD's score-test path.}
+
 \item{score_test_overwrite}{If \code{TRUE}, replace an existing HDF5 file.}
 }
 \value{
-A list containing estimated \code{parameters}, \code{heritability},
-\code{enrichment}, \code{likelihood_history}, convergence diagnostics,
-\code{score_test_hdf5} write metadata when requested, and final block
-derivatives.
+A list containing estimated \code{parameters}, jackknife standard errors
+and log10 p-values, \code{heritability}, \code{enrichment}, \code{likelihood_history},
+convergence diagnostics, \code{score_test_hdf5} write metadata when requested,
+and final block derivatives.
 }
 \description{
 Initial serial scheduler for GraphLD-style graphREML over one or more LDGM
@@ -85,8 +94,8 @@ and uses step-halving to require non-decreasing likelihood.
 }
 \details{
 This function is intended as the first R-native workflow surface and
-conformance target for graphREML kernels. It includes an optional initial
-GraphLD-style score-test HDF5 writer, but does not yet implement GraphLD's
-multiprocessing manager, surrogate-marker handling, or jackknife standard
-errors.
+conformance target for graphREML kernels. It includes initial GraphLD-style
+pseudo-jackknife standard errors and optional score-test HDF5 output, but does
+not yet implement GraphLD's multiprocessing manager or surrogate-marker
+handling.
 }

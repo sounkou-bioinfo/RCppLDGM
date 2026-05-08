@@ -48,7 +48,8 @@ Implemented and exported today:
   diagonal estimates, OpenMP controls;
 - initial serial GraphREML-style block likelihood and optimizer:
   `ldgm_reml_link()`, `ldgm_reml_block()`, and `ldgm_run_reml()`, including
-  optional GraphLD-style score-test HDF5 gradient output through `hdf5lib`;
+  GraphLD-style pseudo-jackknife summaries and optional score-test HDF5
+  gradient output through `hdf5lib`;
 - GraphLD-style R interfaces for LDGM IO, precision objects,
   allele/snplist merging, BLUP scheduling, and clumping.
 
@@ -57,9 +58,9 @@ Still intentionally incomplete:
 - direct native tree-sequence object wiring for upstream
   `brick_haplo_graph()` beyond the current `.trees` file-to-table
   extraction boundary;
-- full Python GraphLD graphREML CLI parity, jackknife standard errors,
-  richer score-test outputs, surrogate markers, multiprocessing, and
-  SuiteSparse performance validation.
+- full Python GraphLD graphREML CLI parity, upstream-scale jackknife
+  conformance, richer score-test outputs, surrogate markers,
+  multiprocessing, and SuiteSparse performance validation.
 
 See [`docs/rcpp-port-plan.md`](docs/rcpp-port-plan.md) and
 [`docs/graphld-port-plan.md`](docs/graphld-port-plan.md) for the

@@ -77,6 +77,29 @@ expect_true(length(fit$likelihood_history) >= 1L)
 expect_true(is.finite(fit$log$final_likelihood))
 expect_equal(length(fit$heritability), ncol(annotations_reml))
 expect_equal(length(fit$enrichment), ncol(annotations_reml))
+expect_equal(names(fit$parameters_se), colnames(annotations_reml))
+expect_equal(dim(fit$jackknife_params), c(1L, ncol(annotations_reml)))
+expect_true(all(is.na(fit$parameters_se)))
+
+fit_jk <- ldgm_run_reml(
+  list(P_reml, P_reml),
+  list(z_reml, z_reml + c(0.05, -0.02, 0.01)),
+  list(annotations_reml, annotations_reml),
+  params = params_reml,
+  sample_size = 100,
+  link_fn_denominator = 10,
+  diagonal_method = "exact",
+  num_iterations = 1L,
+  annotation_names = colnames(annotations_reml),
+  num_jackknife_blocks = 2L
+)
+expect_equal(fit_jk$num_jackknife_blocks, 2L)
+expect_equal(dim(fit_jk$jackknife_params), c(2L, ncol(annotations_reml)))
+expect_equal(dim(fit_jk$jackknife_h2), c(2L, ncol(annotations_reml)))
+expect_equal(dim(fit_jk$jackknife_enrichment), c(2L, ncol(annotations_reml)))
+expect_equal(length(fit_jk$variant_h2), 2L * nrow(annotations_reml))
+expect_true(all(is.finite(fit_jk$parameters_se)))
+expect_true(all(fit_jk$parameters_se >= 0))
 
 P_dup <- Matrix::Matrix(matrix(c(2, 0.1, 0.1, 3), 2), sparse = TRUE)
 variant_info_dup <- data.frame(index = c(0L, 1L, 1L), SNP = c("a", "b", "c"))
@@ -123,6 +146,7 @@ reml_h5 <- ldgm_read_score_test_hdf5(reml_h5_file, "h5_trait")
 expect_equal(reml_h5$variant_data$RSID, reml_variant_data$RSID)
 expect_equal(length(reml_h5$gradient), nrow(annotations_reml))
 expect_true(all(is.finite(reml_h5$gradient)))
+expect_equal(as.numeric(crossprod(annotations_reml, reml_h5$gradient)), rep(0, ncol(annotations_reml)), tolerance = 1e-10)
 
 expect_error(ldgm_reml_block(P_reml, z_reml[-1], annotations_reml, params_reml, sample_size = 100), "z")
 expect_error(ldgm_run_reml(list(P_reml, P_reml), list(z_reml), list(annotations_reml), sample_size = 100), "same number")
