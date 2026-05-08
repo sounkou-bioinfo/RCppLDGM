@@ -83,6 +83,95 @@ ldgm_score_test <- function(gradient,
   list(results = results, block_scores = block_scores, jackknife_scores = jackknife_scores)
 }
 
+#' Meta-Analyze GraphLD-Style Annotation Score Tests
+#'
+#' Combines per-trait score-test outputs with the inverse jackknife-variance
+#' weighting used by GraphLD's `MetaAnalysis` helper. All inputs must test the
+#' same annotations with the same number of jackknife blocks.
+#'
+#' @param score_tests A list of objects returned by [ldgm_score_test()] or
+#'   [ldgm_score_test_hdf5()]. A single score-test result is also accepted.
+#' @param trait_names Optional trait labels. Defaults to `names(score_tests)` or
+#'   `trait1`, `trait2`, ... when unnamed.
+#'
+#' @return A list with `results`, precision `weights`, combined
+#'   `jackknife_scores`, and original `trait_results`.
+#' @export
+ldgm_score_test_meta <- function(score_tests, trait_names = NULL) {
+  if (is_score_test_result(score_tests)) {
+    score_tests <- list(score_tests)
+  }
+  if (!is.list(score_tests) || length(score_tests) < 1L) {
+    stop("`score_tests` must be a non-empty list of score-test results", call. = FALSE)
+  }
+
+  n_traits <- length(score_tests)
+  trait_names <- trait_names %||% names(score_tests) %||% paste0("trait", seq_len(n_traits))
+  if (length(trait_names) != n_traits || anyNA(trait_names) || any(!nzchar(trait_names))) {
+    stop("`trait_names` must contain one non-empty label per score-test result", call. = FALSE)
+  }
+
+  first <- validate_score_test_result(score_tests[[1L]], 1L)
+  annotation_names <- as.character(first$results$annotation)
+  p <- length(annotation_names)
+  n_blocks <- nrow(first$jackknife_scores)
+  if (n_blocks < 2L) {
+    stop("meta-analysis requires at least two jackknife blocks", call. = FALSE)
+  }
+
+  meta_score <- rep(0, p)
+  meta_jackknife <- matrix(0, nrow = n_blocks, ncol = p)
+  colnames(meta_jackknife) <- annotation_names
+  rownames(meta_jackknife) <- rownames(first$jackknife_scores)
+  weights <- matrix(NA_real_, nrow = n_traits, ncol = p, dimnames = list(trait_names, annotation_names))
+
+  for (i in seq_len(n_traits)) {
+    current <- validate_score_test_result(score_tests[[i]], i)
+    if (!identical(as.character(current$results$annotation), annotation_names)) {
+      stop("all score-test results must have identical annotation order", call. = FALSE)
+    }
+    jackknife_scores <- as.matrix(current$jackknife_scores)
+    if (nrow(jackknife_scores) != n_blocks) {
+      stop("all score-test results must have the same number of jackknife blocks", call. = FALSE)
+    }
+    if (!identical(colnames(jackknife_scores), annotation_names)) {
+      stop("jackknife score columns must match result annotations", call. = FALSE)
+    }
+    centered <- sweep(jackknife_scores, 2L, colMeans(jackknife_scores), `-`)
+    variance <- colMeans(centered^2)
+    if (any(!is.finite(variance) | variance <= 0)) {
+      stop("jackknife estimates must have positive finite variance for meta-analysis", call. = FALSE)
+    }
+    precision <- 1 / variance
+    weights[i, ] <- precision
+    score <- as.numeric(current$results$score)
+    meta_score <- meta_score + precision * score
+    meta_jackknife <- meta_jackknife + sweep(jackknife_scores, 2L, precision, `*`)
+  }
+
+  standard_error <- score_test_jackknife_se(meta_jackknife)
+  z <- meta_score / standard_error
+  z[!is.finite(z)] <- NA_real_
+  log10pval <- score_test_log10pvalue_from_z(z)
+  results <- data.frame(
+    annotation = annotation_names,
+    score = as.numeric(meta_score),
+    standard_error = as.numeric(standard_error),
+    z = as.numeric(z),
+    log10pval = as.numeric(log10pval),
+    row.names = NULL,
+    stringsAsFactors = FALSE
+  )
+
+  list(
+    results = results,
+    weights = weights,
+    jackknife_scores = meta_jackknife,
+    trait_names = as.character(trait_names),
+    trait_results = score_tests
+  )
+}
+
 #' Run Annotation Score Tests from a GraphLD-Style HDF5 File
 #'
 #' Reads a trait from [ldgm_read_score_test_hdf5()], aligns variant annotations,
@@ -135,6 +224,83 @@ ldgm_score_test_hdf5 <- function(file,
   out <- ldgm_score_test(gradient, annotations, jackknife_blocks = jackknife_blocks)
   out$variant_data <- variant_data
   out
+}
+
+#' Meta-Analyze Annotation Score Tests from a GraphLD-Style HDF5 File
+#'
+#' Runs [ldgm_score_test_hdf5()] for multiple traits in one HDF5 file and
+#' combines them with [ldgm_score_test_meta()]. This mirrors GraphLD's staged
+#' score-test meta-analysis path for a caller-specified trait group.
+#'
+#' @param file HDF5 path written by [ldgm_write_score_test_hdf5()] or compatible
+#'   GraphLD tooling.
+#' @param trait_names Character vector of trait names under `/traits`.
+#' @param annotations Numeric matrix or data frame of annotations to test.
+#' @param by Optional key column used to match annotation data frames to HDF5 row
+#'   data, usually `RSID`. Use `NULL` to require row-order alignment.
+#' @param annotation_cols Optional annotation columns to test when `annotations`
+#'   is a data frame.
+#'
+#' @return A list like [ldgm_score_test_meta()], with a `trait_results` element
+#'   containing the per-trait HDF5 score-test outputs.
+#' @export
+ldgm_score_test_hdf5_meta <- function(file,
+                                      trait_names,
+                                      annotations,
+                                      by = "RSID",
+                                      annotation_cols = NULL) {
+  if (!is.character(trait_names) || length(trait_names) < 1L || anyNA(trait_names) || any(!nzchar(trait_names))) {
+    stop("`trait_names` must be a non-empty character vector", call. = FALSE)
+  }
+  trait_results <- lapply(
+    trait_names,
+    function(trait_name) {
+      ldgm_score_test_hdf5(
+        file,
+        trait_name = trait_name,
+        annotations = annotations,
+        by = by,
+        annotation_cols = annotation_cols
+      )
+    }
+  )
+  names(trait_results) <- trait_names
+  ldgm_score_test_meta(trait_results, trait_names = trait_names)
+}
+
+is_score_test_result <- function(x) {
+  is.list(x) && !is.null(x$results) && !is.null(x$jackknife_scores)
+}
+
+validate_score_test_result <- function(x, index) {
+  if (!is_score_test_result(x)) {
+    stop("score-test result ", index, " must contain `results` and `jackknife_scores`", call. = FALSE)
+  }
+  results <- x$results
+  if (!is.data.frame(results) || !all(c("annotation", "score") %in% names(results))) {
+    stop("score-test result ", index, " has an invalid `results` data frame", call. = FALSE)
+  }
+  jackknife_scores <- as.matrix(x$jackknife_scores)
+  storage.mode(jackknife_scores) <- "double"
+  if (nrow(jackknife_scores) < 1L || ncol(jackknife_scores) < 1L || anyNA(jackknife_scores) || any(!is.finite(jackknife_scores))) {
+    stop("score-test result ", index, " has invalid `jackknife_scores`", call. = FALSE)
+  }
+  annotation_names <- as.character(results$annotation)
+  if (length(annotation_names) != ncol(jackknife_scores) || anyNA(annotation_names) || any(!nzchar(annotation_names))) {
+    stop("score-test result ", index, " annotation names must match jackknife columns", call. = FALSE)
+  }
+  score <- as.numeric(results$score)
+  if (length(score) != ncol(jackknife_scores) || anyNA(score) || any(!is.finite(score))) {
+    stop("score-test result ", index, " scores must be finite and match jackknife columns", call. = FALSE)
+  }
+  if (is.null(colnames(jackknife_scores))) {
+    colnames(jackknife_scores) <- annotation_names
+  }
+  results$annotation <- annotation_names
+  results$score <- score
+  x$results <- results
+  x$jackknife_scores <- jackknife_scores
+  x
 }
 
 score_test_annotation_matrix <- function(annotations, annotation_cols = NULL) {

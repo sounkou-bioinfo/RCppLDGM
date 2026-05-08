@@ -36,6 +36,16 @@ ldgm_write_score_test_hdf5(
   overwrite = TRUE,
   compression = compression
 )
+trait_name_b <- paste0(trait_name, "_b")
+gradient_b <- c(0.2, 0.4, -0.1)
+ldgm_write_score_test_hdf5(
+  h5,
+  variant_data,
+  gradient_b,
+  trait_name = trait_name_b,
+  jackknife_blocks = jackknife_blocks,
+  compression = compression
+)
 
 surrogate_h5 <- tempfile("rcppldgm-surrogate-map-", fileext = ".h5")
 ldgm_write_surrogate_map_hdf5(
@@ -55,8 +65,11 @@ score_annotations <- data.frame(
   stringsAsFactors = FALSE
 )
 score_result <- ldgm_score_test_hdf5(h5, trait_name, score_annotations)
+score_result_b <- ldgm_score_test_hdf5(h5, trait_name_b, score_annotations)
+score_meta <- ldgm_score_test_hdf5_meta(h5, c(trait_name, trait_name_b), score_annotations)
 score_result_path <- tempfile("rcppldgm-score-test-result-", fileext = ".tsv")
 score_jackknife_path <- tempfile("rcppldgm-score-test-jackknife-", fileext = ".tsv")
+score_meta_path <- tempfile("rcppldgm-score-test-meta-", fileext = ".tsv")
 write.table(score_result$results, score_result_path, sep = "\t", row.names = FALSE, quote = FALSE)
 write.table(
   data.frame(block = rownames(score_result$jackknife_scores), score_result$jackknife_scores, check.names = FALSE),
@@ -65,6 +78,7 @@ write.table(
   row.names = FALSE,
   quote = FALSE
 )
+write.table(score_meta$results, score_meta_path, sep = "\t", row.names = FALSE, quote = FALSE)
 
 stopifnot(
   identical(as.integer(native$variant_data$CHR), variant_data$CHR),
@@ -75,11 +89,15 @@ stopifnot(
   isTRUE(all.equal(native$hessian, hessian, tolerance = 1e-12, check.attributes = FALSE)),
   isTRUE(all.equal(native$parameters, parameters, tolerance = 1e-12, check.attributes = FALSE)),
   isTRUE(all.equal(native$jackknife_parameters, jackknife_parameters, tolerance = 1e-12, check.attributes = FALSE)),
+  isTRUE(all.equal(score_result_b$results$score, c(0.1, 0.3), tolerance = 1e-12, check.attributes = FALSE)),
   identical(native_surrogate, c(1L, 3L, NA_integer_))
 )
 
 script <- file.path("tools", "check-graphld-hdf5-python-interop.py")
-status <- system2(python, c(script, h5, trait_name, score_result_path, score_jackknife_path, surrogate_h5, "toy_block"))
+status <- system2(
+  python,
+  c(script, h5, trait_name, score_result_path, score_jackknife_path, surrogate_h5, "toy_block", trait_name_b, score_meta_path)
+)
 if (!identical(status, 0L)) {
   stop("GraphLD Python HDF5 interop check failed with status ", status, call. = FALSE)
 }

@@ -70,10 +70,11 @@ def _to_list(series_or_array):
 
 
 def main(argv: list[str]) -> int:
-    if len(argv) not in {3, 5, 7}:
+    if len(argv) not in {3, 5, 7, 9}:
         print(
             "usage: check-graphld-hdf5-python-interop.py <file.h5> <trait> "
-            "[expected-score.tsv expected-jackknife.tsv [surrogate-map.h5 block-name]]",
+            "[expected-score.tsv expected-jackknife.tsv "
+            "[surrogate-map.h5 block-name [second-trait expected-meta.tsv]]]",
             file=sys.stderr,
         )
         return 2
@@ -129,7 +130,11 @@ def main(argv: list[str]) -> int:
         atol=1e-12,
     )
 
-    if len(argv) == 5:
+    point_estimates = None
+    jackknife_estimates = None
+    score_test = None
+    annotations = None
+    if len(argv) in {5, 9}:
         score_test = _load_score_test(repo_root)
         expected_score = pl.read_csv(argv[3], separator="\t")
         expected_jackknife = pl.read_csv(argv[4], separator="\t")
@@ -155,13 +160,33 @@ def main(argv: list[str]) -> int:
         z_scores = point_estimates.ravel() / np.std(jackknife_estimates, axis=0) / np.sqrt(jackknife_estimates.shape[0] - 1)
         np.testing.assert_allclose(z_scores, expected_score["z"].to_numpy(), rtol=0, atol=1e-12)
 
-    if len(argv) == 7:
+    if len(argv) in {7, 9}:
         surrogate_path = Path(argv[5])
         block_name = argv[6]
         with h5py.File(surrogate_path, "r") as handle:
             if block_name not in handle:
                 raise AssertionError(f"surrogate block {block_name!r} not found in {surrogate_path}")
             np.testing.assert_array_equal(handle[block_name][:], np.array([0, 2, -1]))
+
+    if len(argv) == 9:
+        if score_test is None or annotations is None or point_estimates is None or jackknife_estimates is None:
+            raise AssertionError("meta-analysis check requires score-test estimates from the first trait")
+        from meta_analysis import MetaAnalysis  # type: ignore
+
+        second_trait = argv[7]
+        expected_meta = pl.read_csv(argv[8], separator="\t")
+        second_trait_object = score_test_io.load_trait_data(str(hdf5_path), second_trait, row_data)
+        annot_object = score_test.VariantAnnot(annotations, ["annot_a", "annot_b"])
+        second_point_estimates, second_jackknife_estimates = score_test.run_score_test(
+            second_trait_object, annot_object
+        )
+        meta = MetaAnalysis()
+        meta.update(point_estimates, jackknife_estimates)
+        meta.update(second_point_estimates, second_jackknife_estimates)
+        np.testing.assert_allclose(
+            meta.point_estimates.ravel(), expected_meta["score"].to_numpy(), rtol=0, atol=1e-12
+        )
+        np.testing.assert_allclose(meta.z_scores.ravel(), expected_meta["z"].to_numpy(), rtol=0, atol=1e-12)
 
     print("GraphLD Python score_test_io HDF5 interop check passed.")
     return 0

@@ -46,6 +46,37 @@ expect_equal(h5_score$variant_data$RSID, paste0("rs", 1:4))
 row_order_score <- ldgm_score_test_hdf5(h5_score_file, "score_trait", as.data.frame(annotations_score), by = NULL)
 expect_equal(row_order_score$results$score, score_result$results$score)
 
+score_result_b <- ldgm_score_test(c(2, 1, 4, 3), annotations_score, blocks_score)
+meta_score <- ldgm_score_test_meta(list(trait_a = score_result, trait_b = score_result_b))
+pop_var <- function(x) colMeans(sweep(x, 2L, colMeans(x), `-`)^2)
+weight_a <- 1 / pop_var(score_result$jackknife_scores)
+weight_b <- 1 / pop_var(score_result_b$jackknife_scores)
+expected_meta_jk <- sweep(score_result$jackknife_scores, 2L, weight_a, `*`) +
+  sweep(score_result_b$jackknife_scores, 2L, weight_b, `*`)
+expected_meta_score <- weight_a * score_result$results$score + weight_b * score_result_b$results$score
+expected_meta_se <- sqrt(pop_var(expected_meta_jk) * (nrow(expected_meta_jk) - 1L))
+expect_equal(meta_score$trait_names, c("trait_a", "trait_b"))
+expect_equal(meta_score$weights, rbind(trait_a = weight_a, trait_b = weight_b), tolerance = 1e-12)
+expect_equal(meta_score$jackknife_scores, expected_meta_jk, tolerance = 1e-12)
+expect_equal(meta_score$results$score, as.numeric(expected_meta_score), tolerance = 1e-12)
+expect_equal(meta_score$results$z, as.numeric(expected_meta_score / expected_meta_se), tolerance = 1e-12)
+
+ldgm_write_score_test_hdf5(
+  h5_score_file,
+  variant_score_data,
+  c(2, 1, 4, 3),
+  trait_name = "score_trait_b",
+  jackknife_blocks = blocks_score,
+  compression = "none"
+)
+h5_meta_score <- ldgm_score_test_hdf5_meta(
+  h5_score_file,
+  c("score_trait", "score_trait_b"),
+  annotation_table
+)
+expect_equal(h5_meta_score$results$z, meta_score$results$z, tolerance = 1e-12)
+expect_equal(names(h5_meta_score$trait_results), c("score_trait", "score_trait_b"))
+
 expect_error(ldgm_score_test(gradient_score[-1], annotations_score, blocks_score[-1]), "one row")
 expect_error(ldgm_score_test(gradient_score, annotations_score, blocks_score[-1]), "jackknife_blocks")
 expect_error(ldgm_score_test_hdf5(h5_score_file, "score_trait", data.frame(RSID = c("rs1", "rs1"), coding = c(1, 0))), "duplicates")

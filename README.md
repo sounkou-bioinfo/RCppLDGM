@@ -234,6 +234,18 @@ score_annotations <- data.frame(
 ldgm_score_test_hdf5(h5, "toy", score_annotations)$results
 #>   annotation score standard_error z log10pval
 #> 1   enhancer   0.4            0.2 2 -1.341986
+
+ldgm_write_score_test_hdf5(
+  h5,
+  variant_data = variant_data,
+  gradient = c(0.2, -0.1, 0.4),
+  trait_name = "toy2",
+  jackknife_blocks = c(0L, 1L, 1L),
+  compression = "none"
+)
+ldgm_score_test_hdf5_meta(h5, c("toy", "toy2"), score_annotations)$results
+#>   annotation    score standard_error z log10pval
+#> 1   enhancer 16.66667       8.333333 2 -1.341986
 ```
 
 ## Real conformance checks
@@ -261,14 +273,14 @@ sparse precision operators, BLUP/clumping helpers, S7/s7contract
 GraphREML input interfaces, a serial graphREML core with an initial
 surrogate-marker path, GraphLD-style surrogate-map HDF5 input,
 max-chi-square block exclusion, pseudo-jackknife summaries, staged
-score-test HDF5 writing, and an initial variant-annotation score-test
-statistic.
+score-test HDF5 writing, and variant-annotation score-test statistics
+with GraphLD-style inverse-jackknife-variance meta-analysis.
 
 Still intentionally staged:
 
 - full Python GraphLD graphREML CLI parity: richer score-test HDF5
-  schema, multiprocessing/block-manager behavior, and upstream-scale
-  jackknife conformance;
+  schema, gene-set score-test conversion, multiprocessing/block-manager
+  behavior, and upstream-scale jackknife conformance;
 - larger GraphLD/SuiteSparse conformance and performance comparisons for
   BLUP, clumping, inverse diagonals, XNys, and graphREML;
 - broader real-data benchmark runs beyond the tiny upstream
