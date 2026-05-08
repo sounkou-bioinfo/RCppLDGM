@@ -74,6 +74,8 @@ reference:
   - ldgm_hdf5_filter_info
   - ldgm_write_score_test_hdf5
   - ldgm_read_score_test_hdf5
+  - ldgm_score_test
+  - ldgm_score_test_hdf5
 - title: Native runtime
   contents:
   - ldgm_openmp_info

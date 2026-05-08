@@ -177,6 +177,12 @@ ldgm_write_score_test_hdf5(
   overwrite = TRUE
 )
 ldgm_read_score_test_hdf5(h5, "toy")
+
+score_annotations <- data.frame(
+  RSID = c("rs1", "rs2", "rs3"),
+  enhancer = c(1, 0, 1)
+)
+ldgm_score_test_hdf5(h5, "toy", score_annotations)$results
 ```
 
 ## Real conformance checks
@@ -201,7 +207,8 @@ not installed unless `RCPP_LDGM_REQUIRE_H5PY=1` is set.
 Implemented today: native graph/bricking/reduction/SNP-list kernels, native
 `.trees` file extraction through vendored tskit C, GraphLD-style sparse precision
 operators, BLUP/clumping helpers, a serial graphREML core, pseudo-jackknife
-summaries, and staged score-test HDF5 writing.
+summaries, staged score-test HDF5 writing, and an initial variant-annotation
+score-test statistic.
 
 Still intentionally staged:
 

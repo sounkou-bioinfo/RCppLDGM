@@ -218,6 +218,14 @@ ldgm_read_score_test_hdf5(h5, "toy")
 #> $jackknife_parameters
 #>          [,1]      [,2]
 #> [1,] 4482.845 -1575.055
+
+score_annotations <- data.frame(
+  RSID = c("rs1", "rs2", "rs3"),
+  enhancer = c(1, 0, 1)
+)
+ldgm_score_test_hdf5(h5, "toy", score_annotations)$results
+#>   annotation score standard_error z log10pval
+#> 1   enhancer   0.4            0.1 4 -4.198305
 ```
 
 ## Real conformance checks
@@ -242,7 +250,8 @@ make benchmark-upstream-ldgm
 Implemented today: native graph/bricking/reduction/SNP-list kernels,
 native `.trees` file extraction through vendored tskit C, GraphLD-style
 sparse precision operators, BLUP/clumping helpers, a serial graphREML
-core, pseudo-jackknife summaries, and staged score-test HDF5 writing.
+core, pseudo-jackknife summaries, staged score-test HDF5 writing, and an
+initial variant-annotation score-test statistic.
 
 Still intentionally staged:
 
