@@ -67,6 +67,9 @@ upstream-ldgm-conformance: dev-install upstream-ldgm-goldens
 upstream-graphld-smoke:
 	RCPP_LDGM_GRAPHLD_DATA=.sync/graphld/data/test Rscript tools/check-upstream-graphld-data.R
 
+upstream-graphld-reader-conformance: dev-install
+	RCPP_LDGM_GRAPHLD_DATA=.sync/graphld/data/test Rscript tools/check-upstream-graphld-readers.R
+
 upstream-graphld-hdf5-interop: dev-install
 	Rscript tools/check-graphld-hdf5-python-interop.R
 
@@ -79,4 +82,4 @@ benchmark-upstream-ldgm: dev-install upstream-ldgm-goldens
 rdm: install
 	R -e "rmarkdown::render('README.Rmd')"
 	perl -pi -e 's/[ \t]+$$//' README.md
-.PHONY: all rd vig vig-md build check install_deps install clean dev-install dev-install-debug-win test0 test1 test2 test warn-test upstream-python upstream-ldgm-goldens upstream-ldgm-conformance upstream-graphld-smoke upstream-graphld-hdf5-interop benchmark-precision benchmark-upstream-ldgm rdm
+.PHONY: all rd vig vig-md build check install_deps install clean dev-install dev-install-debug-win test0 test1 test2 test warn-test upstream-python upstream-ldgm-goldens upstream-ldgm-conformance upstream-graphld-smoke upstream-graphld-reader-conformance upstream-graphld-hdf5-interop benchmark-precision benchmark-upstream-ldgm rdm

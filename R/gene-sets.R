@@ -66,6 +66,8 @@ ldgm_read_gene_table <- function(file, chromosomes = NULL) {
       stop("no genes remain after chromosome filtering", call. = FALSE)
     }
   }
+  genes$gene_name[is.na(genes$gene_name)] <- "NA"
+  genes <- genes[order(normalize_chromosome(genes$CHR), as.numeric(genes$midpoint)), , drop = FALSE]
   row.names(genes) <- NULL
   genes
 }

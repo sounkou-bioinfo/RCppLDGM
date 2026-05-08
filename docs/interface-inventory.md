@@ -35,7 +35,7 @@ arguments as stable interfaces unless they are deliberately exposed in R.
 | LDGM metadata CSV block catalog | GraphLD `metadata.csv`, `read_ldgm_metadata()`, BLUP/clump/reml CLI | `LdgmBlockCatalog`, `ldgm_block_catalog()`, `ldgm_load_block_catalog()`, `ldgm_load_ldgm()`, `ldgm_run_blup()`, `ldgm_run_clump()`, `ldgm_run_reml()` list inputs | tinytest interfaces/BLUP/clump; `tools/check-upstream-graphld-data.R` smoke | Wire catalog objects into more GraphREML/block-manager paths and add pinned GraphLD output conformance |
 | Precision operator object protocol | GraphLD `PrecisionOperator` methods in `.sync/graphld/src/graphld/precision.py` | `ldgm_precision()`, `ldgm_precision_select()`, `ldgm_precision_scale()`, `ldgm_precision_update()`, `ldgm_precision_update_element()`, multiply/solve/logdet/inverse diagonal, `ldgm_variant_solve()` | tinytest precision coverage; benchmark smoke | Upstream-scale SuiteSparse conformance/performance for stochastic estimators |
 | Summary statistics table | GraphLD CLI `--sumstats`, `summary_stats: pl.DataFrame`, `.sync/graphld/data/test/example.sumstats` | `LdgmSummaryStats`, `ldgm_summary_stats()`, BLUP/clump/reml data-frame paths | tinytest interfaces/BLUP/clump/reml; GraphLD data smoke | Add parquet and VCF summary-stat readers as first-class input interfaces |
-| Annotation table | GraphLD `annotation_data: pl.DataFrame`, `.annot` files, score-test annotations | `LdgmAnnotationData`, `ldgm_annotation_data()`, `ldgm_annotation_columns()`, `ldgm_read_ldsc_annot()`, `ldgm_load_annotations()` | tinytest interfaces/annotations/reml/score-test; GraphLD data smoke | Full annotation-column selection parity and larger annotation-directory conformance |
+| Annotation table | GraphLD `annotation_data: pl.DataFrame`, `.annot` files, score-test annotations | `LdgmAnnotationData`, `ldgm_annotation_data()`, `ldgm_annotation_columns()`, `ldgm_read_ldsc_annot()`, `ldgm_load_annotations()` | tinytest interfaces/annotations/reml/score-test; GraphLD data smoke; pinned Python value conformance via `tools/check-upstream-graphld-readers.R` | Full annotation-column selection parity and larger annotation-directory conformance |
 | Allele matching and merged summary stats | GraphLD `merge_alleles()`, `merge_snplists()` | `ldgm_merge_alleles()`, `ldgm_merge_snplists()` | tinytest merge/BLUP/clump | More real-data mismatch/strand edge cases |
 | BLUP workflow inputs | GraphLD `blup` CLI and `blup.py`; MATLAB `BLUPxldgm.m` | `ldgm_blup_block()`, `ldgm_partition_variants()`, `ldgm_run_blup()` | tinytest BLUP; GraphLD data smoke | Python GraphLD output conformance on pinned blocks |
 | Clumping workflow inputs | GraphLD `clump` CLI and `clumping.py` | `ldgm_run_clump()` | tinytest clump; GraphLD data smoke | Python GraphLD output conformance and performance |
@@ -43,11 +43,11 @@ arguments as stable interfaces unless they are deliberately exposed in R.
 | Surrogate marker maps | GraphLD surrogate-marker path and score/surrogate HDF5 files | `ldgm_reml_surrogate_markers()`, `ldgm_write_surrogate_map_hdf5()`, `ldgm_read_surrogate_map_hdf5()` | tinytest hdf5/reml; optional h5py interop tool | Larger upstream score/surrogate files |
 | GraphREML score-test HDF5 | GraphLD `_write_variant_data()`, `_write_trait_stats()`, `score_test_io.py` | `ldgm_write_score_test_hdf5()`, `ldgm_write_gene_score_hdf5()`, `ldgm_read_score_test_hdf5()`, `ldgm_convert_variant_to_gene_scores()` | tinytest HDF5/score-test; optional `tools/check-graphld-hdf5-python-interop.R` | Broader CLI schema and h5py-required CI on systems with Python deps |
 | Variant-annotation score-test statistic | `.sync/graphld/src/score_test/score_test.py` | `ldgm_score_test()`, `ldgm_score_test_hdf5()`, `ldgm_score_test_meta()`, `ldgm_score_test_hdf5_meta()` | tinytest score-test; optional Python interop checks against pinned GraphLD | Gene-set/GMT conversion and full score-test CLI parity |
-| Parquet multi-trait summary stats | `.sync/graphld/src/graphld/parquet_io.py`, `.sync/graphld/data/test/example_multi_trait.parquet` | `ldgm_parquet_traits()`, `ldgm_read_parquet_sumstats()`, `ldgm_read_parquet_sumstats_multi()` using optional `nanoparquet` | tinytest sumstats readers; GraphLD data smoke when `nanoparquet` is installed | Add pinned Python value conformance across more schemas and missingness edge cases |
-| GWAS VCF input | `.sync/graphld/src/graphld/vcf_io.py`, `.sync/graphld/data/test/example.gwas.vcf` | `ldgm_read_gwas_vcf()`, `ldgm_validate_gwas_vcf_format()` | tinytest sumstats readers; GraphLD data smoke | Add pinned Python value conformance and multi-sample/out-of-scope behavior notes |
-| BED/range and annotation directory inputs | GraphLD `read_bed()`, `load_annotations()`, `.sync/graphld/data/test/annot/` | `ldgm_read_bed()`, `ldgm_annotate_ranges()`, `ldgm_load_annotations()` | tinytest annotations; GraphLD data smoke on `.sync/graphld/data/test/annot/` | Add pinned Python GraphLD conformance for nontrivial BED overlaps and optional position/allele augmentation |
+| Parquet multi-trait summary stats | `.sync/graphld/src/graphld/parquet_io.py`, `.sync/graphld/data/test/example_multi_trait.parquet` | `ldgm_parquet_traits()`, `ldgm_read_parquet_sumstats()`, `ldgm_read_parquet_sumstats_multi()` using optional `nanoparquet` | tinytest sumstats readers; GraphLD data smoke; pinned Python value conformance via `tools/check-upstream-graphld-readers.R` | Expand conformance across more schemas and missingness edge cases |
+| GWAS VCF input | `.sync/graphld/src/graphld/vcf_io.py`, `.sync/graphld/data/test/example.gwas.vcf` | `ldgm_read_gwas_vcf()`, `ldgm_validate_gwas_vcf_format()` | tinytest sumstats readers; GraphLD data smoke; pinned Python value conformance via `tools/check-upstream-graphld-readers.R` | Add multi-sample/out-of-scope behavior notes and larger fixtures |
+| BED/range and annotation directory inputs | GraphLD `read_bed()`, `load_annotations()`, `.sync/graphld/data/test/annot/` | `ldgm_read_bed()`, `ldgm_annotate_ranges()`, `ldgm_load_annotations()` | tinytest annotations; GraphLD data smoke; pinned Python value conformance via `tools/check-upstream-graphld-readers.R` | Expand conformance for nontrivial BED overlaps and optional position/allele augmentation |
 | Simulation workflow inputs | `.sync/graphld/src/graphld/simulate.py`, GraphLD `simulate` CLI | Planned | None in R yet | Define minimal R simulation interface and upstream conformance expectations |
-| Gene-set and gene-table inputs | `.sync/graphld/src/score_test/genesets.py`, `convert_scores.py` | `ldgm_read_gmt()`, `ldgm_read_gene_table()`, `ldgm_gene_variant_matrix()`, `ldgm_gene_set_annotations()`, `ldgm_gene_set_variant_annotations()`, `ldgm_convert_variant_to_gene_scores()` | tinytest gene-sets/HDF5; GraphLD data smoke | Add pinned Python conformance for nearest-gene tie/edge cases and full convert-scores CLI parity |
+| Gene-set and gene-table inputs | `.sync/graphld/src/score_test/genesets.py`, `convert_scores.py` | `ldgm_read_gmt()`, `ldgm_read_gene_table()`, `ldgm_gene_variant_matrix()`, `ldgm_gene_set_annotations()`, `ldgm_gene_set_variant_annotations()`, `ldgm_convert_variant_to_gene_scores()` | tinytest gene-sets/HDF5; GraphLD data smoke; pinned Python value conformance via `tools/check-upstream-graphld-readers.R` | Expand conformance for nearest-gene tie/edge cases and full convert-scores CLI parity |
 | MATLAB legacy workflows | `MATLAB/*.m`, `MATLAB/precision/*.m`, `MATLAB/utility/*.m` | Partially covered by precision, BLUP, likelihood, allele merge | Unit tests and precision benchmark cover selected kernels | Decide whether DENTIST, imputation, PGS projection, and precision estimation are in scope |
 
 ## Local places to mine for interface contracts
@@ -81,15 +81,17 @@ arguments as stable interfaces unless they are deliberately exposed in R.
 - `R/io.R`, `R/precision.R`, `R/reml.R`, `R/score-test.R`, `R/hdf5.R`:
   current R-facing interface boundaries.
 - `tools/check-upstream-ldgm-goldens.R`, `tools/check-upstream-graphld-data.R`,
-  and `tools/check-graphld-hdf5-python-interop.R`: current conformance gates.
+  `tools/check-upstream-graphld-readers.R`, and
+  `tools/check-graphld-hdf5-python-interop.R`: current conformance gates.
 - `inst/tinytest/`: package-level contract tests.
 
 ## Next interface work queue
 
-1. Finish and keep green the current score-test meta-analysis and HDF5 interop
-   gate.
-2. Add pinned Python value conformance for gene-set/GMT, parquet, VCF,
-   annotation, and BED readers beyond local schema smokes.
+1. Finish and keep green the current score-test meta-analysis, reader
+   conformance, and HDF5 interop gates.
+2. Expand reader conformance beyond the small upstream GraphLD test files,
+   especially missingness, alternate schemas, BED overlap edge cases, and
+   nearest-gene ties.
 3. Expand convert-scores coverage toward full GraphLD CLI parity, including
    trait groups and non-gradient trait-specific datasets.
 4. Add upstream Python conformance for BLUP, clumping, graphREML summaries, and

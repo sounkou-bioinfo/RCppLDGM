@@ -66,6 +66,13 @@ reference:
   - ldgm_blup_block
   - ldgm_run_blup
   - ldgm_run_clump
+  - LdgmBlockCatalog
+  - ldgm_block_catalog
+  - ldgm_block_metadata_frame
+  - ldgm_block_directory
+  - ldgm_block_population
+  - ldgm_load_block_catalog
+  - ldgm_assert_block_catalog
   - LdgmSummaryStats
   - LdgmAnnotationData
   - ldgm_summary_stats
@@ -79,11 +86,29 @@ reference:
   - ldgm_reml_surrogate_markers
   - ldgm_reml_block
   - ldgm_run_reml
+- title: Annotation and summary-stat inputs
+  contents:
+  - ldgm_read_bed
+  - ldgm_read_ldsc_annot
+  - ldgm_load_annotations
+  - ldgm_annotate_ranges
+  - ldgm_read_gwas_vcf
+  - ldgm_validate_gwas_vcf_format
+  - ldgm_parquet_traits
+  - ldgm_read_parquet_sumstats
+  - ldgm_read_parquet_sumstats_multi
+  - ldgm_read_gmt
+  - ldgm_read_gene_table
+  - ldgm_gene_variant_matrix
+  - ldgm_gene_set_annotations
+  - ldgm_gene_set_variant_annotations
 - title: Score-test HDF5
   contents:
   - ldgm_hdf5_filter_info
   - ldgm_write_score_test_hdf5
+  - ldgm_write_gene_score_hdf5
   - ldgm_read_score_test_hdf5
+  - ldgm_convert_variant_to_gene_scores
   - ldgm_write_surrogate_map_hdf5
   - ldgm_read_surrogate_map_hdf5
   - ldgm_score_test
