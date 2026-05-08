@@ -29,10 +29,11 @@ and comparison tolerance used.
    or MATLAB outputs, document the difference and gate it behind a new interface.
 4. **Conformance before speed claims.** Benchmarks are useful only after output
    compatibility is demonstrated on pinned fixtures.
-5. **Dependency discipline.** Start with `Rcpp`, `Matrix`, and base R for graph
-   and precision kernels. Avoid compiled dependencies that make package builds
-   noisy or fragile; add `igraph`, `RcppParallel`, or a vendored `tskit` C layer
-   only when the exact need is clear.
+5. **Dependency discipline.** Keep compiled dependencies narrow and justified:
+   `Rcpp` for native kernels, `Matrix` for CHOLMOD-backed precision operations,
+   vendored pinned `tskit` C for `.trees` file extraction, and CRAN `hdf5lib` for
+   static HDF5 headers/libraries plus bundled compression filters. Avoid compiled
+   dependencies that make package builds noisy or fragile.
 6. **Linux performance path.** Use R's toolchain OpenMP flags on Linux for
    explicitly parallel native kernels, with a no-OpenMP fallback and tests that
    confirm availability via `ldgm_openmp_info()`.
@@ -49,7 +50,7 @@ The R API mirrors the upstream Python API while using R-native return types.
 | GraphLD `merge_snplists()` | `ldgm_merge_snplists()` | LDGM precision object + summary stats | merged selected LDGM object | initial R data-frame slice implemented |
 | GraphLD likelihood kernels | `ldgm_gaussian_likelihood()`, `ldgm_gaussian_likelihood_gradient()`, `ldgm_gaussian_likelihood_hessian()`, `ldgm_inverse_diagonal()` | precision object + pz / probes | likelihood/derivatives/inverse diagonal | exact small-block plus Hutchinson/xdiag/XNys stochastic slice implemented |
 | GraphLD BLUP block kernel/scheduler | `ldgm_blup_block()`, `ldgm_partition_variants()`, `ldgm_run_blup()` | sparse precision matrix + Z scores / metadata blocks | BLUP weights | single-block kernel plus serial block scheduler implemented |
-| GraphLD graphREML core/scheduler | `ldgm_reml_link()`, `ldgm_reml_block()`, `ldgm_run_reml()` | precision blocks + Z scores + annotations | likelihood, gradient, Hessian, parameters, heritability/enrichment | initial serial core implemented; full CLI parity/jackknife/surrogate/HDF5/multiprocessing remains planned |
+| GraphLD graphREML core/scheduler | `ldgm_reml_link()`, `ldgm_reml_block()`, `ldgm_run_reml()` | precision blocks + Z scores + annotations | likelihood, gradient, Hessian, parameters, heritability/enrichment, optional HDF5 score gradients | initial serial core and native `hdf5lib` score-test gradient writer implemented; full CLI parity/jackknife/surrogate/multiprocessing remains planned |
 | `ldgm.brick_ts()` | `ldgm_brick_edges_from_tables()` / `ldgm_tree_tables_from_tskit()` / `ldgm_brick_ts()` | canonical tree-diff tables, `ldgm_tree_tables` bundle, `.trees` path, or reticulate tskit object | bricked edge table now; bricked tree sequence later | native edge-splitting kernel, upstream-name wrapper, vendored tskit C `.trees` file adapter, and reticulate object adapter implemented and checked against upstream bricked edge tables |
 | `ldgm.brick_haplo_graph()` | `ldgm_brick_graph_inputs_from_edges()` + `ldgm_brick_haplo_graph()` | bricked edge table + sample nodes, or canonical brick/event tables | brick/event tables and brick-haplotype edge list | native bricked-edge adapter plus Rcpp rules 0/1/2 slice implemented and checked against upstream goldens; direct tree-sequence wiring planned |
 | `ldgm.utility.get_mut_edges()` | `ldgm_mutations_to_bricks()` | bricked edge table + mutation position/node table | brick-to-mutation map | native table slice implemented and checked against upstream goldens |

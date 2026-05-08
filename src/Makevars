@@ -17,6 +17,7 @@ TSKIT_OBJECTS = $(TSKIT_SOURCES:.c=.o)
 
 RCPPLDGM_CPP_SOURCES = \
 	graph.cpp \
+	hdf5_score.cpp \
 	precision_native.cpp \
 	tskit_adapter.cpp \
 	RcppExports.cpp
@@ -24,10 +25,15 @@ RCPPLDGM_OBJECTS = $(RCPPLDGM_CPP_SOURCES:.cpp=.o)
 
 OBJECTS = $(TSKIT_OBJECTS) $(RCPPLDGM_OBJECTS)
 
-PKG_CPPFLAGS = -I. -Itskit/subprojects/kastore
+all: $(SHLIB)
+
+HDF5LIB_CPPFLAGS = `$(R_HOME)/bin/Rscript -e "cat(hdf5lib::c_flags(200))"`
+HDF5LIB_LIBS = `$(R_HOME)/bin/Rscript -e "cat(hdf5lib::ld_flags(200))"`
+
+PKG_CPPFLAGS = -I. -Itskit/subprojects/kastore $(HDF5LIB_CPPFLAGS)
 PKG_CFLAGS = -DNDEBUG
 PKG_CXXFLAGS = $(SHLIB_OPENMP_CXXFLAGS)
-PKG_LIBS = $(SHLIB_OPENMP_CXXFLAGS)
+PKG_LIBS = $(SHLIB_OPENMP_CXXFLAGS) $(HDF5LIB_LIBS)
 
 # tskit 1.3.x exposes a C inline NAN initializer that requires C++20 when its
 # public headers are included by C++ adapter code.
@@ -38,3 +44,6 @@ tskit/%.o: tskit/%.c
 
 tskit/subprojects/kastore/%.o: tskit/subprojects/kastore/%.c
 	$(CC) $(ALL_CPPFLAGS) $(PKG_CFLAGS) $(CFLAGS) $(CPICFLAGS) -c $< -o $@
+
+clean:
+	rm -f $(OBJECTS) $(SHLIB)

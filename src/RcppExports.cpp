@@ -157,6 +157,47 @@ BEGIN_RCPP
     return rcpp_result_gen;
 END_RCPP
 }
+// hdf5_filter_info_cpp
+Rcpp::List hdf5_filter_info_cpp();
+RcppExport SEXP _RcppLDGM_hdf5_filter_info_cpp() {
+BEGIN_RCPP
+    Rcpp::RObject rcpp_result_gen;
+    Rcpp::RNGScope rcpp_rngScope_gen;
+    rcpp_result_gen = Rcpp::wrap(hdf5_filter_info_cpp());
+    return rcpp_result_gen;
+END_RCPP
+}
+// write_graphld_score_hdf5_cpp
+Rcpp::List write_graphld_score_hdf5_cpp(const std::string& filename, Rcpp::DataFrame variant_data, Rcpp::NumericVector gradient, const std::string& trait_name, Rcpp::IntegerVector jackknife_blocks, bool overwrite, const std::string& source, const std::string& compression, int chunk_size);
+RcppExport SEXP _RcppLDGM_write_graphld_score_hdf5_cpp(SEXP filenameSEXP, SEXP variant_dataSEXP, SEXP gradientSEXP, SEXP trait_nameSEXP, SEXP jackknife_blocksSEXP, SEXP overwriteSEXP, SEXP sourceSEXP, SEXP compressionSEXP, SEXP chunk_sizeSEXP) {
+BEGIN_RCPP
+    Rcpp::RObject rcpp_result_gen;
+    Rcpp::RNGScope rcpp_rngScope_gen;
+    Rcpp::traits::input_parameter< const std::string& >::type filename(filenameSEXP);
+    Rcpp::traits::input_parameter< Rcpp::DataFrame >::type variant_data(variant_dataSEXP);
+    Rcpp::traits::input_parameter< Rcpp::NumericVector >::type gradient(gradientSEXP);
+    Rcpp::traits::input_parameter< const std::string& >::type trait_name(trait_nameSEXP);
+    Rcpp::traits::input_parameter< Rcpp::IntegerVector >::type jackknife_blocks(jackknife_blocksSEXP);
+    Rcpp::traits::input_parameter< bool >::type overwrite(overwriteSEXP);
+    Rcpp::traits::input_parameter< const std::string& >::type source(sourceSEXP);
+    Rcpp::traits::input_parameter< const std::string& >::type compression(compressionSEXP);
+    Rcpp::traits::input_parameter< int >::type chunk_size(chunk_sizeSEXP);
+    rcpp_result_gen = Rcpp::wrap(write_graphld_score_hdf5_cpp(filename, variant_data, gradient, trait_name, jackknife_blocks, overwrite, source, compression, chunk_size));
+    return rcpp_result_gen;
+END_RCPP
+}
+// read_graphld_score_hdf5_cpp
+Rcpp::List read_graphld_score_hdf5_cpp(const std::string& filename, const std::string& trait_name);
+RcppExport SEXP _RcppLDGM_read_graphld_score_hdf5_cpp(SEXP filenameSEXP, SEXP trait_nameSEXP) {
+BEGIN_RCPP
+    Rcpp::RObject rcpp_result_gen;
+    Rcpp::RNGScope rcpp_rngScope_gen;
+    Rcpp::traits::input_parameter< const std::string& >::type filename(filenameSEXP);
+    Rcpp::traits::input_parameter< const std::string& >::type trait_name(trait_nameSEXP);
+    rcpp_result_gen = Rcpp::wrap(read_graphld_score_hdf5_cpp(filename, trait_name));
+    return rcpp_result_gen;
+END_RCPP
+}
 // openmp_info_cpp
 Rcpp::List openmp_info_cpp();
 RcppExport SEXP _RcppLDGM_openmp_info_cpp() {
@@ -211,6 +252,9 @@ static const R_CallMethodDef CallEntries[] = {
     {"_RcppLDGM_finalize_ldgm_cpp", (DL_FUNC) &_RcppLDGM_finalize_ldgm_cpp, 8},
     {"_RcppLDGM_remove_node_cpp", (DL_FUNC) &_RcppLDGM_remove_node_cpp, 5},
     {"_RcppLDGM_reduce_graph_cpp", (DL_FUNC) &_RcppLDGM_reduce_graph_cpp, 6},
+    {"_RcppLDGM_hdf5_filter_info_cpp", (DL_FUNC) &_RcppLDGM_hdf5_filter_info_cpp, 0},
+    {"_RcppLDGM_write_graphld_score_hdf5_cpp", (DL_FUNC) &_RcppLDGM_write_graphld_score_hdf5_cpp, 9},
+    {"_RcppLDGM_read_graphld_score_hdf5_cpp", (DL_FUNC) &_RcppLDGM_read_graphld_score_hdf5_cpp, 2},
     {"_RcppLDGM_openmp_info_cpp", (DL_FUNC) &_RcppLDGM_openmp_info_cpp, 0},
     {"_RcppLDGM_set_openmp_threads_cpp", (DL_FUNC) &_RcppLDGM_set_openmp_threads_cpp, 1},
     {"_RcppLDGM_sparse_matmul_cpp", (DL_FUNC) &_RcppLDGM_sparse_matmul_cpp, 2},

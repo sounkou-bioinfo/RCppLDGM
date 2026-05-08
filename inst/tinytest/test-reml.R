@@ -94,5 +94,35 @@ block_dup <- ldgm_reml_block(
 )
 expected_h2_dup <- ldgm_reml_link(annotations_dup, c(0, 0.2), denominator = 10)
 expect_equal(block_dup$diag_update, c(expected_h2_dup[[1]], sum(expected_h2_dup[2:3])), tolerance = 1e-12)
+
+reml_h5_file <- tempfile(fileext = ".h5")
+reml_variant_data <- data.frame(
+  CHR = c(1L, 1L, 1L),
+  POS = c(100L, 200L, 300L),
+  RSID = c("rs100", "rs200", "rs300")
+)
+fit_h5 <- ldgm_run_reml(
+  P_reml,
+  z_reml,
+  annotations_reml,
+  params = params_reml,
+  sample_size = 100,
+  link_fn_denominator = 10,
+  diagonal_method = "exact",
+  num_iterations = 1L,
+  score_test_hdf5 = reml_h5_file,
+  score_test_trait_name = "h5_trait",
+  score_test_variant_data = reml_variant_data,
+  score_test_jackknife_blocks = c(0L, 0L, 1L),
+  score_test_diagonal_method = "exact",
+  score_test_overwrite = TRUE
+)
+expect_true(file.exists(reml_h5_file))
+expect_equal(fit_h5$score_test_hdf5$trait_name, "h5_trait")
+reml_h5 <- ldgm_read_score_test_hdf5(reml_h5_file, "h5_trait")
+expect_equal(reml_h5$variant_data$RSID, reml_variant_data$RSID)
+expect_equal(length(reml_h5$gradient), nrow(annotations_reml))
+expect_true(all(is.finite(reml_h5$gradient)))
+
 expect_error(ldgm_reml_block(P_reml, z_reml[-1], annotations_reml, params_reml, sample_size = 100), "z")
 expect_error(ldgm_run_reml(list(P_reml, P_reml), list(z_reml), list(annotations_reml), sample_size = 100), "same number")

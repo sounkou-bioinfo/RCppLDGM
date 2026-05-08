@@ -94,9 +94,10 @@ ldgm_reml_block <- function(precision,
 #' and uses step-halving to require non-decreasing likelihood.
 #'
 #' This function is intended as the first R-native workflow surface and
-#' conformance target for graphREML kernels. It does not yet implement GraphLD's
-#' multiprocessing manager, surrogate-marker handling, jackknife standard errors,
-#' or score-test HDF5 output.
+#' conformance target for graphREML kernels. It includes an optional initial
+#' GraphLD-style score-test HDF5 writer, but does not yet implement GraphLD's
+#' multiprocessing manager, surrogate-marker handling, or jackknife standard
+#' errors.
 #'
 #' @param ldgms An `ldgm_precision`/sparse precision block or a list of blocks.
 #' @param z Numeric Z-score vector or list of vectors, one per block.
@@ -113,9 +114,21 @@ ldgm_reml_block <- function(precision,
 #'   `ldgm_reml_block()`.
 #' @param max_step_halving Maximum number of step halvings for a proposed Newton
 #'   step.
+#' @param score_test_hdf5 Optional HDF5 path. When supplied, final per-variant
+#'   score-test gradients are written with [ldgm_write_score_test_hdf5()].
+#' @param score_test_trait_name Trait group name to use under `/traits` when
+#'   `score_test_hdf5` is supplied.
+#' @param score_test_variant_data Data frame, or list of per-block data frames,
+#'   with `CHR`, `POS`, and `RSID`/`SNP` columns for HDF5 row data.
+#' @param score_test_jackknife_blocks Optional jackknife assignments for the HDF5
+#'   row data.
+#' @param score_test_diagonal_method,score_test_n_samples Inverse-diagonal
+#'   estimator and probe count used for final per-variant score gradients.
+#' @param score_test_overwrite If `TRUE`, replace an existing HDF5 file.
 #'
 #' @return A list containing estimated `parameters`, `heritability`,
-#'   `enrichment`, `likelihood_history`, convergence diagnostics, and final block
+#'   `enrichment`, `likelihood_history`, convergence diagnostics,
+#'   `score_test_hdf5` write metadata when requested, and final block
 #'   derivatives.
 #' @export
 ldgm_run_reml <- function(ldgms,
@@ -131,7 +144,14 @@ ldgm_run_reml <- function(ldgms,
                           diagonal_method = "xdiag",
                           n_samples = 100L,
                           seed = NULL,
-                          max_step_halving = 12L) {
+                          max_step_halving = 12L,
+                          score_test_hdf5 = NULL,
+                          score_test_trait_name = "trait",
+                          score_test_variant_data = NULL,
+                          score_test_jackknife_blocks = NULL,
+                          score_test_diagonal_method = diagonal_method,
+                          score_test_n_samples = 200L,
+                          score_test_overwrite = FALSE) {
   blocks <- normalize_reml_blocks(ldgms, z, annotations)
   p <- ncol(blocks$annotations[[1L]])
   params <- if (is.null(params)) rep(0, p) else as.numeric(params)
@@ -212,6 +232,36 @@ ldgm_run_reml <- function(ldgms,
     current <- candidate
   }
 
+  score_test <- NULL
+  if (!is.null(score_test_hdf5)) {
+    if (is.null(score_test_variant_data)) {
+      stop("`score_test_variant_data` is required when `score_test_hdf5` is supplied", call. = FALSE)
+    }
+    score_variant_data <- normalize_reml_score_variant_data(score_test_variant_data)
+    score <- reml_variant_scores(
+      current$blocks,
+      blocks$ldgms,
+      blocks$annotations,
+      params,
+      denominator = link_fn_denominator,
+      diagonal_method = score_test_diagonal_method,
+      n_samples = score_test_n_samples,
+      seed = seed
+    )
+    if (nrow(score_variant_data) != length(score)) {
+      stop("`score_test_variant_data` rows must match the number of scored variants", call. = FALSE)
+    }
+    score_jackknife_blocks <- normalize_reml_score_jackknife_blocks(score_test_jackknife_blocks)
+    score_test <- ldgm_write_score_test_hdf5(
+      score_test_hdf5,
+      variant_data = score_variant_data,
+      gradient = score,
+      trait_name = score_test_trait_name,
+      jackknife_blocks = score_jackknife_blocks,
+      overwrite = score_test_overwrite
+    )
+  }
+
   totals <- reml_heritability_totals(current$blocks, blocks$annotations)
   names(params) <- annotation_names
   names(totals$heritability) <- annotation_names
@@ -225,6 +275,7 @@ ldgm_run_reml <- function(ldgms,
     num_iterations = iterations_run,
     gradient = current$gradient,
     hessian = current$hessian,
+    score_test_hdf5 = score_test,
     blocks = current$blocks,
     log = list(
       converged = converged,
@@ -330,6 +381,66 @@ reml_heritability_totals <- function(block_results, annotation_blocks) {
     enrichment <- annot_sums[[1L]] * h2 / (h2[[1L]] * annot_sums)
   }
   list(heritability = h2, enrichment = enrichment)
+}
+
+reml_variant_scores <- function(block_results,
+                                ldgms,
+                                annotation_blocks,
+                                params,
+                                denominator,
+                                diagonal_method,
+                                n_samples,
+                                seed) {
+  scores <- vector("list", length(block_results))
+  for (i in seq_along(block_results)) {
+    annotations <- as_numeric_matrix(annotation_blocks[[i]])
+    params_matrix <- as_reml_params(params, ncol(annotations))
+    node_grad <- ldgm_gaussian_likelihood_gradient(
+      block_results[[i]]$p_z,
+      block_results[[i]]$model_precision,
+      del_M_del_a = NULL,
+      diagonal_method = diagonal_method,
+      n_samples = n_samples,
+      seed = if (is.null(seed)) NULL else seed + i - 1L
+    )
+    del_h2_del_x <- as.numeric(sigmoid_stable(annotations %*% params_matrix) / denominator)
+    indices <- reml_variant_indices(ldgms[[i]], length(node_grad), nrow(annotations))
+    scores[[i]] <- as.numeric(node_grad[indices + 1L] * del_h2_del_x)
+  }
+  unlist(scores, use.names = FALSE)
+}
+
+reml_variant_indices <- function(precision, n_nodes, n_variants) {
+  if (inherits(precision, "ldgm_precision") && nrow(precision$variant_info) == n_variants) {
+    indices <- as.integer(precision$variant_info$index)
+  } else {
+    if (n_variants != n_nodes) {
+      stop("annotation rows must match precision rows or ldgm variant_info rows", call. = FALSE)
+    }
+    indices <- seq_len(n_nodes) - 1L
+  }
+  if (anyNA(indices) || any(indices < 0L) || any(indices >= n_nodes)) {
+    stop("variant indices must be zero-based and within the precision dimension", call. = FALSE)
+  }
+  indices
+}
+
+normalize_reml_score_variant_data <- function(variant_data) {
+  if (is.list(variant_data) && !is.data.frame(variant_data)) {
+    variant_data <- do.call(rbind, lapply(variant_data, as.data.frame))
+    rownames(variant_data) <- NULL
+  }
+  normalize_score_hdf5_variant_data(variant_data)
+}
+
+normalize_reml_score_jackknife_blocks <- function(jackknife_blocks) {
+  if (is.null(jackknife_blocks)) {
+    return(NULL)
+  }
+  if (is.list(jackknife_blocks)) {
+    jackknife_blocks <- unlist(jackknife_blocks, use.names = FALSE)
+  }
+  jackknife_blocks
 }
 
 reml_newton_step <- function(gradient, hessian) {

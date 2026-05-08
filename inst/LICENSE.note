@@ -7,6 +7,10 @@ The implementation is an R/Rcpp port informed by the MIT-licensed upstream
 I/O. Original copyright notices are preserved in the repository file
 `LICENSE.upstream.md`.
 
+HDF5 score-test output links to the CRAN `hdf5lib` package for static HDF5
+headers/libraries and bundled compression filters; those sources are not
+vendored in this repository.
+
 Upstream `ldgm` copyright (c) 2022 Anthony Wilder Wohns, Luke O'Connor,
 Pouria Salehi Nowbandegani.
 
