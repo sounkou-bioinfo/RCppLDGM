@@ -4,8 +4,9 @@
 #' LDGM SNP lists, allele-aligned Z scores are sorted by chi-square statistic,
 #' and each lead variant prunes variants with LD squared above `rsq_threshold`.
 #'
-#' @param ldgms An `ldgm_precision` object, a list of such objects, or a path to
-#'   a GraphLD metadata CSV containing `name` and `snplistName` columns.
+#' @param ldgms An `ldgm_precision` object, a list of such objects, a
+#'   [LdgmBlockCatalog] object, or a path to a GraphLD metadata CSV containing
+#'   `name` and `snplistName` columns.
 #' @param sumstats Summary-statistics data frame, or a list of per-block data
 #'   frames when `ldgms` is a list and `metadata` is not supplied.
 #' @param rsq_threshold LD-squared pruning threshold.
@@ -57,26 +58,23 @@ ldgm_run_clump <- function(ldgms,
   validate_rsq_threshold(rsq_threshold)
   validate_nonnegative_scalar(chisq_threshold, "chisq_threshold")
 
-  if (is.character(ldgms) && length(ldgms) == 1L) {
-    metadata_path <- ldgms
-    metadata <- utils::read.csv(metadata_path, stringsAsFactors = FALSE)
-    metadata <- filter_ldgm_metadata(metadata, populations = populations, chromosomes = chromosomes)
-    ldgm_dir <- ldgm_dir %||% dirname(metadata_path)
-    ldgms <- lapply(seq_len(nrow(metadata)), function(i) {
-      block_population <- if ("population" %in% names(metadata)) metadata$population[[i]] else population
-      ldgm_load_ldgm(
-        file.path(ldgm_dir, metadata$name[[i]]),
-        snplist_path = file.path(ldgm_dir, metadata$snplistName[[i]]),
-        population = block_population
-      )
-    })
+  if ((is.character(ldgms) && length(ldgms) == 1L) || ldgm_implements(ldgms, LdgmBlockCatalog)) {
+    catalog <- ldgm_block_catalog(
+      ldgms,
+      ldgm_dir = ldgm_dir,
+      population = population,
+      populations = populations,
+      chromosomes = chromosomes
+    )
+    metadata <- ldgm_block_metadata_frame(catalog)
+    ldgms <- ldgm_load_block_catalog(catalog, population = population)
   }
 
   if (inherits(ldgms, "ldgm_precision")) {
     ldgms <- list(ldgms)
   }
   if (!is.list(ldgms) || !all(vapply(ldgms, inherits, logical(1), "ldgm_precision"))) {
-    stop("`ldgms` must be an ldgm_precision object, a list of them, or a metadata CSV path", call. = FALSE)
+    stop("`ldgms` must be an ldgm_precision object, a list of them, a block catalog, or a metadata CSV path", call. = FALSE)
   }
 
   if (!is.null(metadata)) {

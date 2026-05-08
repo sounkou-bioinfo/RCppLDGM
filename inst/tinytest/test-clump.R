@@ -99,6 +99,14 @@ path_result <- ldgm_run_clump(
   match_by_position = FALSE
 )
 expect_equal(path_result$is_index, c(TRUE, FALSE, TRUE))
+catalog_result <- ldgm_run_clump(
+  ldgm_block_catalog(metadata_path),
+  sumstats,
+  rsq_threshold = 0.5,
+  chisq_threshold = 10,
+  match_by_position = FALSE
+)
+expect_equal(catalog_result$is_index, c(TRUE, FALSE, TRUE))
 
 expect_error(ldgm_run_clump(ldgm, sumstats, rsq_threshold = 2), "rsq_threshold")
 expect_error(ldgm_run_clump(ldgm, sumstats, chisq_threshold = -1), "chisq_threshold")

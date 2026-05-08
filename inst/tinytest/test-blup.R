@@ -99,4 +99,11 @@ utils::write.csv(
 )
 path_result <- ldgm_run_blup(metadata_path, sumstats, sigmasq = 0.01, sample_size = 100)
 expect_equal(path_result$weight, expected1, tolerance = 1e-10)
+catalog_result <- ldgm_run_blup(
+  ldgm_block_catalog(metadata_path),
+  sumstats,
+  sigmasq = 0.01,
+  sample_size = 100
+)
+expect_equal(catalog_result$weight, expected1, tolerance = 1e-10)
 expect_error(ldgm_run_blup(list(ldgm1, ldgm2), sumstats, sigmasq = 0.01, sample_size = 100), "metadata")

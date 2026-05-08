@@ -27,8 +27,9 @@ ldgm_run_clump(
 )
 }
 \arguments{
-\item{ldgms}{An \code{ldgm_precision} object, a list of such objects, or a path to
-a GraphLD metadata CSV containing \code{name} and \code{snplistName} columns.}
+\item{ldgms}{An \code{ldgm_precision} object, a list of such objects, a
+\link{LdgmBlockCatalog} object, or a path to a GraphLD metadata CSV containing
+\code{name} and \code{snplistName} columns.}
 
 \item{sumstats}{Summary-statistics data frame, or a list of per-block data
 frames when \code{ldgms} is a list and \code{metadata} is not supplied.}

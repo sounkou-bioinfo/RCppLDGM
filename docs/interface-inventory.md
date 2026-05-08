@@ -32,7 +32,7 @@ arguments as stable interfaces unless they are deliberately exposed in R.
 | Canonical tree tables and tree-diff tables | LDGM bricking internals and generated golden manifests | `ldgm_tree_tables()`, `ldgm_make_ldgm_from_tree_tables()`, Rcpp table kernels | `tools/check-upstream-ldgm-goldens.R` validates bricking, graph inputs, mutation maps, reduced graph, final LDGM, SNP list | Larger tree-sequence workloads and more edge cases |
 | LDGM edge list | `ldgm.return_edgelist()`, GraphLD `.edgelist`, MATLAB `readedgelist.m`/`writeedgelist.m` | `ldgm_edge_list()`, `ldgm_read_edgelist()`, `ldgm_sparse_precision()`, `ldgm_return_edgelist()` | tinytest graph/IO tests; LDGM goldens; GraphLD data smoke | Keep documenting one-based R edge-list convention vs raw upstream zero-based files |
 | SNP list / variant metadata | LDGM `make_snplist()`, GraphLD `.snplist`, `.sync/graphld/data/test/*.snplist` | `ldgm_make_snplist()`, `ldgm_read_snplist()`, `ldgm_variant_info()` | LDGM goldens; GraphLD IO tests | Add larger multi-population allele-frequency checks |
-| LDGM metadata CSV block catalog | GraphLD `metadata.csv`, `read_ldgm_metadata()`, BLUP/clump/reml CLI | `ldgm_load_ldgm()`, `ldgm_run_blup()`, `ldgm_run_clump()`, `ldgm_run_reml()` list inputs | `tools/check-upstream-graphld-data.R` smoke; tinytest BLUP/clump/reml | Consider formal `LdgmBlockCatalog` S7/s7contract interface |
+| LDGM metadata CSV block catalog | GraphLD `metadata.csv`, `read_ldgm_metadata()`, BLUP/clump/reml CLI | `LdgmBlockCatalog`, `ldgm_block_catalog()`, `ldgm_load_block_catalog()`, `ldgm_load_ldgm()`, `ldgm_run_blup()`, `ldgm_run_clump()`, `ldgm_run_reml()` list inputs | tinytest interfaces/BLUP/clump; `tools/check-upstream-graphld-data.R` smoke | Wire catalog objects into more GraphREML/block-manager paths and add pinned GraphLD output conformance |
 | Precision operator object protocol | GraphLD `PrecisionOperator` methods in `.sync/graphld/src/graphld/precision.py` | `ldgm_precision()`, `ldgm_precision_select()`, `ldgm_precision_scale()`, `ldgm_precision_update()`, `ldgm_precision_update_element()`, multiply/solve/logdet/inverse diagonal, `ldgm_variant_solve()` | tinytest precision coverage; benchmark smoke | Upstream-scale SuiteSparse conformance/performance for stochastic estimators |
 | Summary statistics table | GraphLD CLI `--sumstats`, `summary_stats: pl.DataFrame`, `.sync/graphld/data/test/example.sumstats` | `LdgmSummaryStats`, `ldgm_summary_stats()`, BLUP/clump/reml data-frame paths | tinytest interfaces/BLUP/clump/reml; GraphLD data smoke | Add parquet and VCF summary-stat readers as first-class input interfaces |
 | Annotation table | GraphLD `annotation_data: pl.DataFrame`, `.annot` files, score-test annotations | `LdgmAnnotationData`, `ldgm_annotation_data()`, `ldgm_annotation_columns()` | tinytest interfaces/reml/score-test | Add LDSC `.annot` directory reader and full annotation-column selection parity |
@@ -88,11 +88,12 @@ arguments as stable interfaces unless they are deliberately exposed in R.
 
 1. Finish and keep green the current score-test meta-analysis and HDF5 interop
    gate.
-2. Add `LdgmBlockCatalog` for metadata/data-directory block catalogs.
-3. Add R-native readers or explicit adapters for parquet, VCF, LDSC `.annot`, and
+2. Add R-native readers or explicit adapters for parquet, VCF, LDSC `.annot`, and
    BED inputs from `.sync/graphld/data/test`.
-4. Add gene-set/GMT and gene-table score-test conversion interfaces.
-5. Add upstream Python conformance for BLUP, clumping, graphREML summaries, and
+3. Add gene-set/GMT and gene-table score-test conversion interfaces.
+4. Add upstream Python conformance for BLUP, clumping, graphREML summaries, and
    stochastic inverse diagonal estimators.
+5. Wire `LdgmBlockCatalog` into any remaining GraphREML/block-manager paths that
+   still take loose metadata/data-directory arguments.
 6. Revisit MATLAB-only workflows and mark each as implemented, planned, or out of
    scope with a compatibility reason.
