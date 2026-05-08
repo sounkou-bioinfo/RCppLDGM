@@ -47,7 +47,7 @@ arguments as stable interfaces unless they are deliberately exposed in R.
 | GWAS VCF input | `.sync/graphld/src/graphld/vcf_io.py`, `.sync/graphld/data/test/example.gwas.vcf` | `ldgm_read_gwas_vcf()`, `ldgm_validate_gwas_vcf_format()` | tinytest sumstats readers; GraphLD data smoke | Add pinned Python value conformance and multi-sample/out-of-scope behavior notes |
 | BED/range and annotation directory inputs | GraphLD `read_bed()`, `load_annotations()`, `.sync/graphld/data/test/annot/` | `ldgm_read_bed()`, `ldgm_annotate_ranges()`, `ldgm_load_annotations()` | tinytest annotations; GraphLD data smoke on `.sync/graphld/data/test/annot/` | Add pinned Python GraphLD conformance for nontrivial BED overlaps and optional position/allele augmentation |
 | Simulation workflow inputs | `.sync/graphld/src/graphld/simulate.py`, GraphLD `simulate` CLI | Planned | None in R yet | Define minimal R simulation interface and upstream conformance expectations |
-| Gene-set and gene-table inputs | `.sync/graphld/src/score_test/genesets.py`, `convert_scores.py` | Planned | None in R yet | Implement GMT/gene-table score-test conversion or mark future scope |
+| Gene-set and gene-table inputs | `.sync/graphld/src/score_test/genesets.py`, `convert_scores.py` | `ldgm_read_gmt()`, `ldgm_read_gene_table()`, `ldgm_gene_variant_matrix()`, `ldgm_gene_set_annotations()`, `ldgm_gene_set_variant_annotations()` | tinytest gene-sets; local projection semantics | Add pinned Python conformance and HDF5 variant-to-gene score conversion |
 | MATLAB legacy workflows | `MATLAB/*.m`, `MATLAB/precision/*.m`, `MATLAB/utility/*.m` | Partially covered by precision, BLUP, likelihood, allele merge | Unit tests and precision benchmark cover selected kernels | Decide whether DENTIST, imputation, PGS projection, and precision estimation are in scope |
 
 ## Local places to mine for interface contracts
@@ -88,7 +88,8 @@ arguments as stable interfaces unless they are deliberately exposed in R.
 
 1. Finish and keep green the current score-test meta-analysis and HDF5 interop
    gate.
-2. Add gene-set/GMT and gene-table score-test conversion interfaces.
+2. Add HDF5 variant-to-gene score conversion and pinned Python conformance for
+   gene-set/GMT interfaces.
 3. Add pinned Python value conformance for parquet, VCF, annotation, and BED
    readers beyond local schema smokes.
 4. Add upstream Python conformance for BLUP, clumping, graphREML summaries, and

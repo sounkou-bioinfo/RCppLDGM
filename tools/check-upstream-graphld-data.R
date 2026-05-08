@@ -66,13 +66,32 @@ if (file.exists(vcf_path)) {
 }
 
 parquet_path <- file.path(data_dir, "example_multi_trait.parquet")
-if (file.exists(parquet_path) && requireNamespace("nanoparquet", quietly = TRUE)) {
+if (file.exists(parquet_path) && (requireNamespace("nanoparquet", quietly = TRUE) || requireNamespace("arrow", quietly = TRUE))) {
   parquet_traits <- ldgm_parquet_traits(parquet_path)
   stopifnot(length(parquet_traits) > 0L)
   parquet_sumstats <- ldgm_read_parquet_sumstats(parquet_path, trait = parquet_traits[[1L]])
   stopifnot(is.data.frame(parquet_sumstats), nrow(parquet_sumstats) > 0L)
   stopifnot(all(c("SNP", "CHR", "POS", "REF", "ALT", "N", "Z") %in% names(parquet_sumstats)))
   message("Parquet smoke: trait=", parquet_traits[[1L]], ", rows=", nrow(parquet_sumstats))
+}
+
+score_test_dir <- file.path(dirname(dirname(data_dir)), "tests", "score_test_data")
+genes_path <- file.path(score_test_dir, "genes_test.tsv")
+gmt_path <- file.path(score_test_dir, "test_symbols.gmt")
+if (file.exists(genes_path) && file.exists(gmt_path)) {
+  gene_table <- ldgm_read_gene_table(genes_path, chromosomes = 22L)
+  gene_sets <- ldgm_read_gmt(gmt_path)
+  gene_annotations <- ldgm_gene_set_annotations(gene_sets, gene_table)
+  stopifnot(is.data.frame(gene_annotations), nrow(gene_annotations) > 0L)
+  variant_stub <- data.frame(
+    CHR = 22L,
+    POS = utils::head(gene_table$POS, 3L),
+    RSID = paste0("stub", seq_len(3L)),
+    stringsAsFactors = FALSE
+  )
+  variant_annotations <- ldgm_gene_set_variant_annotations(gene_sets, variant_stub, gene_table, nearest_weights = 1)
+  stopifnot(is.data.frame(variant_annotations), nrow(variant_annotations) == 3L)
+  message("Gene-set smoke: sets=", length(gene_sets), ", genes=", nrow(gene_table))
 }
 
 loaded <- vector("list", nrow(metadata))
