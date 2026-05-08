@@ -78,11 +78,11 @@
 <div class="section level2">
 <h2 id="sparse-graphld-style-precision-operators">Sparse GraphLD-style precision operators<a class="anchor" aria-label="anchor" href="#sparse-graphld-style-precision-operators"></a>
 </h2>
-<p>Start with an LDGM edge list. Node ids are zero-based, matching the upstream file format.</p>
+<p>Start with an LDGM edge list. R-facing node ids are one-based, like ordinary R row/column indices. File readers convert upstream GraphLD zero-based files at the boundary.</p>
 <div class="sourceCode" id="cb3"><pre class="downlit sourceCode r">
 <code class="sourceCode R"><span><span class="va">edges</span> <span class="op">&lt;-</span> <span class="fu"><a href="reference/ldgm_edge_list.html">ldgm_edge_list</a></span><span class="op">(</span></span>
-<span>  from <span class="op">=</span> <span class="fu"><a href="https://rdrr.io/r/base/c.html" class="external-link">c</a></span><span class="op">(</span><span class="fl">0L</span>, <span class="fl">1L</span>, <span class="fl">2L</span>, <span class="fl">0L</span>, <span class="fl">1L</span><span class="op">)</span>,</span>
-<span>  to <span class="op">=</span> <span class="fu"><a href="https://rdrr.io/r/base/c.html" class="external-link">c</a></span><span class="op">(</span><span class="fl">0L</span>, <span class="fl">1L</span>, <span class="fl">2L</span>, <span class="fl">1L</span>, <span class="fl">2L</span><span class="op">)</span>,</span>
+<span>  from <span class="op">=</span> <span class="fu"><a href="https://rdrr.io/r/base/c.html" class="external-link">c</a></span><span class="op">(</span><span class="fl">1L</span>, <span class="fl">2L</span>, <span class="fl">3L</span>, <span class="fl">1L</span>, <span class="fl">2L</span><span class="op">)</span>,</span>
+<span>  to <span class="op">=</span> <span class="fu"><a href="https://rdrr.io/r/base/c.html" class="external-link">c</a></span><span class="op">(</span><span class="fl">1L</span>, <span class="fl">2L</span>, <span class="fl">3L</span>, <span class="fl">2L</span>, <span class="fl">3L</span><span class="op">)</span>,</span>
 <span>  weight <span class="op">=</span> <span class="fu"><a href="https://rdrr.io/r/base/c.html" class="external-link">c</a></span><span class="op">(</span><span class="fl">2</span>, <span class="fl">3</span>, <span class="fl">4</span>, <span class="fl">0.1</span>, <span class="fl">0.2</span><span class="op">)</span></span>
 <span><span class="op">)</span></span>
 <span><span class="va">precision</span> <span class="op">&lt;-</span> <span class="fu"><a href="reference/ldgm_sparse_precision.html">ldgm_sparse_precision</a></span><span class="op">(</span><span class="va">edges</span><span class="op">)</span></span>
@@ -103,12 +103,12 @@
 <p><code>ldgm_precision</code> objects carry variant metadata and support selected Schur-complement views, diagonal updates, scalar scaling, and duplicate-index variant solves.</p>
 <div class="sourceCode" id="cb4"><pre class="downlit sourceCode r">
 <code class="sourceCode R"><span><span class="va">variant_info</span> <span class="op">&lt;-</span> <span class="fu"><a href="https://rdrr.io/r/base/data.frame.html" class="external-link">data.frame</a></span><span class="op">(</span></span>
-<span>  index <span class="op">=</span> <span class="fu"><a href="https://rdrr.io/r/base/c.html" class="external-link">c</a></span><span class="op">(</span><span class="fl">0L</span>, <span class="fl">0L</span>, <span class="fl">1L</span>, <span class="fl">2L</span><span class="op">)</span>,</span>
+<span>  index <span class="op">=</span> <span class="fu"><a href="https://rdrr.io/r/base/c.html" class="external-link">c</a></span><span class="op">(</span><span class="fl">1L</span>, <span class="fl">1L</span>, <span class="fl">2L</span>, <span class="fl">3L</span><span class="op">)</span>,</span>
 <span>  SNP <span class="op">=</span> <span class="fu"><a href="https://rdrr.io/r/base/c.html" class="external-link">c</a></span><span class="op">(</span><span class="st">"rs1"</span>, <span class="st">"rs1_proxy"</span>, <span class="st">"rs2"</span>, <span class="st">"rs3"</span><span class="op">)</span></span>
 <span><span class="op">)</span></span>
 <span><span class="va">block</span> <span class="op">&lt;-</span> <span class="fu"><a href="reference/ldgm_precision.html">ldgm_precision</a></span><span class="op">(</span><span class="va">precision</span>, <span class="va">variant_info</span><span class="op">)</span></span>
 <span></span>
-<span><span class="va">selected</span> <span class="op">&lt;-</span> <span class="fu"><a href="reference/ldgm_precision_select.html">ldgm_precision_select</a></span><span class="op">(</span><span class="va">block</span>, <span class="fu"><a href="https://rdrr.io/r/base/c.html" class="external-link">c</a></span><span class="op">(</span><span class="fl">0L</span>, <span class="fl">2L</span><span class="op">)</span><span class="op">)</span></span>
+<span><span class="va">selected</span> <span class="op">&lt;-</span> <span class="fu"><a href="reference/ldgm_precision_select.html">ldgm_precision_select</a></span><span class="op">(</span><span class="va">block</span>, <span class="fu"><a href="https://rdrr.io/r/base/c.html" class="external-link">c</a></span><span class="op">(</span><span class="fl">1L</span>, <span class="fl">3L</span><span class="op">)</span><span class="op">)</span></span>
 <span><span class="fu"><a href="reference/ldgm_precision_matrix.html">ldgm_precision_matrix</a></span><span class="op">(</span><span class="va">selected</span><span class="op">)</span></span>
 <span><span class="co">#&gt; 2 x 2 sparse Matrix of class "dgCMatrix"</span></span>
 <span><span class="co">#&gt;</span></span>
@@ -117,7 +117,7 @@
 <span></span>
 <span><span class="va">updated</span> <span class="op">&lt;-</span> <span class="fu"><a href="reference/ldgm_precision_update_element.html">ldgm_precision_update_element</a></span><span class="op">(</span><span class="va">selected</span>, index <span class="op">=</span> <span class="fl">1L</span>, value <span class="op">=</span> <span class="fl">0.5</span><span class="op">)</span></span>
 <span><span class="fu"><a href="reference/ldgm_precision_multiply.html">ldgm_precision_multiply</a></span><span class="op">(</span><span class="va">updated</span>, <span class="fu"><a href="https://rdrr.io/r/base/c.html" class="external-link">c</a></span><span class="op">(</span><span class="fl">1</span>, <span class="fl">1</span><span class="op">)</span><span class="op">)</span></span>
-<span><span class="co">#&gt; [1] 1.99 4.48</span></span>
+<span><span class="co">#&gt; [1] 2.49 3.98</span></span>
 <span></span>
 <span><span class="fu"><a href="reference/ldgm_variant_solve.html">ldgm_variant_solve</a></span><span class="op">(</span><span class="va">block</span>, <span class="fu"><a href="https://rdrr.io/r/base/c.html" class="external-link">c</a></span><span class="op">(</span><span class="fl">1</span>, <span class="fl">2</span>, <span class="fl">3</span>, <span class="fl">4</span><span class="op">)</span><span class="op">)</span></span>
 <span><span class="co">#&gt; [1] 1.4556114 1.4556114 0.8877722 0.9556114</span></span></code></pre></div>
@@ -130,8 +130,8 @@
 <code class="sourceCode R"><span><span class="va">initial_edges</span> <span class="op">&lt;-</span> <span class="fu"><a href="https://rdrr.io/r/base/data.frame.html" class="external-link">data.frame</a></span><span class="op">(</span></span>
 <span>  left <span class="op">=</span> <span class="fu"><a href="https://rdrr.io/r/base/c.html" class="external-link">c</a></span><span class="op">(</span><span class="fl">0</span>, <span class="fl">0</span><span class="op">)</span>,</span>
 <span>  right <span class="op">=</span> <span class="fu"><a href="https://rdrr.io/r/base/c.html" class="external-link">c</a></span><span class="op">(</span><span class="fl">1</span>, <span class="fl">1</span><span class="op">)</span>,</span>
-<span>  parent <span class="op">=</span> <span class="fu"><a href="https://rdrr.io/r/base/c.html" class="external-link">c</a></span><span class="op">(</span><span class="fl">2L</span>, <span class="fl">2L</span><span class="op">)</span>,</span>
-<span>  child <span class="op">=</span> <span class="fu"><a href="https://rdrr.io/r/base/c.html" class="external-link">c</a></span><span class="op">(</span><span class="fl">0L</span>, <span class="fl">1L</span><span class="op">)</span></span>
+<span>  parent <span class="op">=</span> <span class="fu"><a href="https://rdrr.io/r/base/c.html" class="external-link">c</a></span><span class="op">(</span><span class="fl">3L</span>, <span class="fl">3L</span><span class="op">)</span>,</span>
+<span>  child <span class="op">=</span> <span class="fu"><a href="https://rdrr.io/r/base/c.html" class="external-link">c</a></span><span class="op">(</span><span class="fl">1L</span>, <span class="fl">2L</span><span class="op">)</span></span>
 <span><span class="op">)</span></span>
 <span><span class="va">empty_transitions</span> <span class="op">&lt;-</span> <span class="fu"><a href="https://rdrr.io/r/base/data.frame.html" class="external-link">data.frame</a></span><span class="op">(</span>transition <span class="op">=</span> <span class="fu"><a href="https://rdrr.io/r/base/integer.html" class="external-link">integer</a></span><span class="op">(</span><span class="op">)</span>, left <span class="op">=</span> <span class="fu"><a href="https://rdrr.io/r/base/numeric.html" class="external-link">numeric</a></span><span class="op">(</span><span class="op">)</span><span class="op">)</span></span>
 <span><span class="va">empty_edges_out</span> <span class="op">&lt;-</span> <span class="fu"><a href="https://rdrr.io/r/base/data.frame.html" class="external-link">data.frame</a></span><span class="op">(</span>transition <span class="op">=</span> <span class="fu"><a href="https://rdrr.io/r/base/integer.html" class="external-link">integer</a></span><span class="op">(</span><span class="op">)</span>, child <span class="op">=</span> <span class="fu"><a href="https://rdrr.io/r/base/integer.html" class="external-link">integer</a></span><span class="op">(</span><span class="op">)</span><span class="op">)</span></span>
@@ -144,10 +144,10 @@
 <span>  curr_parent <span class="op">=</span> <span class="fu"><a href="https://rdrr.io/r/base/integer.html" class="external-link">integer</a></span><span class="op">(</span><span class="op">)</span>, time <span class="op">=</span> <span class="fu"><a href="https://rdrr.io/r/base/numeric.html" class="external-link">numeric</a></span><span class="op">(</span><span class="op">)</span>, curr_num_samples <span class="op">=</span> <span class="fu"><a href="https://rdrr.io/r/base/integer.html" class="external-link">integer</a></span><span class="op">(</span><span class="op">)</span></span>
 <span><span class="op">)</span></span>
 <span><span class="va">mutations</span> <span class="op">&lt;-</span> <span class="fu"><a href="https://rdrr.io/r/base/data.frame.html" class="external-link">data.frame</a></span><span class="op">(</span></span>
-<span>  mutation <span class="op">=</span> <span class="fu"><a href="https://rdrr.io/r/base/c.html" class="external-link">c</a></span><span class="op">(</span><span class="fl">0L</span>, <span class="fl">1L</span><span class="op">)</span>,</span>
-<span>  site <span class="op">=</span> <span class="fu"><a href="https://rdrr.io/r/base/c.html" class="external-link">c</a></span><span class="op">(</span><span class="fl">0L</span>, <span class="fl">1L</span><span class="op">)</span>,</span>
+<span>  mutation <span class="op">=</span> <span class="fu"><a href="https://rdrr.io/r/base/c.html" class="external-link">c</a></span><span class="op">(</span><span class="fl">1L</span>, <span class="fl">2L</span><span class="op">)</span>,</span>
+<span>  site <span class="op">=</span> <span class="fu"><a href="https://rdrr.io/r/base/c.html" class="external-link">c</a></span><span class="op">(</span><span class="fl">1L</span>, <span class="fl">2L</span><span class="op">)</span>,</span>
 <span>  position <span class="op">=</span> <span class="fu"><a href="https://rdrr.io/r/base/c.html" class="external-link">c</a></span><span class="op">(</span><span class="fl">0.1</span>, <span class="fl">0.2</span><span class="op">)</span>,</span>
-<span>  node <span class="op">=</span> <span class="fu"><a href="https://rdrr.io/r/base/c.html" class="external-link">c</a></span><span class="op">(</span><span class="fl">0L</span>, <span class="fl">1L</span><span class="op">)</span>,</span>
+<span>  node <span class="op">=</span> <span class="fu"><a href="https://rdrr.io/r/base/c.html" class="external-link">c</a></span><span class="op">(</span><span class="fl">1L</span>, <span class="fl">2L</span><span class="op">)</span>,</span>
 <span>  ancestral_state <span class="op">=</span> <span class="fu"><a href="https://rdrr.io/r/base/c.html" class="external-link">c</a></span><span class="op">(</span><span class="st">"A"</span>, <span class="st">"C"</span><span class="op">)</span>,</span>
 <span>  derived_state <span class="op">=</span> <span class="fu"><a href="https://rdrr.io/r/base/c.html" class="external-link">c</a></span><span class="op">(</span><span class="st">"G"</span>, <span class="st">"T"</span><span class="op">)</span></span>
 <span><span class="op">)</span></span>
@@ -158,15 +158,15 @@
 <span>  edges_out <span class="op">=</span> <span class="va">empty_edges_out</span>,</span>
 <span>  edges_in <span class="op">=</span> <span class="va">empty_edges_in</span>,</span>
 <span>  node_state <span class="op">=</span> <span class="va">empty_node_state</span>,</span>
-<span>  sample_nodes <span class="op">=</span> <span class="fl">0</span><span class="op">:</span><span class="fl">1</span>,</span>
+<span>  sample_nodes <span class="op">=</span> <span class="fl">1</span><span class="op">:</span><span class="fl">2</span>,</span>
 <span>  mutations <span class="op">=</span> <span class="va">mutations</span></span>
 <span><span class="op">)</span></span>
 <span></span>
 <span><span class="va">toy_ldgm</span> <span class="op">&lt;-</span> <span class="fu"><a href="reference/ldgm_make_ldgm.html">ldgm_make_ldgm</a></span><span class="op">(</span><span class="va">tables</span>, path_threshold <span class="op">=</span> <span class="fl">4</span>, return_intermediates <span class="op">=</span> <span class="cn">TRUE</span><span class="op">)</span></span>
 <span><span class="va">toy_ldgm</span><span class="op">$</span><span class="va">bricked_edges</span></span>
 <span><span class="co">#&gt;   id left right parent child</span></span>
-<span><span class="co">#&gt; 1  0    0     1      2     0</span></span>
-<span><span class="co">#&gt; 2  1    0     1      2     1</span></span>
+<span><span class="co">#&gt; 1  0    0     1      3     1</span></span>
+<span><span class="co">#&gt; 2  1    0     1      3     2</span></span>
 <span><span class="va">toy_ldgm</span><span class="op">$</span><span class="va">snplist</span></span>
 <span><span class="co">#&gt;   index anc_alleles deriv_alleles</span></span>
 <span><span class="co">#&gt; 1     0           A             G</span></span>

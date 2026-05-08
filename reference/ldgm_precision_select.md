@@ -3,7 +3,7 @@
 Creates a GraphLD-style selected precision object. The underlying full
 precision matrix is retained, while multiplication, solve,
 log-determinant, and BLUP operate on the Schur complement for the
-selected zero-based indices.
+selected one-based indices.
 
 ## Usage
 
@@ -19,7 +19,7 @@ ldgm_precision_select(x, indices)
 
 - indices:
 
-  Zero-based integer row/column indices, or a logical mask with length
+  One-based integer row/column indices, or a logical mask with length
   equal to the active precision dimension. When `x` is already a
   selected view, `indices` are interpreted relative to that active view
   and then mapped back to the underlying full precision matrix, matching

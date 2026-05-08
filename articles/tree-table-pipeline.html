@@ -82,8 +82,8 @@ package checks without Python or external data.</p>
 <code class="sourceCode R"><span><span class="va">initial_edges</span> <span class="op">&lt;-</span> <span class="fu"><a href="https://rdrr.io/r/base/data.frame.html" class="external-link">data.frame</a></span><span class="op">(</span></span>
 <span>  left <span class="op">=</span> <span class="fu"><a href="https://rdrr.io/r/base/c.html" class="external-link">c</a></span><span class="op">(</span><span class="fl">0</span>, <span class="fl">0</span><span class="op">)</span>,</span>
 <span>  right <span class="op">=</span> <span class="fu"><a href="https://rdrr.io/r/base/c.html" class="external-link">c</a></span><span class="op">(</span><span class="fl">1</span>, <span class="fl">1</span><span class="op">)</span>,</span>
-<span>  parent <span class="op">=</span> <span class="fu"><a href="https://rdrr.io/r/base/c.html" class="external-link">c</a></span><span class="op">(</span><span class="fl">2L</span>, <span class="fl">2L</span><span class="op">)</span>,</span>
-<span>  child <span class="op">=</span> <span class="fu"><a href="https://rdrr.io/r/base/c.html" class="external-link">c</a></span><span class="op">(</span><span class="fl">0L</span>, <span class="fl">1L</span><span class="op">)</span></span>
+<span>  parent <span class="op">=</span> <span class="fu"><a href="https://rdrr.io/r/base/c.html" class="external-link">c</a></span><span class="op">(</span><span class="fl">3L</span>, <span class="fl">3L</span><span class="op">)</span>,</span>
+<span>  child <span class="op">=</span> <span class="fu"><a href="https://rdrr.io/r/base/c.html" class="external-link">c</a></span><span class="op">(</span><span class="fl">1L</span>, <span class="fl">2L</span><span class="op">)</span></span>
 <span><span class="op">)</span></span>
 <span><span class="va">empty_transitions</span> <span class="op">&lt;-</span> <span class="fu"><a href="https://rdrr.io/r/base/data.frame.html" class="external-link">data.frame</a></span><span class="op">(</span>transition <span class="op">=</span> <span class="fu"><a href="https://rdrr.io/r/base/integer.html" class="external-link">integer</a></span><span class="op">(</span><span class="op">)</span>, left <span class="op">=</span> <span class="fu"><a href="https://rdrr.io/r/base/numeric.html" class="external-link">numeric</a></span><span class="op">(</span><span class="op">)</span><span class="op">)</span></span>
 <span><span class="va">empty_edges_out</span> <span class="op">&lt;-</span> <span class="fu"><a href="https://rdrr.io/r/base/data.frame.html" class="external-link">data.frame</a></span><span class="op">(</span>transition <span class="op">=</span> <span class="fu"><a href="https://rdrr.io/r/base/integer.html" class="external-link">integer</a></span><span class="op">(</span><span class="op">)</span>, child <span class="op">=</span> <span class="fu"><a href="https://rdrr.io/r/base/integer.html" class="external-link">integer</a></span><span class="op">(</span><span class="op">)</span><span class="op">)</span></span>
@@ -96,10 +96,10 @@ package checks without Python or external data.</p>
 <span>  curr_parent <span class="op">=</span> <span class="fu"><a href="https://rdrr.io/r/base/integer.html" class="external-link">integer</a></span><span class="op">(</span><span class="op">)</span>, time <span class="op">=</span> <span class="fu"><a href="https://rdrr.io/r/base/numeric.html" class="external-link">numeric</a></span><span class="op">(</span><span class="op">)</span>, curr_num_samples <span class="op">=</span> <span class="fu"><a href="https://rdrr.io/r/base/integer.html" class="external-link">integer</a></span><span class="op">(</span><span class="op">)</span></span>
 <span><span class="op">)</span></span>
 <span><span class="va">mutations</span> <span class="op">&lt;-</span> <span class="fu"><a href="https://rdrr.io/r/base/data.frame.html" class="external-link">data.frame</a></span><span class="op">(</span></span>
-<span>  mutation <span class="op">=</span> <span class="fu"><a href="https://rdrr.io/r/base/c.html" class="external-link">c</a></span><span class="op">(</span><span class="fl">0L</span>, <span class="fl">1L</span><span class="op">)</span>,</span>
-<span>  site <span class="op">=</span> <span class="fu"><a href="https://rdrr.io/r/base/c.html" class="external-link">c</a></span><span class="op">(</span><span class="fl">0L</span>, <span class="fl">1L</span><span class="op">)</span>,</span>
+<span>  mutation <span class="op">=</span> <span class="fu"><a href="https://rdrr.io/r/base/c.html" class="external-link">c</a></span><span class="op">(</span><span class="fl">1L</span>, <span class="fl">2L</span><span class="op">)</span>,</span>
+<span>  site <span class="op">=</span> <span class="fu"><a href="https://rdrr.io/r/base/c.html" class="external-link">c</a></span><span class="op">(</span><span class="fl">1L</span>, <span class="fl">2L</span><span class="op">)</span>,</span>
 <span>  position <span class="op">=</span> <span class="fu"><a href="https://rdrr.io/r/base/c.html" class="external-link">c</a></span><span class="op">(</span><span class="fl">0.1</span>, <span class="fl">0.2</span><span class="op">)</span>,</span>
-<span>  node <span class="op">=</span> <span class="fu"><a href="https://rdrr.io/r/base/c.html" class="external-link">c</a></span><span class="op">(</span><span class="fl">0L</span>, <span class="fl">1L</span><span class="op">)</span>,</span>
+<span>  node <span class="op">=</span> <span class="fu"><a href="https://rdrr.io/r/base/c.html" class="external-link">c</a></span><span class="op">(</span><span class="fl">1L</span>, <span class="fl">2L</span><span class="op">)</span>,</span>
 <span>  ancestral_state <span class="op">=</span> <span class="fu"><a href="https://rdrr.io/r/base/c.html" class="external-link">c</a></span><span class="op">(</span><span class="st">"A"</span>, <span class="st">"C"</span><span class="op">)</span>,</span>
 <span>  derived_state <span class="op">=</span> <span class="fu"><a href="https://rdrr.io/r/base/c.html" class="external-link">c</a></span><span class="op">(</span><span class="st">"G"</span>, <span class="st">"T"</span><span class="op">)</span></span>
 <span><span class="op">)</span></span>
@@ -110,14 +110,14 @@ package checks without Python or external data.</p>
 <span>  edges_out <span class="op">=</span> <span class="va">empty_edges_out</span>,</span>
 <span>  edges_in <span class="op">=</span> <span class="va">empty_edges_in</span>,</span>
 <span>  node_state <span class="op">=</span> <span class="va">empty_node_state</span>,</span>
-<span>  sample_nodes <span class="op">=</span> <span class="fl">0</span><span class="op">:</span><span class="fl">1</span>,</span>
+<span>  sample_nodes <span class="op">=</span> <span class="fl">1</span><span class="op">:</span><span class="fl">2</span>,</span>
 <span>  mutations <span class="op">=</span> <span class="va">mutations</span></span>
 <span><span class="op">)</span></span>
 <span><span class="va">tables</span></span>
 <span><span class="co">#&gt; $initial_edges</span></span>
 <span><span class="co">#&gt;   left right parent child</span></span>
-<span><span class="co">#&gt; 1    0     1      2     0</span></span>
-<span><span class="co">#&gt; 2    0     1      2     1</span></span>
+<span><span class="co">#&gt; 1    0     1      3     1</span></span>
+<span><span class="co">#&gt; 2    0     1      3     2</span></span>
 <span><span class="co">#&gt; </span></span>
 <span><span class="co">#&gt; $transitions</span></span>
 <span><span class="co">#&gt; [1] transition left      </span></span>
@@ -137,12 +137,12 @@ package checks without Python or external data.</p>
 <span><span class="co">#&gt; &lt;0 rows&gt; (or 0-length row.names)</span></span>
 <span><span class="co">#&gt; </span></span>
 <span><span class="co">#&gt; $sample_nodes</span></span>
-<span><span class="co">#&gt; [1] 0 1</span></span>
+<span><span class="co">#&gt; [1] 1 2</span></span>
 <span><span class="co">#&gt; </span></span>
 <span><span class="co">#&gt; $mutations</span></span>
 <span><span class="co">#&gt;   mutation site position node ancestral_state derived_state</span></span>
-<span><span class="co">#&gt; 1        0    0      0.1    0               A             G</span></span>
-<span><span class="co">#&gt; 2        1    1      0.2    1               C             T</span></span>
+<span><span class="co">#&gt; 1        1    1      0.1    1               A             G</span></span>
+<span><span class="co">#&gt; 2        2    2      0.2    2               C             T</span></span>
 <span><span class="co">#&gt; </span></span>
 <span><span class="co">#&gt; $sequence_length</span></span>
 <span><span class="co">#&gt; [1] NA</span></span>
@@ -157,8 +157,8 @@ entry point.</p>
 <div class="sourceCode" id="cb3"><pre class="downlit sourceCode r">
 <code class="sourceCode R"><span><span class="fu"><a href="../reference/ldgm_brick_ts.html">ldgm_brick_ts</a></span><span class="op">(</span><span class="va">tables</span><span class="op">)</span></span>
 <span><span class="co">#&gt;   left right parent child</span></span>
-<span><span class="co">#&gt; 1    0     1      2     0</span></span>
-<span><span class="co">#&gt; 2    0     1      2     1</span></span></code></pre></div>
+<span><span class="co">#&gt; 1    0     1      3     1</span></span>
+<span><span class="co">#&gt; 2    0     1      3     2</span></span></code></pre></div>
 <p><code><a href="../reference/ldgm_make_ldgm.html">ldgm_make_ldgm()</a></code> runs bricking, mutation mapping,
 brick-haplotype graph construction, reduction, and SNP-list
 generation.</p>
@@ -166,12 +166,12 @@ generation.</p>
 <code class="sourceCode R"><span><span class="va">result</span> <span class="op">&lt;-</span> <span class="fu"><a href="../reference/ldgm_make_ldgm.html">ldgm_make_ldgm</a></span><span class="op">(</span><span class="va">tables</span>, path_threshold <span class="op">=</span> <span class="fl">4</span>, return_intermediates <span class="op">=</span> <span class="cn">TRUE</span><span class="op">)</span></span>
 <span><span class="va">result</span><span class="op">$</span><span class="va">bricked_edges</span></span>
 <span><span class="co">#&gt;   id left right parent child</span></span>
-<span><span class="co">#&gt; 1  0    0     1      2     0</span></span>
-<span><span class="co">#&gt; 2  1    0     1      2     1</span></span>
+<span><span class="co">#&gt; 1  0    0     1      3     1</span></span>
+<span><span class="co">#&gt; 2  1    0     1      3     2</span></span>
 <span><span class="va">result</span><span class="op">$</span><span class="va">bricks_to_muts</span></span>
 <span><span class="co">#&gt;   brick mutation mutations</span></span>
-<span><span class="co">#&gt; 1     0        0         0</span></span>
-<span><span class="co">#&gt; 2     1        1         1</span></span>
+<span><span class="co">#&gt; 1     0        1         1</span></span>
+<span><span class="co">#&gt; 2     1        2         2</span></span>
 <span><span class="va">result</span><span class="op">$</span><span class="va">snplist</span></span>
 <span><span class="co">#&gt;   index anc_alleles deriv_alleles</span></span>
 <span><span class="co">#&gt; 1     0           A             G</span></span>

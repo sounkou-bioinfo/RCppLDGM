@@ -72,13 +72,13 @@
 <code class="sourceCode R"><span><span class="kw"><a href="https://rdrr.io/r/base/library.html" class="external-link">library</a></span><span class="op">(</span><span class="va"><a href="https://github.com/sounkou-bioinfo/RCppLDGM" class="external-link">RcppLDGM</a></span><span class="op">)</span></span>
 <span><span class="kw"><a href="https://rdrr.io/r/base/library.html" class="external-link">library</a></span><span class="op">(</span><span class="va"><a href="https://Matrix.R-forge.R-project.org" class="external-link">Matrix</a></span><span class="op">)</span></span></code></pre></div>
 <p>GraphLD represents LDGM precision blocks as sparse linear operators.
-RcppLDGM keeps the same zero-based indexing convention at the file/API
-boundary while returning ordinary R vectors, matrices, sparse matrices,
-and data frames.</p>
+RcppLDGM uses one-based R ids in its R-facing precision APIs while file
+readers handle the conversion from upstream zero-based GraphLD/LDGM
+files.</p>
 <div class="sourceCode" id="cb2"><pre class="downlit sourceCode r">
 <code class="sourceCode R"><span><span class="va">edges</span> <span class="op">&lt;-</span> <span class="fu"><a href="../reference/ldgm_edge_list.html">ldgm_edge_list</a></span><span class="op">(</span></span>
-<span>  from <span class="op">=</span> <span class="fu"><a href="https://rdrr.io/r/base/c.html" class="external-link">c</a></span><span class="op">(</span><span class="fl">0L</span>, <span class="fl">1L</span>, <span class="fl">2L</span>, <span class="fl">0L</span>, <span class="fl">1L</span><span class="op">)</span>,</span>
-<span>  to <span class="op">=</span> <span class="fu"><a href="https://rdrr.io/r/base/c.html" class="external-link">c</a></span><span class="op">(</span><span class="fl">0L</span>, <span class="fl">1L</span>, <span class="fl">2L</span>, <span class="fl">1L</span>, <span class="fl">2L</span><span class="op">)</span>,</span>
+<span>  from <span class="op">=</span> <span class="fu"><a href="https://rdrr.io/r/base/c.html" class="external-link">c</a></span><span class="op">(</span><span class="fl">1L</span>, <span class="fl">2L</span>, <span class="fl">3L</span>, <span class="fl">1L</span>, <span class="fl">2L</span><span class="op">)</span>,</span>
+<span>  to <span class="op">=</span> <span class="fu"><a href="https://rdrr.io/r/base/c.html" class="external-link">c</a></span><span class="op">(</span><span class="fl">1L</span>, <span class="fl">2L</span>, <span class="fl">3L</span>, <span class="fl">2L</span>, <span class="fl">3L</span><span class="op">)</span>,</span>
 <span>  weight <span class="op">=</span> <span class="fu"><a href="https://rdrr.io/r/base/c.html" class="external-link">c</a></span><span class="op">(</span><span class="fl">2</span>, <span class="fl">3</span>, <span class="fl">4</span>, <span class="fl">0.1</span>, <span class="fl">0.2</span><span class="op">)</span></span>
 <span><span class="op">)</span></span>
 <span><span class="va">P</span> <span class="op">&lt;-</span> <span class="fu"><a href="../reference/ldgm_sparse_precision.html">ldgm_sparse_precision</a></span><span class="op">(</span><span class="va">edges</span><span class="op">)</span></span>
@@ -101,11 +101,11 @@ plus variant metadata. Selected views use GraphLD-style Schur-complement
 semantics.</p>
 <div class="sourceCode" id="cb3"><pre class="downlit sourceCode r">
 <code class="sourceCode R"><span><span class="va">variant_info</span> <span class="op">&lt;-</span> <span class="fu"><a href="https://rdrr.io/r/base/data.frame.html" class="external-link">data.frame</a></span><span class="op">(</span></span>
-<span>  index <span class="op">=</span> <span class="fu"><a href="https://rdrr.io/r/base/c.html" class="external-link">c</a></span><span class="op">(</span><span class="fl">0L</span>, <span class="fl">0L</span>, <span class="fl">1L</span>, <span class="fl">2L</span><span class="op">)</span>,</span>
+<span>  index <span class="op">=</span> <span class="fu"><a href="https://rdrr.io/r/base/c.html" class="external-link">c</a></span><span class="op">(</span><span class="fl">1L</span>, <span class="fl">1L</span>, <span class="fl">2L</span>, <span class="fl">3L</span><span class="op">)</span>,</span>
 <span>  SNP <span class="op">=</span> <span class="fu"><a href="https://rdrr.io/r/base/c.html" class="external-link">c</a></span><span class="op">(</span><span class="st">"rs1"</span>, <span class="st">"rs1_proxy"</span>, <span class="st">"rs2"</span>, <span class="st">"rs3"</span><span class="op">)</span></span>
 <span><span class="op">)</span></span>
 <span><span class="va">block</span> <span class="op">&lt;-</span> <span class="fu"><a href="../reference/ldgm_precision.html">ldgm_precision</a></span><span class="op">(</span><span class="va">P</span>, <span class="va">variant_info</span><span class="op">)</span></span>
-<span><span class="va">selected</span> <span class="op">&lt;-</span> <span class="fu"><a href="../reference/ldgm_precision_select.html">ldgm_precision_select</a></span><span class="op">(</span><span class="va">block</span>, <span class="fu"><a href="https://rdrr.io/r/base/c.html" class="external-link">c</a></span><span class="op">(</span><span class="fl">0L</span>, <span class="fl">2L</span><span class="op">)</span><span class="op">)</span></span>
+<span><span class="va">selected</span> <span class="op">&lt;-</span> <span class="fu"><a href="../reference/ldgm_precision_select.html">ldgm_precision_select</a></span><span class="op">(</span><span class="va">block</span>, <span class="fu"><a href="https://rdrr.io/r/base/c.html" class="external-link">c</a></span><span class="op">(</span><span class="fl">1L</span>, <span class="fl">3L</span><span class="op">)</span><span class="op">)</span></span>
 <span><span class="fu"><a href="../reference/ldgm_precision_matrix.html">ldgm_precision_matrix</a></span><span class="op">(</span><span class="va">selected</span><span class="op">)</span></span>
 <span><span class="co">#&gt; 2 x 2 sparse Matrix of class "dgCMatrix"</span></span>
 <span><span class="co">#&gt;                               </span></span>
@@ -121,7 +121,7 @@ instead of mutating in place.</p>
 <span><span class="fu"><a href="../reference/ldgm_precision_multiply.html">ldgm_precision_multiply</a></span><span class="op">(</span><span class="va">scaled</span>, <span class="fu"><a href="https://rdrr.io/r/base/c.html" class="external-link">c</a></span><span class="op">(</span><span class="fl">1</span>, <span class="fl">1</span><span class="op">)</span><span class="op">)</span></span>
 <span><span class="co">#&gt; [1] 3.98 7.96</span></span>
 <span><span class="fu"><a href="../reference/ldgm_precision_multiply.html">ldgm_precision_multiply</a></span><span class="op">(</span><span class="va">updated</span>, <span class="fu"><a href="https://rdrr.io/r/base/c.html" class="external-link">c</a></span><span class="op">(</span><span class="fl">1</span>, <span class="fl">1</span><span class="op">)</span><span class="op">)</span></span>
-<span><span class="co">#&gt; [1] 1.99 4.48</span></span></code></pre></div>
+<span><span class="co">#&gt; [1] 2.49 3.98</span></span></code></pre></div>
 <p>When multiple variants share the same precision index,
 <code><a href="../reference/ldgm_variant_solve.html">ldgm_variant_solve()</a></code> sums right-hand-side values by index,
 solves once, and broadcasts the solution back to variant rows. This

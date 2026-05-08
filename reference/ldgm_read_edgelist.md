@@ -1,7 +1,8 @@
 # Read an LDGM Edge List File
 
-Reads a comma-separated, headerless LDGM edge-list file with zero-based
-columns `from`, `to`, and `weight`.
+Reads a comma-separated, headerless LDGM edge-list file. GraphLD/LDGM
+files store node ids as zero-based integers; this reader converts them
+to ordinary one-based R ids in the returned data frame.
 
 ## Usage
 
@@ -17,4 +18,4 @@ ldgm_read_edgelist(path)
 
 ## Value
 
-A validated edge-list data frame.
+A validated edge-list data frame with one-based `from`/`to` ids.

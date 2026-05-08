@@ -2,9 +2,10 @@
 
 Loads one LDGM precision block from a comma-separated `.edgelist` file
 and a matching `.snplist` file, following the behavior of GraphLD's
-`load_ldgm()`. Edge-list node ids are zero-based. Rows and columns with
-zero diagonal entries are dropped, and `variant_info$index` is remapped
-to the compact retained precision-matrix row ids.
+`load_ldgm()`. Upstream edge-list and snplist ids are converted to
+R-facing one-based precision indices. Rows and columns with zero
+diagonal entries are dropped, and `variant_info$index` is remapped to
+compact retained one-based row ids.
 
 ## Usage
 

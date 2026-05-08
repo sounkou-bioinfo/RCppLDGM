@@ -20,7 +20,7 @@ ldgm_precision_update_element(precision, index, value)
 
 - index:
 
-  Single zero-based active precision index.
+  Single one-based active precision index.
 
 - value:
 

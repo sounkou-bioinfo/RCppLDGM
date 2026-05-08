@@ -7,15 +7,15 @@ library(Matrix)
 ```
 
 GraphLD represents LDGM precision blocks as sparse linear operators.
-RcppLDGM keeps the same zero-based indexing convention at the file/API
-boundary while returning ordinary R vectors, matrices, sparse matrices,
-and data frames.
+RcppLDGM uses one-based R ids in its R-facing precision APIs while file
+readers handle the conversion from upstream zero-based GraphLD/LDGM
+files.
 
 ``` r
 
 edges <- ldgm_edge_list(
-  from = c(0L, 1L, 2L, 0L, 1L),
-  to = c(0L, 1L, 2L, 1L, 2L),
+  from = c(1L, 2L, 3L, 1L, 2L),
+  to = c(1L, 2L, 3L, 2L, 3L),
   weight = c(2, 3, 4, 0.1, 0.2)
 )
 P <- ldgm_sparse_precision(edges)
@@ -41,11 +41,11 @@ metadata. Selected views use GraphLD-style Schur-complement semantics.
 ``` r
 
 variant_info <- data.frame(
-  index = c(0L, 0L, 1L, 2L),
+  index = c(1L, 1L, 2L, 3L),
   SNP = c("rs1", "rs1_proxy", "rs2", "rs3")
 )
 block <- ldgm_precision(P, variant_info)
-selected <- ldgm_precision_select(block, c(0L, 2L))
+selected <- ldgm_precision_select(block, c(1L, 3L))
 ldgm_precision_matrix(selected)
 #> 2 x 2 sparse Matrix of class "dgCMatrix"
 #>                               
@@ -65,7 +65,7 @@ updated <- ldgm_precision_update_element(selected, index = 1L, value = 0.5)
 ldgm_precision_multiply(scaled, c(1, 1))
 #> [1] 3.98 7.96
 ldgm_precision_multiply(updated, c(1, 1))
-#> [1] 1.99 4.48
+#> [1] 2.49 3.98
 ```
 
 When multiple variants share the same precision index,

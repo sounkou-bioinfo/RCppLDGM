@@ -20,8 +20,8 @@ package checks without Python or external data.
 initial_edges <- data.frame(
   left = c(0, 0),
   right = c(1, 1),
-  parent = c(2L, 2L),
-  child = c(0L, 1L)
+  parent = c(3L, 3L),
+  child = c(1L, 2L)
 )
 empty_transitions <- data.frame(transition = integer(), left = numeric())
 empty_edges_out <- data.frame(transition = integer(), child = integer())
@@ -34,10 +34,10 @@ empty_node_state <- data.frame(
   curr_parent = integer(), time = numeric(), curr_num_samples = integer()
 )
 mutations <- data.frame(
-  mutation = c(0L, 1L),
-  site = c(0L, 1L),
+  mutation = c(1L, 2L),
+  site = c(1L, 2L),
   position = c(0.1, 0.2),
-  node = c(0L, 1L),
+  node = c(1L, 2L),
   ancestral_state = c("A", "C"),
   derived_state = c("G", "T")
 )
@@ -48,14 +48,14 @@ tables <- ldgm_tree_tables(
   edges_out = empty_edges_out,
   edges_in = empty_edges_in,
   node_state = empty_node_state,
-  sample_nodes = 0:1,
+  sample_nodes = 1:2,
   mutations = mutations
 )
 tables
 #> $initial_edges
 #>   left right parent child
-#> 1    0     1      2     0
-#> 2    0     1      2     1
+#> 1    0     1      3     1
+#> 2    0     1      3     2
 #> 
 #> $transitions
 #> [1] transition left      
@@ -75,12 +75,12 @@ tables
 #> <0 rows> (or 0-length row.names)
 #> 
 #> $sample_nodes
-#> [1] 0 1
+#> [1] 1 2
 #> 
 #> $mutations
 #>   mutation site position node ancestral_state derived_state
-#> 1        0    0      0.1    0               A             G
-#> 2        1    1      0.2    1               C             T
+#> 1        1    1      0.1    1               A             G
+#> 2        2    2      0.2    2               C             T
 #> 
 #> $sequence_length
 #> [1] NA
@@ -99,8 +99,8 @@ exposes the upstream-style bricking entry point.
 
 ldgm_brick_ts(tables)
 #>   left right parent child
-#> 1    0     1      2     0
-#> 2    0     1      2     1
+#> 1    0     1      3     1
+#> 2    0     1      3     2
 ```
 
 [`ldgm_make_ldgm()`](https://sounkou-bioinfo.github.io/RCppLDGM/reference/ldgm_make_ldgm.md)
@@ -112,12 +112,12 @@ reduction, and SNP-list generation.
 result <- ldgm_make_ldgm(tables, path_threshold = 4, return_intermediates = TRUE)
 result$bricked_edges
 #>   id left right parent child
-#> 1  0    0     1      2     0
-#> 2  1    0     1      2     1
+#> 1  0    0     1      3     1
+#> 2  1    0     1      3     2
 result$bricks_to_muts
 #>   brick mutation mutations
-#> 1     0        0         0
-#> 2     1        1         1
+#> 1     0        1         1
+#> 2     1        2         2
 result$snplist
 #>   index anc_alleles deriv_alleles
 #> 1     0           A             G
