@@ -367,6 +367,42 @@ void create_variant_group_if_needed(hid_t file,
                       compression, chunk_size);
 }
 
+void create_gene_group_if_needed(hid_t file,
+                                 Rcpp::DataFrame gene_data,
+                                 Rcpp::IntegerVector jackknife_blocks,
+                                 const std::string& source,
+                                 const std::string& compression,
+                                 int chunk_size) {
+  if (link_exists(file, "row_data")) {
+    require_group(file, "traits");
+    require_group(file, "groups");
+    return;
+  }
+
+  Rcpp::CharacterVector gene_id = gene_data["gene_id"];
+  Rcpp::CharacterVector gene_name = gene_data["gene_name"];
+  SEXP chr = gene_data["CHR"];
+  SEXP pos = gene_data["POS"];
+
+  write_attr_string(file, "metadata", "");
+  write_attr_string(file, "data_type", "gene");
+  write_attr_strings(file, "keys", std::vector<std::string>{"gene_id", "gene_name"});
+  write_attr_string(file, "source", source);
+
+  require_group(file, "traits");
+  H5Handle row_data = create_group(file, "row_data");
+  require_group(file, "groups");
+
+  write_dataset_int64(row_data.get(), "CHR", numeric_to_int64(chr, "gene_data$CHR"), compression, chunk_size);
+  write_dataset_int64(row_data.get(), "POS", numeric_to_int64(pos, "gene_data$POS"), compression, chunk_size);
+  write_dataset_strings(row_data.get(), "gene_id", character_vector_to_strings(gene_id, "gene_data$gene_id"), compression,
+                        chunk_size);
+  write_dataset_strings(row_data.get(), "gene_name", character_vector_to_strings(gene_name, "gene_data$gene_name"), compression,
+                        chunk_size);
+  write_dataset_int64(row_data.get(), "jackknife_blocks", numeric_to_int64(jackknife_blocks, "jackknife_blocks"),
+                      compression, chunk_size);
+}
+
 std::vector<hsize_t> dataset_dims(hid_t dataset) {
   H5Handle space(check_id(H5Dget_space(dataset), "opening dataset dataspace"), H5Sclose);
   int rank = H5Sget_simple_extent_ndims(space.get());
@@ -580,6 +616,87 @@ Rcpp::List write_graphld_score_hdf5_cpp(const std::string& filename,
                             Rcpp::Named("parameters") = wrote_parameters);
 }
 
+// [[Rcpp::export(name = "RC_write_graphld_gene_score_hdf5")]]
+Rcpp::List write_graphld_gene_score_hdf5_cpp(const std::string& filename,
+                                             Rcpp::DataFrame gene_data,
+                                             Rcpp::NumericVector gradient,
+                                             SEXP hessian,
+                                             const std::string& trait_name,
+                                             Rcpp::IntegerVector jackknife_blocks,
+                                             bool overwrite,
+                                             const std::string& source,
+                                             const std::string& compression,
+                                             int chunk_size,
+                                             SEXP parameters,
+                                             SEXP jackknife_parameters) {
+  ensure_hdf5_ready();
+  if (gradient.size() == 0) {
+    Rcpp::stop("`gradient` must contain at least one value");
+  }
+  if (trait_name.empty()) {
+    Rcpp::stop("`trait_name` must not be empty");
+  }
+  if (trait_name.find('/') != std::string::npos) {
+    Rcpp::stop("`trait_name` must not contain '/'");
+  }
+  if (jackknife_blocks.size() != gradient.size()) {
+    Rcpp::stop("`jackknife_blocks` length must equal `gradient` length");
+  }
+  if (chunk_size < 1) {
+    Rcpp::stop("`chunk_size` must be positive");
+  }
+
+  H5Handle file = open_file_for_write(filename, overwrite);
+  create_gene_group_if_needed(file.get(), gene_data, jackknife_blocks, source, compression, chunk_size);
+  H5Handle row_data = open_group(file.get(), "row_data");
+  H5Handle gene_id_dataset(check_id(H5Dopen2(row_data.get(), "gene_id", H5P_DEFAULT),
+                                    "opening dataset 'row_data/gene_id'"),
+                           H5Dclose);
+  if (flat_dataset_length(gene_id_dataset.get()) != static_cast<hsize_t>(gradient.size())) {
+    Rcpp::stop("existing HDF5 row_data length must equal `gradient` length");
+  }
+
+  H5Handle traits = require_group(file.get(), "traits");
+  if (link_exists(traits.get(), trait_name)) {
+    Rcpp::stop("the HDF5 group 'traits/%s' already exists", trait_name);
+  }
+  H5Handle trait_group = create_group(traits.get(), trait_name);
+  write_dataset_double(trait_group.get(), "gradient", gradient, compression, chunk_size);
+
+  bool wrote_hessian = !Rf_isNull(hessian);
+  if (wrote_hessian) {
+    Rcpp::NumericVector hessian_values(hessian);
+    if (hessian_values.size() != gradient.size()) {
+      Rcpp::stop("`hessian` length must equal `gradient` length");
+    }
+    write_dataset_double(trait_group.get(), "hessian", hessian_values, compression, chunk_size);
+  }
+
+  bool wrote_parameters = !Rf_isNull(parameters);
+  if (wrote_parameters) {
+    if (Rf_isNull(jackknife_parameters)) {
+      Rcpp::stop("`jackknife_parameters` must be supplied when `parameters` is supplied");
+    }
+    Rcpp::NumericVector parameter_values(parameters);
+    Rcpp::NumericMatrix jackknife_values(jackknife_parameters);
+    if (jackknife_values.ncol() != parameter_values.size()) {
+      Rcpp::stop("`jackknife_parameters` column count must equal `parameters` length");
+    }
+    H5Handle parameter_group = create_group(trait_group.get(), "parameters");
+    write_dataset_double(parameter_group.get(), "parameters", parameter_values, compression, chunk_size);
+    write_dataset_double_matrix(parameter_group.get(), "jackknife_parameters", jackknife_values, compression,
+                                chunk_size);
+  }
+  check_status(H5Fflush(file.get(), H5F_SCOPE_GLOBAL), "flushing HDF5 file");
+
+  return Rcpp::List::create(Rcpp::Named("file") = filename,
+                            Rcpp::Named("trait_name") = trait_name,
+                            Rcpp::Named("n_genes") = gradient.size(),
+                            Rcpp::Named("compression") = compression,
+                            Rcpp::Named("hessian") = wrote_hessian,
+                            Rcpp::Named("parameters") = wrote_parameters);
+}
+
 // [[Rcpp::export(name = "RC_read_graphld_score_hdf5")]]
 Rcpp::List read_graphld_score_hdf5_cpp(const std::string& filename, const std::string& trait_name) {
   ensure_hdf5_ready();
@@ -589,7 +706,16 @@ Rcpp::List read_graphld_score_hdf5_cpp(const std::string& filename, const std::s
   H5Handle row_data = open_group(file.get(), "row_data");
   H5Handle traits = open_group(file.get(), "traits");
 
-  Rcpp::DataFrame variant_data = Rcpp::DataFrame::create(
+  bool is_gene = link_exists(row_data.get(), "gene_id");
+  Rcpp::DataFrame row_table = is_gene ?
+    Rcpp::DataFrame::create(
+      Rcpp::Named("CHR") = read_dataset_int64_as_numeric(row_data.get(), "CHR"),
+      Rcpp::Named("POS") = read_dataset_int64_as_numeric(row_data.get(), "POS"),
+      Rcpp::Named("gene_id") = read_dataset_strings(row_data.get(), "gene_id"),
+      Rcpp::Named("gene_name") = read_dataset_strings(row_data.get(), "gene_name"),
+      Rcpp::Named("jackknife_blocks") = read_dataset_int64_as_numeric(row_data.get(), "jackknife_blocks"),
+      Rcpp::_["stringsAsFactors"] = false) :
+    Rcpp::DataFrame::create(
       Rcpp::Named("CHR") = read_dataset_int64_as_numeric(row_data.get(), "CHR"),
       Rcpp::Named("POS") = read_dataset_int64_as_numeric(row_data.get(), "POS"),
       Rcpp::Named("RSID") = read_dataset_strings(row_data.get(), "RSID"),
@@ -597,7 +723,9 @@ Rcpp::List read_graphld_score_hdf5_cpp(const std::string& filename, const std::s
       Rcpp::_["stringsAsFactors"] = false);
 
   Rcpp::CharacterVector trait_names = list_group_names(traits.get());
-  Rcpp::List out = Rcpp::List::create(Rcpp::Named("variant_data") = variant_data,
+  Rcpp::List out = Rcpp::List::create(Rcpp::Named("row_data") = row_table,
+                                      Rcpp::Named("variant_data") = row_table,
+                                      Rcpp::Named("data_type") = is_gene ? "gene" : "variant",
                                       Rcpp::Named("trait_names") = trait_names);
   if (!trait_name.empty()) {
     if (!link_exists(traits.get(), trait_name)) {

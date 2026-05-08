@@ -125,6 +125,197 @@ ldgm_write_score_test_hdf5 <- function(file,
   invisible(result)
 }
 
+#' Write GraphLD-Style Gene Score-Test HDF5 Output
+#'
+#' Writes the gene-level variant-to-gene score layout used by GraphLD's score
+#' conversion path. The file has root `data_type = "gene"`, `/row_data` columns
+#' `CHR`, `POS`, `gene_id`, `gene_name`, and `jackknife_blocks`, plus
+#' `/traits/<trait_name>/gradient` and optional parameter datasets.
+#'
+#' @param file Output HDF5 path.
+#' @param gene_data Data frame with `CHR`, `POS`, `gene_id`, and `gene_name`.
+#' @param gradient Numeric gene score/gradient vector, one value per row of
+#'   `gene_data`.
+#' @param trait_name HDF5 trait group name under `/traits`. Must not contain `/`.
+#' @param jackknife_blocks Optional integer jackknife block assignment vector. If
+#'   omitted, `gene_data$jackknife_blocks` is used when present, otherwise all
+#'   genes are assigned to block zero.
+#' @param hessian Optional numeric gene Hessian/correction vector, one value per
+#'   row of `gene_data`.
+#' @param parameters,jackknife_parameters Optional fitted parameter datasets.
+#' @param overwrite,compression,chunk_size,source Passed to the native HDF5
+#'   writer.
+#'
+#' @return Invisibly, a list describing the written file and trait.
+#' @export
+ldgm_write_gene_score_hdf5 <- function(file,
+                                       gene_data,
+                                       gradient,
+                                       trait_name = "trait",
+                                       jackknife_blocks = NULL,
+                                       hessian = NULL,
+                                       parameters = NULL,
+                                       jackknife_parameters = NULL,
+                                       overwrite = FALSE,
+                                       compression = c("lzf", "gzip", "none"),
+                                       chunk_size = 1000L,
+                                       source = paste0("RcppLDGM v", utils::packageVersion("RcppLDGM"))) {
+  compression <- match.arg(compression)
+  if (!is.character(file) || length(file) != 1L || is.na(file) || !nzchar(file)) {
+    stop("`file` must be a non-empty string", call. = FALSE)
+  }
+  if (!is.character(trait_name) || length(trait_name) != 1L || is.na(trait_name) || !nzchar(trait_name)) {
+    stop("`trait_name` must be a non-empty string", call. = FALSE)
+  }
+  if (grepl("/", trait_name, fixed = TRUE)) {
+    stop("`trait_name` must not contain '/'", call. = FALSE)
+  }
+  if (length(chunk_size) != 1L || is.na(chunk_size) || chunk_size < 1L) {
+    stop("`chunk_size` must be a positive integer", call. = FALSE)
+  }
+  if (!is.character(source) || length(source) != 1L || is.na(source)) {
+    stop("`source` must be a single non-missing string", call. = FALSE)
+  }
+  gene_data <- normalize_score_hdf5_gene_data(gene_data)
+  n <- nrow(gene_data)
+  gradient <- as.numeric(gradient)
+  if (length(gradient) != n || anyNA(gradient)) {
+    stop("`gradient` must contain one non-missing value per gene", call. = FALSE)
+  }
+  if (!is.null(hessian)) {
+    hessian <- as.numeric(hessian)
+    if (length(hessian) != n || anyNA(hessian)) {
+      stop("`hessian` must contain one non-missing value per gene", call. = FALSE)
+    }
+  }
+  if (is.null(jackknife_blocks)) {
+    jackknife_blocks <- gene_data$jackknife_blocks %||% rep.int(0L, n)
+  }
+  jackknife_blocks <- as.integer(jackknife_blocks)
+  if (length(jackknife_blocks) != n || anyNA(jackknife_blocks)) {
+    stop("`jackknife_blocks` must contain one non-missing value per gene", call. = FALSE)
+  }
+  if (!is.null(parameters)) {
+    parameters <- as.numeric(parameters)
+    if (length(parameters) < 1L || anyNA(parameters) || any(!is.finite(parameters))) {
+      stop("`parameters` must contain finite non-missing values", call. = FALSE)
+    }
+    if (is.null(jackknife_parameters)) {
+      stop("`jackknife_parameters` is required when `parameters` is supplied", call. = FALSE)
+    }
+    jackknife_parameters <- as.matrix(jackknife_parameters)
+    storage.mode(jackknife_parameters) <- "double"
+    if (ncol(jackknife_parameters) != length(parameters) || anyNA(jackknife_parameters) || any(!is.finite(jackknife_parameters))) {
+      stop("`jackknife_parameters` must be a finite numeric matrix with one column per parameter", call. = FALSE)
+    }
+  } else if (!is.null(jackknife_parameters)) {
+    stop("`parameters` is required when `jackknife_parameters` is supplied", call. = FALSE)
+  }
+
+  result <- RC_write_graphld_gene_score_hdf5(
+    file,
+    gene_data[, c("CHR", "POS", "gene_id", "gene_name"), drop = FALSE],
+    gradient,
+    hessian,
+    trait_name,
+    jackknife_blocks,
+    isTRUE(overwrite),
+    as.character(source),
+    compression,
+    as.integer(chunk_size),
+    parameters,
+    jackknife_parameters
+  )
+  invisible(result)
+}
+
+#' Convert Variant Score-Test HDF5 to Gene Scores
+#'
+#' R-native counterpart of GraphLD's variant-to-gene score conversion. It reads
+#' variant-level score-test HDF5 output, builds a nearest-gene matrix with
+#' [ldgm_gene_variant_matrix()], projects each trait gradient to genes, and
+#' writes a gene-level GraphLD-style HDF5 file.
+#'
+#' @param variant_stats_hdf5 Input variant-level score-test HDF5 path.
+#' @param gene_stats_hdf5 Output gene-level HDF5 path.
+#' @param gene_table Gene table data frame or path accepted by
+#'   [ldgm_read_gene_table()].
+#' @param nearest_weights Numeric nearest-gene weights.
+#' @param trait_names Optional trait names to convert. Defaults to all traits in
+#'   the input file.
+#' @param overwrite If `TRUE`, replace `gene_stats_hdf5` before writing the
+#'   first trait.
+#' @param compression,chunk_size,source Passed to [ldgm_write_gene_score_hdf5()].
+#'
+#' @return Invisibly, a list with output file, converted traits, gene data, and
+#'   the variant-by-gene matrix.
+#' @export
+ldgm_convert_variant_to_gene_scores <- function(variant_stats_hdf5,
+                                                gene_stats_hdf5,
+                                                gene_table,
+                                                nearest_weights,
+                                                trait_names = NULL,
+                                                overwrite = FALSE,
+                                                compression = c("lzf", "gzip", "none"),
+                                                chunk_size = 1000L,
+                                                source = paste0("RcppLDGM v", utils::packageVersion("RcppLDGM"))) {
+  compression <- match.arg(compression)
+  variant_header <- ldgm_read_score_test_hdf5(variant_stats_hdf5)
+  variant_data <- variant_header$row_data %||% variant_header$variant_data
+  if (identical(variant_header$data_type, "gene")) {
+    stop("`variant_stats_hdf5` already contains gene-level row data", call. = FALSE)
+  }
+  if (is.null(trait_names)) {
+    trait_names <- as.character(variant_header$trait_names)
+  } else {
+    trait_names <- as.character(trait_names)
+  }
+  if (length(trait_names) == 0L || anyNA(trait_names) || any(!nzchar(trait_names))) {
+    stop("`trait_names` must identify at least one trait", call. = FALSE)
+  }
+  missing_traits <- setdiff(trait_names, as.character(variant_header$trait_names))
+  if (length(missing_traits) > 0L) {
+    stop("traits not found in input HDF5: ", paste(missing_traits, collapse = ", "), call. = FALSE)
+  }
+  if (is.character(gene_table) && length(gene_table) == 1L) {
+    gene_table <- ldgm_read_gene_table(gene_table, chromosomes = unique(variant_data$CHR))
+  } else {
+    gene_table <- normalize_gene_table_columns(gene_table)
+    validate_gene_table(gene_table)
+  }
+  keep <- normalize_chromosome(gene_table$CHR) %in% unique(normalize_chromosome(variant_data$CHR))
+  gene_table <- gene_table[keep, , drop = FALSE]
+  if (nrow(gene_table) == 0L) {
+    stop("no genes overlap variant chromosomes", call. = FALSE)
+  }
+  G <- ldgm_gene_variant_matrix(variant_data, gene_table, nearest_weights)
+  gene_jackknife <- graphld_gene_jackknife_blocks(G, variant_data$jackknife_blocks %||% rep.int(0L, nrow(variant_data)))
+  gene_data <- data.frame(
+    CHR = gene_table$CHR,
+    POS = as.integer(gene_table$POS),
+    gene_id = gene_table$gene_id,
+    gene_name = gene_table$gene_name,
+    jackknife_blocks = gene_jackknife,
+    stringsAsFactors = FALSE
+  )
+  for (i in seq_along(trait_names)) {
+    trait <- ldgm_read_score_test_hdf5(variant_stats_hdf5, trait_names[[i]])
+    gene_gradient <- as.numeric(as.numeric(trait$gradient) %*% G)
+    ldgm_write_gene_score_hdf5(
+      gene_stats_hdf5,
+      gene_data = gene_data,
+      gradient = gene_gradient,
+      trait_name = trait_names[[i]],
+      jackknife_blocks = gene_jackknife,
+      overwrite = isTRUE(overwrite) && i == 1L,
+      compression = compression,
+      chunk_size = chunk_size,
+      source = source
+    )
+  }
+  invisible(list(file = gene_stats_hdf5, trait_names = trait_names, gene_data = gene_data, gene_variant_matrix = G))
+}
+
 #' Read GraphLD-Style Score-Test HDF5 Output
 #'
 #' Lightweight native reader for files produced by [ldgm_write_score_test_hdf5()].
@@ -236,6 +427,46 @@ ldgm_read_surrogate_map_hdf5 <- function(file, block_name, file_index_base = c("
     out[missing] <- NA_integer_
   } else {
     out[out < 1L] <- NA_integer_
+  }
+  out
+}
+
+normalize_score_hdf5_gene_data <- function(gene_data) {
+  if (!is.data.frame(gene_data)) {
+    stop("`gene_data` must be a data frame", call. = FALSE)
+  }
+  required <- c("CHR", "POS", "gene_id", "gene_name")
+  missing <- setdiff(required, names(gene_data))
+  if (length(missing) > 0L) {
+    stop("`gene_data` is missing required columns: ", paste(missing, collapse = ", "), call. = FALSE)
+  }
+  if (nrow(gene_data) < 1L) {
+    stop("`gene_data` must contain at least one row", call. = FALSE)
+  }
+  if (anyNA(gene_data$CHR) || anyNA(gene_data$POS) || anyNA(gene_data$gene_id) || anyNA(gene_data$gene_name)) {
+    stop("`gene_data` columns `CHR`, `POS`, `gene_id`, and `gene_name` must not contain missing values", call. = FALSE)
+  }
+  gene_data$gene_id <- as.character(gene_data$gene_id)
+  gene_data$gene_name <- as.character(gene_data$gene_name)
+  gene_data
+}
+
+graphld_gene_jackknife_blocks <- function(G, variant_blocks) {
+  variant_blocks <- as.integer(variant_blocks)
+  if (length(variant_blocks) != nrow(G) || anyNA(variant_blocks)) {
+    stop("variant jackknife blocks must contain one non-missing value per variant", call. = FALSE)
+  }
+  out <- integer(ncol(G))
+  boundaries <- which(diff(variant_blocks) != 0L)
+  if (length(boundaries) == 0L) {
+    return(out)
+  }
+  for (i in seq_along(boundaries)) {
+    row_values <- G[boundaries[[i]], , drop = TRUE]
+    gene_idx <- which(row_values != 0)[1L]
+    if (!is.na(gene_idx)) {
+      out[seq.int(gene_idx, ncol(G))] <- i
+    }
   }
   out
 }

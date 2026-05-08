@@ -92,6 +92,59 @@ ldgm_write_score_test_hdf5(
 )
 expect_equal(ldgm_read_score_test_hdf5(h5_file_gzip, "trait_gzip")$gradient, gradient_h5, tolerance = 1e-12)
 
+gene_data_h5 <- data.frame(
+  CHR = c(1L, 1L),
+  POS = c(100L, 250L),
+  gene_id = c("ENSG1", "ENSG2"),
+  gene_name = c("GENE1", "GENE2"),
+  stringsAsFactors = FALSE
+)
+gene_h5 <- tempfile(fileext = ".h5")
+ldgm_write_gene_score_hdf5(
+  gene_h5,
+  gene_data_h5,
+  gradient = c(1.5, -0.5),
+  trait_name = "gene_trait",
+  jackknife_blocks = c(0L, 1L),
+  overwrite = TRUE
+)
+gene_read <- ldgm_read_score_test_hdf5(gene_h5, "gene_trait")
+expect_equal(gene_read$data_type, "gene")
+expect_equal(gene_read$row_data$gene_id, gene_data_h5$gene_id)
+expect_equal(gene_read$gradient, c(1.5, -0.5), tolerance = 1e-12)
+
+variant_gene_h5 <- tempfile(fileext = ".h5")
+ldgm_write_score_test_hdf5(
+  variant_gene_h5,
+  data.frame(CHR = c(1L, 1L, 1L), POS = c(90L, 220L, 280L), RSID = paste0("rs", 1:3)),
+  gradient = c(1, 2, 3),
+  trait_name = "trait1",
+  jackknife_blocks = c(0L, 0L, 1L),
+  overwrite = TRUE
+)
+converted_gene_h5 <- tempfile(fileext = ".h5")
+gene_table_h5 <- data.frame(
+  CHR = c(1L, 1L),
+  POS = c(100L, 300L),
+  midpoint = c(100L, 300L),
+  gene_id = c("ENSG1", "ENSG2"),
+  gene_name = c("GENE1", "GENE2"),
+  stringsAsFactors = FALSE
+)
+conversion <- ldgm_convert_variant_to_gene_scores(
+  variant_gene_h5,
+  converted_gene_h5,
+  gene_table_h5,
+  nearest_weights = 1,
+  overwrite = TRUE
+)
+converted <- ldgm_read_score_test_hdf5(converted_gene_h5, "trait1")
+expect_equal(conversion$trait_names, "trait1")
+expect_equal(converted$data_type, "gene")
+expect_equal(converted$row_data$gene_id, c("ENSG1", "ENSG2"))
+expect_equal(converted$gradient, c(1, 5), tolerance = 1e-12)
+expect_equal(as.integer(converted$row_data$jackknife_blocks), c(0L, 1L))
+
 surrogate_h5 <- tempfile(fileext = ".h5")
 surrogate_write <- ldgm_write_surrogate_map_hdf5(
   surrogate_h5,
