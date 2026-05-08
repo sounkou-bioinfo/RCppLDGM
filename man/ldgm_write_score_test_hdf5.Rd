@@ -10,6 +10,8 @@ ldgm_write_score_test_hdf5(
   gradient,
   trait_name = "trait",
   jackknife_blocks = NULL,
+  parameters = NULL,
+  jackknife_parameters = NULL,
   overwrite = FALSE,
   compression = c("lzf", "gzip", "none"),
   chunk_size = 1000L,
@@ -31,6 +33,13 @@ trait unless \code{overwrite = TRUE}.}
 omitted, \code{variant_data$jackknife_blocks} is used when present, otherwise all
 variants are assigned to block zero.}
 
+\item{parameters}{Optional numeric fitted parameter vector stored under the
+trait's \code{parameters} group for GraphLD score-test I/O compatibility.}
+
+\item{jackknife_parameters}{Optional numeric matrix with one row per
+jackknife replicate and one column per \code{parameters} entry. Required when
+\code{parameters} is supplied.}
+
 \item{overwrite}{If \code{TRUE}, replace any existing file before writing.}
 
 \item{compression}{One of \code{"lzf"}, \code{"gzip"}, or \code{"none"}. \code{"lzf"} matches
@@ -46,6 +55,8 @@ Invisibly, a list describing the written file and trait.
 \description{
 Writes the HDF5 layout used by GraphLD's graphREML score-test path: root
 metadata attributes, \verb{/row_data/\{CHR,POS,RSID,jackknife_blocks\}}, \verb{/groups},
-and \verb{/traits/<trait_name>/gradient}. Native HDF5 support is linked through the
-CRAN \code{hdf5lib} package, including its bundled LZF/gzip filters.
+\verb{/traits/<trait_name>/gradient}, and optionally
+\verb{/traits/<trait_name>/parameters/\{parameters,jackknife_parameters\}}. Native
+HDF5 support is linked through the CRAN \code{hdf5lib} package, including its
+bundled LZF/gzip filters.
 }

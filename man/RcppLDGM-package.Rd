@@ -15,6 +15,7 @@ full LDGM construction will be added behind the same compatibility contract.
 Useful links:
 \itemize{
   \item \url{https://github.com/sounkou-bioinfo/RCppLDGM}
+  \item \url{https://sounkou-bioinfo.github.io/RCppLDGM/}
   \item Report bugs at \url{https://github.com/sounkou-bioinfo/RCppLDGM/issues}
 }
 

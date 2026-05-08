@@ -260,6 +260,43 @@ void write_dataset_double(hid_t loc,
                "writing dataset '" + name + "'");
 }
 
+void write_dataset_double_matrix(hid_t loc,
+                                 const std::string& name,
+                                 Rcpp::NumericMatrix values,
+                                 const std::string& compression,
+                                 int chunk_size) {
+  hsize_t dims[2] = {static_cast<hsize_t>(values.nrow()), static_cast<hsize_t>(values.ncol())};
+  H5Handle space(check_id(H5Screate_simple(2, dims, nullptr), "creating two-dimensional dataspace"), H5Sclose);
+  H5Handle plist(check_id(H5Pcreate(H5P_DATASET_CREATE), "creating matrix dataset property list"), H5Pclose);
+  hsize_t chunk[2] = {std::max<hsize_t>(1, std::min<hsize_t>(dims[0], static_cast<hsize_t>(std::max(1, chunk_size)))),
+                      std::max<hsize_t>(1, dims[1])};
+  check_status(H5Pset_chunk(plist.get(), 2, chunk), "setting HDF5 matrix chunk size");
+  if (compression == "lzf") {
+    htri_t available = H5Zfilter_avail(H5Z_FILTER_LZF_RCPPLDGM);
+    if (available <= 0) {
+      h5_fail("checking availability of the hdf5lib LZF filter");
+    }
+    check_status(H5Pset_filter(plist.get(), H5Z_FILTER_LZF_RCPPLDGM, H5Z_FLAG_MANDATORY, 0, nullptr),
+                 "enabling LZF compression");
+  } else if (compression == "gzip") {
+    check_status(H5Pset_deflate(plist.get(), 4), "enabling gzip compression");
+  } else if (compression != "none") {
+    Rcpp::stop("unsupported HDF5 compression '%s'", compression);
+  }
+  H5Handle dataset(check_id(H5Dcreate2(loc, name.c_str(), H5T_NATIVE_DOUBLE, space.get(), H5P_DEFAULT,
+                                       plist.get(), H5P_DEFAULT),
+                            "creating dataset '" + name + "'"),
+                   H5Dclose);
+  std::vector<double> buffer(static_cast<size_t>(values.nrow()) * static_cast<size_t>(values.ncol()));
+  for (int i = 0; i < values.nrow(); ++i) {
+    for (int j = 0; j < values.ncol(); ++j) {
+      buffer[static_cast<size_t>(i) * static_cast<size_t>(values.ncol()) + static_cast<size_t>(j)] = values(i, j);
+    }
+  }
+  check_status(H5Dwrite(dataset.get(), H5T_NATIVE_DOUBLE, H5S_ALL, H5S_ALL, H5P_DEFAULT, buffer.data()),
+               "writing dataset '" + name + "'");
+}
+
 void write_dataset_strings(hid_t loc,
                            const std::string& name,
                            const std::vector<std::string>& values,
@@ -377,6 +414,24 @@ Rcpp::NumericVector read_dataset_double(hid_t loc, const std::string& name) {
   return out;
 }
 
+Rcpp::NumericMatrix read_dataset_double_matrix(hid_t loc, const std::string& name) {
+  H5Handle dataset(check_id(H5Dopen2(loc, name.c_str(), H5P_DEFAULT), "opening dataset '" + name + "'"), H5Dclose);
+  std::vector<hsize_t> dims = dataset_dims(dataset.get());
+  if (dims.size() != 2) {
+    Rcpp::stop("dataset '%s' must be two-dimensional", name);
+  }
+  Rcpp::NumericMatrix out(static_cast<int>(dims[0]), static_cast<int>(dims[1]));
+  std::vector<double> buffer(static_cast<size_t>(dims[0]) * static_cast<size_t>(dims[1]));
+  check_status(H5Dread(dataset.get(), H5T_NATIVE_DOUBLE, H5S_ALL, H5S_ALL, H5P_DEFAULT, buffer.data()),
+               "reading dataset '" + name + "'");
+  for (hsize_t i = 0; i < dims[0]; ++i) {
+    for (hsize_t j = 0; j < dims[1]; ++j) {
+      out(static_cast<int>(i), static_cast<int>(j)) = buffer[static_cast<size_t>(i) * static_cast<size_t>(dims[1]) + static_cast<size_t>(j)];
+    }
+  }
+  return out;
+}
+
 Rcpp::CharacterVector read_dataset_strings(hid_t loc, const std::string& name) {
   H5Handle dataset(check_id(H5Dopen2(loc, name.c_str(), H5P_DEFAULT), "opening dataset '" + name + "'"), H5Dclose);
   hsize_t n = flat_dataset_length(dataset.get());
@@ -453,7 +508,9 @@ Rcpp::List write_graphld_score_hdf5_cpp(const std::string& filename,
                                         bool overwrite,
                                         const std::string& source,
                                         const std::string& compression,
-                                        int chunk_size) {
+                                        int chunk_size,
+                                        SEXP parameters,
+                                        SEXP jackknife_parameters) {
   ensure_hdf5_ready();
   if (gradient.size() == 0) {
     Rcpp::stop("`gradient` must contain at least one value");
@@ -487,12 +544,29 @@ Rcpp::List write_graphld_score_hdf5_cpp(const std::string& filename,
   }
   H5Handle trait_group = create_group(traits.get(), trait_name);
   write_dataset_double(trait_group.get(), "gradient", gradient, compression, chunk_size);
+
+  bool wrote_parameters = !Rf_isNull(parameters);
+  if (wrote_parameters) {
+    if (Rf_isNull(jackknife_parameters)) {
+      Rcpp::stop("`jackknife_parameters` must be supplied when `parameters` is supplied");
+    }
+    Rcpp::NumericVector parameter_values(parameters);
+    Rcpp::NumericMatrix jackknife_values(jackknife_parameters);
+    if (jackknife_values.ncol() != parameter_values.size()) {
+      Rcpp::stop("`jackknife_parameters` column count must equal `parameters` length");
+    }
+    H5Handle parameter_group = create_group(trait_group.get(), "parameters");
+    write_dataset_double(parameter_group.get(), "parameters", parameter_values, compression, chunk_size);
+    write_dataset_double_matrix(parameter_group.get(), "jackknife_parameters", jackknife_values, compression,
+                                chunk_size);
+  }
   check_status(H5Fflush(file.get(), H5F_SCOPE_GLOBAL), "flushing HDF5 file");
 
   return Rcpp::List::create(Rcpp::Named("file") = filename,
                             Rcpp::Named("trait_name") = trait_name,
                             Rcpp::Named("n_variants") = gradient.size(),
-                            Rcpp::Named("compression") = compression);
+                            Rcpp::Named("compression") = compression,
+                            Rcpp::Named("parameters") = wrote_parameters);
 }
 
 // [[Rcpp::export(name = "RC_read_graphld_score_hdf5")]]
@@ -521,6 +595,11 @@ Rcpp::List read_graphld_score_hdf5_cpp(const std::string& filename, const std::s
     H5Handle trait_group = open_group(traits.get(), trait_name);
     out["trait_name"] = trait_name;
     out["gradient"] = read_dataset_double(trait_group.get(), "gradient");
+    if (link_exists(trait_group.get(), "parameters")) {
+      H5Handle parameter_group = open_group(trait_group.get(), "parameters");
+      out["parameters"] = read_dataset_double(parameter_group.get(), "parameters");
+      out["jackknife_parameters"] = read_dataset_double_matrix(parameter_group.get(), "jackknife_parameters");
+    }
   }
   return out;
 }

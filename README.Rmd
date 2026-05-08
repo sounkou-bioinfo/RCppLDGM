@@ -169,6 +169,8 @@ ldgm_write_score_test_hdf5(
   gradient = c(0.1, -0.2, 0.3),
   trait_name = "toy",
   jackknife_blocks = c(0L, 1L, 1L),
+  parameters = fit$parameters,
+  jackknife_parameters = fit$jackknife_params,
   compression = "none",
   overwrite = TRUE
 )

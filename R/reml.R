@@ -284,6 +284,8 @@ ldgm_run_reml <- function(ldgms,
       gradient = score,
       trait_name = score_test_trait_name,
       jackknife_blocks = score_jackknife_blocks,
+      parameters = params,
+      jackknife_parameters = jackknife$jackknife_params,
       overwrite = score_test_overwrite
     )
   }

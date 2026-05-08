@@ -146,6 +146,8 @@ reml_h5 <- ldgm_read_score_test_hdf5(reml_h5_file, "h5_trait")
 expect_equal(reml_h5$variant_data$RSID, reml_variant_data$RSID)
 expect_equal(length(reml_h5$gradient), nrow(annotations_reml))
 expect_true(all(is.finite(reml_h5$gradient)))
+expect_equal(reml_h5$parameters, unname(fit_h5$parameters), tolerance = 1e-12)
+expect_equal(reml_h5$jackknife_parameters, unname(fit_h5$jackknife_params), tolerance = 1e-12)
 expect_equal(as.numeric(crossprod(annotations_reml, reml_h5$gradient)), rep(0, ncol(annotations_reml)), tolerance = 1e-10)
 
 expect_error(ldgm_reml_block(P_reml, z_reml[-1], annotations_reml, params_reml, sample_size = 100), "z")

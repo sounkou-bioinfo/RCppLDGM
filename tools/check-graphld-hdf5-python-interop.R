@@ -20,6 +20,8 @@ variant_data <- data.frame(
 )
 gradient <- c(0.1, -0.2, 0.3)
 jackknife_blocks <- c(0L, 1L, 1L)
+parameters <- c(0.4, -0.5)
+jackknife_parameters <- matrix(c(0.41, -0.49, 0.39, -0.51), nrow = 2, byrow = TRUE)
 
 ldgm_write_score_test_hdf5(
   h5,
@@ -27,6 +29,8 @@ ldgm_write_score_test_hdf5(
   gradient,
   trait_name = trait_name,
   jackknife_blocks = jackknife_blocks,
+  parameters = parameters,
+  jackknife_parameters = jackknife_parameters,
   overwrite = TRUE,
   compression = compression
 )
@@ -37,7 +41,9 @@ stopifnot(
   identical(as.integer(native$variant_data$POS), variant_data$POS),
   identical(as.character(native$variant_data$RSID), variant_data$RSID),
   identical(as.integer(native$variant_data$jackknife_blocks), jackknife_blocks),
-  isTRUE(all.equal(native$gradient, gradient, tolerance = 1e-12, check.attributes = FALSE))
+  isTRUE(all.equal(native$gradient, gradient, tolerance = 1e-12, check.attributes = FALSE)),
+  isTRUE(all.equal(native$parameters, parameters, tolerance = 1e-12, check.attributes = FALSE)),
+  isTRUE(all.equal(native$jackknife_parameters, jackknife_parameters, tolerance = 1e-12, check.attributes = FALSE))
 )
 
 script <- file.path("tools", "check-graphld-hdf5-python-interop.py")

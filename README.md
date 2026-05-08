@@ -186,6 +186,8 @@ ldgm_write_score_test_hdf5(
   gradient = c(0.1, -0.2, 0.3),
   trait_name = "toy",
   jackknife_blocks = c(0L, 1L, 1L),
+  parameters = fit$parameters,
+  jackknife_parameters = fit$jackknife_params,
   compression = "none",
   overwrite = TRUE
 )
@@ -204,6 +206,13 @@ ldgm_read_score_test_hdf5(h5, "toy")
 #>
 #> $gradient
 #> [1]  0.1 -0.2  0.3
+#>
+#> $parameters
+#> [1]  4482.845 -1575.055
+#>
+#> $jackknife_parameters
+#>          [,1]      [,2]
+#> [1,] 4482.845 -1575.055
 ```
 
 ## Real conformance checks

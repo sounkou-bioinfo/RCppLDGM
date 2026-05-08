@@ -13,8 +13,10 @@ ldgm_hdf5_filter_info <- function() {
 #'
 #' Writes the HDF5 layout used by GraphLD's graphREML score-test path: root
 #' metadata attributes, `/row_data/{CHR,POS,RSID,jackknife_blocks}`, `/groups`,
-#' and `/traits/<trait_name>/gradient`. Native HDF5 support is linked through the
-#' CRAN `hdf5lib` package, including its bundled LZF/gzip filters.
+#' `/traits/<trait_name>/gradient`, and optionally
+#' `/traits/<trait_name>/parameters/{parameters,jackknife_parameters}`. Native
+#' HDF5 support is linked through the CRAN `hdf5lib` package, including its
+#' bundled LZF/gzip filters.
 #'
 #' @param file Output HDF5 path. Existing files are updated by appending a new
 #'   trait unless `overwrite = TRUE`.
@@ -25,6 +27,11 @@ ldgm_hdf5_filter_info <- function() {
 #' @param jackknife_blocks Optional integer jackknife block assignment vector. If
 #'   omitted, `variant_data$jackknife_blocks` is used when present, otherwise all
 #'   variants are assigned to block zero.
+#' @param parameters Optional numeric fitted parameter vector stored under the
+#'   trait's `parameters` group for GraphLD score-test I/O compatibility.
+#' @param jackknife_parameters Optional numeric matrix with one row per
+#'   jackknife replicate and one column per `parameters` entry. Required when
+#'   `parameters` is supplied.
 #' @param overwrite If `TRUE`, replace any existing file before writing.
 #' @param compression One of `"lzf"`, `"gzip"`, or `"none"`. `"lzf"` matches
 #'   GraphLD's current score-test output.
@@ -38,6 +45,8 @@ ldgm_write_score_test_hdf5 <- function(file,
                                        gradient,
                                        trait_name = "trait",
                                        jackknife_blocks = NULL,
+                                       parameters = NULL,
+                                       jackknife_parameters = NULL,
                                        overwrite = FALSE,
                                        compression = c("lzf", "gzip", "none"),
                                        chunk_size = 1000L,
@@ -72,6 +81,22 @@ ldgm_write_score_test_hdf5 <- function(file,
   if (length(jackknife_blocks) != n || anyNA(jackknife_blocks)) {
     stop("`jackknife_blocks` must contain one non-missing value per variant", call. = FALSE)
   }
+  if (!is.null(parameters)) {
+    parameters <- as.numeric(parameters)
+    if (length(parameters) < 1L || anyNA(parameters) || any(!is.finite(parameters))) {
+      stop("`parameters` must contain finite non-missing values", call. = FALSE)
+    }
+    if (is.null(jackknife_parameters)) {
+      stop("`jackknife_parameters` is required when `parameters` is supplied", call. = FALSE)
+    }
+    jackknife_parameters <- as.matrix(jackknife_parameters)
+    storage.mode(jackknife_parameters) <- "double"
+    if (ncol(jackknife_parameters) != length(parameters) || anyNA(jackknife_parameters) || any(!is.finite(jackknife_parameters))) {
+      stop("`jackknife_parameters` must be a finite numeric matrix with one column per parameter", call. = FALSE)
+    }
+  } else if (!is.null(jackknife_parameters)) {
+    stop("`parameters` is required when `jackknife_parameters` is supplied", call. = FALSE)
+  }
 
   result <- RC_write_graphld_score_hdf5(
     file,
@@ -82,7 +107,9 @@ ldgm_write_score_test_hdf5 <- function(file,
     isTRUE(overwrite),
     as.character(source),
     compression,
-    as.integer(chunk_size)
+    as.integer(chunk_size),
+    parameters,
+    jackknife_parameters
   )
   invisible(result)
 }

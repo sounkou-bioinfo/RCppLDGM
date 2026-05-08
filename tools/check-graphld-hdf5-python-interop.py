@@ -95,7 +95,16 @@ def main(argv: list[str]) -> int:
     trait_data = score_test_io.load_trait_hdf5(str(hdf5_path), trait_name)
     if "gradient" not in trait_data:
         raise AssertionError("trait data does not contain gradient")
+    if "parameters" not in trait_data:
+        raise AssertionError("trait data does not contain parameters group")
     np.testing.assert_allclose(trait_data["gradient"], np.array([0.1, -0.2, 0.3]), rtol=0, atol=1e-12)
+    np.testing.assert_allclose(trait_data["parameters"]["parameters"], np.array([0.4, -0.5]), rtol=0, atol=1e-12)
+    np.testing.assert_allclose(
+        trait_data["parameters"]["jackknife_parameters"],
+        np.array([[0.41, -0.49], [0.39, -0.51]]),
+        rtol=0,
+        atol=1e-12,
+    )
 
     print("GraphLD Python score_test_io HDF5 interop check passed.")
     return 0
