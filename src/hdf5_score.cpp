@@ -617,3 +617,53 @@ Rcpp::List read_graphld_score_hdf5_cpp(const std::string& filename, const std::s
   }
   return out;
 }
+
+// [[Rcpp::export(name = "RC_write_graphld_surrogate_hdf5")]]
+Rcpp::List write_graphld_surrogate_hdf5_cpp(const std::string& filename,
+                                            const std::string& block_name,
+                                            SEXP surrogate_map,
+                                            bool overwrite,
+                                            const std::string& compression,
+                                            int chunk_size) {
+  ensure_hdf5_ready();
+  if (block_name.empty()) {
+    Rcpp::stop("`block_name` must not be empty");
+  }
+  if (block_name.find('/') != std::string::npos) {
+    Rcpp::stop("`block_name` must not contain '/'");
+  }
+  if (chunk_size < 1) {
+    Rcpp::stop("`chunk_size` must be positive");
+  }
+  std::vector<long long> values = numeric_to_int64(surrogate_map, "surrogate_map");
+  if (values.empty()) {
+    Rcpp::stop("`surrogate_map` must contain at least one value");
+  }
+
+  H5Handle file = open_file_for_write(filename, overwrite);
+  if (link_exists(file.get(), block_name)) {
+    Rcpp::stop("the HDF5 dataset '%s' already exists", block_name);
+  }
+  write_dataset_int64(file.get(), block_name, values, compression, chunk_size);
+  check_status(H5Fflush(file.get(), H5F_SCOPE_GLOBAL), "flushing HDF5 file");
+  return Rcpp::List::create(Rcpp::Named("file") = filename,
+                            Rcpp::Named("block_name") = block_name,
+                            Rcpp::Named("n") = static_cast<int>(values.size()),
+                            Rcpp::Named("compression") = compression);
+}
+
+// [[Rcpp::export(name = "RC_read_graphld_surrogate_hdf5")]]
+Rcpp::NumericVector read_graphld_surrogate_hdf5_cpp(const std::string& filename,
+                                                    const std::string& block_name) {
+  ensure_hdf5_ready();
+  if (block_name.empty()) {
+    Rcpp::stop("`block_name` must not be empty");
+  }
+  H5Handle file(check_id(H5Fopen(filename.c_str(), H5F_ACC_RDONLY, H5P_DEFAULT),
+                         "opening HDF5 file '" + filename + "' for reading"),
+                H5Fclose);
+  if (!link_exists(file.get(), block_name)) {
+    Rcpp::stop("the HDF5 dataset '%s' does not exist", block_name);
+  }
+  return read_dataset_int64_as_numeric(file.get(), block_name);
+}

@@ -22,6 +22,8 @@ ldgm_run_reml(
   max_step_halving = 12L,
   use_surrogate_markers = FALSE,
   surrogate_maps = NULL,
+  surrogate_markers_path = NULL,
+  block_names = NULL,
   score_test_hdf5 = NULL,
   score_test_trait_name = "trait",
   score_test_variant_data = NULL,
@@ -67,6 +69,13 @@ using \code{\link[=ldgm_reml_surrogate_markers]{ldgm_reml_surrogate_markers()}} 
 
 \item{surrogate_maps}{Optional one-based surrogate index map, or list of maps,
 used when \code{use_surrogate_markers = TRUE}.}
+
+\item{surrogate_markers_path}{Optional GraphLD-style HDF5 file containing one
+zero-based surrogate-map dataset per block. Cannot be supplied together
+with \code{surrogate_maps}.}
+
+\item{block_names}{Optional block names used to read \code{surrogate_markers_path}.
+Defaults to names of \code{ldgms}, then \code{block1}, \code{block2}, ...}
 
 \item{score_test_hdf5}{Optional HDF5 path. When supplied, final per-variant
 score-test gradients are written with \code{\link[=ldgm_write_score_test_hdf5]{ldgm_write_score_test_hdf5()}}.}

@@ -201,6 +201,34 @@ BEGIN_RCPP
     return rcpp_result_gen;
 END_RCPP
 }
+// write_graphld_surrogate_hdf5_cpp
+Rcpp::List write_graphld_surrogate_hdf5_cpp(const std::string& filename, const std::string& block_name, SEXP surrogate_map, bool overwrite, const std::string& compression, int chunk_size);
+RcppExport SEXP _RcppLDGM_write_graphld_surrogate_hdf5_cpp(SEXP filenameSEXP, SEXP block_nameSEXP, SEXP surrogate_mapSEXP, SEXP overwriteSEXP, SEXP compressionSEXP, SEXP chunk_sizeSEXP) {
+BEGIN_RCPP
+    Rcpp::RObject rcpp_result_gen;
+    Rcpp::RNGScope rcpp_rngScope_gen;
+    Rcpp::traits::input_parameter< const std::string& >::type filename(filenameSEXP);
+    Rcpp::traits::input_parameter< const std::string& >::type block_name(block_nameSEXP);
+    Rcpp::traits::input_parameter< SEXP >::type surrogate_map(surrogate_mapSEXP);
+    Rcpp::traits::input_parameter< bool >::type overwrite(overwriteSEXP);
+    Rcpp::traits::input_parameter< const std::string& >::type compression(compressionSEXP);
+    Rcpp::traits::input_parameter< int >::type chunk_size(chunk_sizeSEXP);
+    rcpp_result_gen = Rcpp::wrap(write_graphld_surrogate_hdf5_cpp(filename, block_name, surrogate_map, overwrite, compression, chunk_size));
+    return rcpp_result_gen;
+END_RCPP
+}
+// read_graphld_surrogate_hdf5_cpp
+Rcpp::NumericVector read_graphld_surrogate_hdf5_cpp(const std::string& filename, const std::string& block_name);
+RcppExport SEXP _RcppLDGM_read_graphld_surrogate_hdf5_cpp(SEXP filenameSEXP, SEXP block_nameSEXP) {
+BEGIN_RCPP
+    Rcpp::RObject rcpp_result_gen;
+    Rcpp::RNGScope rcpp_rngScope_gen;
+    Rcpp::traits::input_parameter< const std::string& >::type filename(filenameSEXP);
+    Rcpp::traits::input_parameter< const std::string& >::type block_name(block_nameSEXP);
+    rcpp_result_gen = Rcpp::wrap(read_graphld_surrogate_hdf5_cpp(filename, block_name));
+    return rcpp_result_gen;
+END_RCPP
+}
 // openmp_info_cpp
 Rcpp::List openmp_info_cpp();
 RcppExport SEXP _RcppLDGM_openmp_info_cpp() {
@@ -258,6 +286,8 @@ static const R_CallMethodDef CallEntries[] = {
     {"_RcppLDGM_hdf5_filter_info_cpp", (DL_FUNC) &_RcppLDGM_hdf5_filter_info_cpp, 0},
     {"_RcppLDGM_write_graphld_score_hdf5_cpp", (DL_FUNC) &_RcppLDGM_write_graphld_score_hdf5_cpp, 12},
     {"_RcppLDGM_read_graphld_score_hdf5_cpp", (DL_FUNC) &_RcppLDGM_read_graphld_score_hdf5_cpp, 2},
+    {"_RcppLDGM_write_graphld_surrogate_hdf5_cpp", (DL_FUNC) &_RcppLDGM_write_graphld_surrogate_hdf5_cpp, 6},
+    {"_RcppLDGM_read_graphld_surrogate_hdf5_cpp", (DL_FUNC) &_RcppLDGM_read_graphld_surrogate_hdf5_cpp, 2},
     {"_RcppLDGM_openmp_info_cpp", (DL_FUNC) &_RcppLDGM_openmp_info_cpp, 0},
     {"_RcppLDGM_set_openmp_threads_cpp", (DL_FUNC) &_RcppLDGM_set_openmp_threads_cpp, 1},
     {"_RcppLDGM_sparse_matmul_cpp", (DL_FUNC) &_RcppLDGM_sparse_matmul_cpp, 2},

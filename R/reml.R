@@ -224,6 +224,11 @@ ldgm_reml_block <- function(precision,
 #'   using [ldgm_reml_surrogate_markers()] before fitting.
 #' @param surrogate_maps Optional one-based surrogate index map, or list of maps,
 #'   used when `use_surrogate_markers = TRUE`.
+#' @param surrogate_markers_path Optional GraphLD-style HDF5 file containing one
+#'   zero-based surrogate-map dataset per block. Cannot be supplied together
+#'   with `surrogate_maps`.
+#' @param block_names Optional block names used to read `surrogate_markers_path`.
+#'   Defaults to names of `ldgms`, then `block1`, `block2`, ...
 #' @param score_test_hdf5 Optional HDF5 path. When supplied, final per-variant
 #'   score-test gradients are written with [ldgm_write_score_test_hdf5()].
 #' @param score_test_trait_name Trait group name to use under `/traits` when
@@ -265,6 +270,8 @@ ldgm_run_reml <- function(ldgms,
                           max_step_halving = 12L,
                           use_surrogate_markers = FALSE,
                           surrogate_maps = NULL,
+                          surrogate_markers_path = NULL,
+                          block_names = NULL,
                           score_test_hdf5 = NULL,
                           score_test_trait_name = "trait",
                           score_test_variant_data = NULL,
@@ -277,12 +284,17 @@ ldgm_run_reml <- function(ldgms,
   if (!is.logical(use_surrogate_markers) || length(use_surrogate_markers) != 1L || is.na(use_surrogate_markers)) {
     stop("`use_surrogate_markers` must be `TRUE` or `FALSE`", call. = FALSE)
   }
+  if (!isTRUE(use_surrogate_markers) && (!is.null(surrogate_maps) || !is.null(surrogate_markers_path))) {
+    stop("set `use_surrogate_markers = TRUE` when supplying surrogate maps", call. = FALSE)
+  }
   blocks <- normalize_reml_blocks(
     ldgms,
     z,
     annotations,
     use_surrogate_markers = use_surrogate_markers,
-    surrogate_maps = surrogate_maps
+    surrogate_maps = surrogate_maps,
+    surrogate_markers_path = surrogate_markers_path,
+    block_names = block_names
   )
   p <- ncol(blocks$annotations[[1L]])
   params <- if (is.null(params)) rep(0, p) else as.numeric(params)
@@ -458,6 +470,7 @@ ldgm_run_reml <- function(ldgms,
     gradient = current$gradient,
     hessian = current$hessian,
     score_test_hdf5 = score_test,
+    block_names = blocks$block_names,
     blocks = current$blocks,
     log = list(
       converged = converged,
@@ -507,7 +520,9 @@ normalize_reml_blocks <- function(ldgms,
                                   z,
                                   annotations,
                                   use_surrogate_markers = FALSE,
-                                  surrogate_maps = NULL) {
+                                  surrogate_maps = NULL,
+                                  surrogate_markers_path = NULL,
+                                  block_names = NULL) {
   if (!is.list(ldgms) || inherits(ldgms, "ldgm_precision") || inherits(ldgms, "sparseMatrix")) {
     ldgms <- list(ldgms)
   }
@@ -520,6 +535,16 @@ normalize_reml_blocks <- function(ldgms,
   n_blocks <- length(ldgms)
   if (length(z) != n_blocks || length(annotations) != n_blocks) {
     stop("`ldgms`, `z`, and `annotations` must contain the same number of blocks", call. = FALSE)
+  }
+  block_names <- normalize_reml_block_names(ldgms, n_blocks, block_names)
+  if (!is.null(surrogate_markers_path)) {
+    if (!is.null(surrogate_maps)) {
+      stop("supply only one of `surrogate_maps` or `surrogate_markers_path`", call. = FALSE)
+    }
+    check_hdf5_file_arg(surrogate_markers_path, must_exist = TRUE)
+    surrogate_maps <- lapply(block_names, function(block_name) {
+      ldgm_read_surrogate_map_hdf5(surrogate_markers_path, block_name)
+    })
   }
   surrogate_maps <- normalize_reml_surrogate_maps(surrogate_maps, n_blocks)
   if (isTRUE(use_surrogate_markers)) {
@@ -541,7 +566,29 @@ normalize_reml_blocks <- function(ldgms,
   if (length(unique(n_cols)) != 1L) {
     stop("all annotation blocks must have the same number of columns", call. = FALSE)
   }
-  list(ldgms = ldgms, z = z, annotations = annotations)
+  list(ldgms = ldgms, z = z, annotations = annotations, block_names = block_names)
+}
+
+normalize_reml_block_names <- function(ldgms, n_blocks, block_names = NULL) {
+  if (is.null(block_names)) {
+    inferred <- names(ldgms)
+    if (!is.null(inferred) && length(inferred) == n_blocks && all(nzchar(inferred))) {
+      block_names <- inferred
+    } else {
+      block_names <- paste0("block", seq_len(n_blocks))
+    }
+  }
+  block_names <- as.character(block_names)
+  if (length(block_names) != n_blocks || anyNA(block_names) || any(!nzchar(block_names))) {
+    stop("`block_names` must contain one non-empty name per block", call. = FALSE)
+  }
+  if (any(grepl("/", block_names, fixed = TRUE))) {
+    stop("`block_names` must not contain '/'", call. = FALSE)
+  }
+  if (anyDuplicated(block_names) > 0L) {
+    stop("`block_names` must not contain duplicates", call. = FALSE)
+  }
+  block_names
 }
 
 normalize_reml_surrogate_maps <- function(surrogate_maps, n_blocks) {

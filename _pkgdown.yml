@@ -84,6 +84,8 @@ reference:
   - ldgm_hdf5_filter_info
   - ldgm_write_score_test_hdf5
   - ldgm_read_score_test_hdf5
+  - ldgm_write_surrogate_map_hdf5
+  - ldgm_read_surrogate_map_hdf5
   - ldgm_score_test
   - ldgm_score_test_hdf5
 - title: Native runtime

@@ -70,16 +70,16 @@ def _to_list(series_or_array):
 
 
 def main(argv: list[str]) -> int:
-    if len(argv) not in {3, 5}:
+    if len(argv) not in {3, 5, 7}:
         print(
             "usage: check-graphld-hdf5-python-interop.py <file.h5> <trait> "
-            "[expected-score.tsv expected-jackknife.tsv]",
+            "[expected-score.tsv expected-jackknife.tsv [surrogate-map.h5 block-name]]",
             file=sys.stderr,
         )
         return 2
 
     try:
-        import h5py  # noqa: F401  # imported to produce a clear optional-dependency check
+        import h5py
     except Exception as exc:  # pragma: no cover - depends on local Python environment
         _require_or_skip(f"Python h5py is unavailable: {exc}")
 
@@ -154,6 +154,14 @@ def main(argv: list[str]) -> int:
         )
         z_scores = point_estimates.ravel() / np.std(jackknife_estimates, axis=0) / np.sqrt(jackknife_estimates.shape[0] - 1)
         np.testing.assert_allclose(z_scores, expected_score["z"].to_numpy(), rtol=0, atol=1e-12)
+
+    if len(argv) == 7:
+        surrogate_path = Path(argv[5])
+        block_name = argv[6]
+        with h5py.File(surrogate_path, "r") as handle:
+            if block_name not in handle:
+                raise AssertionError(f"surrogate block {block_name!r} not found in {surrogate_path}")
+            np.testing.assert_array_equal(handle[block_name][:], np.array([0, 2, -1]))
 
     print("GraphLD Python score_test_io HDF5 interop check passed.")
     return 0

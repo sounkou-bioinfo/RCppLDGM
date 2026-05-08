@@ -142,6 +142,29 @@ fit_surrogate <- ldgm_run_reml(
   annotation_names = colnames(annotations_reml)
 )
 expect_true(is.finite(fit_surrogate$log$final_likelihood))
+surrogate_h5_reml <- tempfile(fileext = ".h5")
+ldgm_write_surrogate_map_hdf5(
+  surrogate_h5_reml,
+  "toy_block",
+  c(1L, 3L, NA_integer_),
+  overwrite = TRUE,
+  compression = "none"
+)
+fit_surrogate_h5 <- ldgm_run_reml(
+  list(toy_block = P_surrogate),
+  list(z_surrogate),
+  list(annotations_reml),
+  params = params_reml,
+  sample_size = 100,
+  link_fn_denominator = 10,
+  diagonal_method = "exact",
+  num_iterations = 1L,
+  use_surrogate_markers = TRUE,
+  surrogate_markers_path = surrogate_h5_reml,
+  annotation_names = colnames(annotations_reml)
+)
+expect_equal(fit_surrogate_h5$block_names, "toy_block")
+expect_true(is.finite(fit_surrogate_h5$log$final_likelihood))
 expect_error(
   ldgm_run_reml(P_surrogate, z_surrogate, annotations_reml, sample_size = 100, use_surrogate_markers = FALSE),
   "finite non-missing"

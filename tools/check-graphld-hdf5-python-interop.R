@@ -37,7 +37,17 @@ ldgm_write_score_test_hdf5(
   compression = compression
 )
 
+surrogate_h5 <- tempfile("rcppldgm-surrogate-map-", fileext = ".h5")
+ldgm_write_surrogate_map_hdf5(
+  surrogate_h5,
+  "toy_block",
+  c(1L, 3L, NA_integer_),
+  overwrite = TRUE,
+  compression = compression
+)
+
 native <- ldgm_read_score_test_hdf5(h5, trait_name = trait_name)
+native_surrogate <- ldgm_read_surrogate_map_hdf5(surrogate_h5, "toy_block")
 score_annotations <- data.frame(
   RSID = c("rs1", "rs2", "rs3"),
   annot_a = c(1, 0, 1),
@@ -64,11 +74,12 @@ stopifnot(
   isTRUE(all.equal(native$gradient, gradient, tolerance = 1e-12, check.attributes = FALSE)),
   isTRUE(all.equal(native$hessian, hessian, tolerance = 1e-12, check.attributes = FALSE)),
   isTRUE(all.equal(native$parameters, parameters, tolerance = 1e-12, check.attributes = FALSE)),
-  isTRUE(all.equal(native$jackknife_parameters, jackknife_parameters, tolerance = 1e-12, check.attributes = FALSE))
+  isTRUE(all.equal(native$jackknife_parameters, jackknife_parameters, tolerance = 1e-12, check.attributes = FALSE)),
+  identical(native_surrogate, c(1L, 3L, NA_integer_))
 )
 
 script <- file.path("tools", "check-graphld-hdf5-python-interop.py")
-status <- system2(python, c(script, h5, trait_name, score_result_path, score_jackknife_path))
+status <- system2(python, c(script, h5, trait_name, score_result_path, score_jackknife_path, surrogate_h5, "toy_block"))
 if (!identical(status, 0L)) {
   stop("GraphLD Python HDF5 interop check failed with status ", status, call. = FALSE)
 }

@@ -259,15 +259,15 @@ Implemented today: native graph/bricking/reduction/SNP-list kernels,
 native `.trees` file extraction through vendored tskit C, GraphLD-style
 sparse precision operators, BLUP/clumping helpers, S7/s7contract
 GraphREML input interfaces, a serial graphREML core with an initial
-surrogate-marker path, pseudo-jackknife summaries, staged score-test
-HDF5 writing, and an initial variant-annotation score-test statistic.
+surrogate-marker path and GraphLD-style surrogate-map HDF5 input,
+pseudo-jackknife summaries, staged score-test HDF5 writing, and an
+initial variant-annotation score-test statistic.
 
 Still intentionally staged:
 
-- full Python GraphLD graphREML CLI parity: surrogate-map file
-  workflows, richer score-test HDF5 schema,
-  multiprocessing/block-manager behavior, and upstream-scale jackknife
-  conformance;
+- full Python GraphLD graphREML CLI parity: richer score-test HDF5
+  schema, multiprocessing/block-manager behavior, and upstream-scale
+  jackknife conformance;
 - larger GraphLD/SuiteSparse conformance and performance comparisons for
   BLUP, clumping, inverse diagonals, XNys, and graphREML;
 - broader real-data benchmark runs beyond the tiny upstream

@@ -154,6 +154,92 @@ ldgm_read_score_test_hdf5 <- function(file, trait_name = NULL) {
   RC_read_graphld_score_hdf5(file, trait_name)
 }
 
+#' Write a GraphLD-Style Surrogate-Marker HDF5 Map
+#'
+#' Writes one per-block surrogate-marker dataset at the HDF5 root, matching the
+#' layout read by GraphLD's `surrogate_markers_path` option. R-facing surrogate
+#' indices are one-based; by default they are stored as upstream GraphLD-style
+#' zero-based integer indices. `NA` entries are stored as `-1` sentinels and read
+#' back as `NA`.
+#'
+#' @param file Output HDF5 path.
+#' @param block_name Dataset name for the LD block. Must not contain `/`.
+#' @param surrogate_map Integer vector of one-based surrogate precision indices,
+#'   one entry per active precision node. `NA` entries are allowed and stored as
+#'   `-1` sentinels.
+#' @param overwrite If `TRUE`, replace any existing file before writing.
+#' @param file_index_base Index convention used inside the HDF5 dataset. The
+#'   default `"zero"` matches GraphLD/Python; `"one"` is mostly for R-only
+#'   round trips.
+#' @param compression One of `"lzf"`, `"gzip"`, or `"none"`.
+#' @param chunk_size Positive HDF5 chunk length.
+#'
+#' @return Invisibly, a list describing the written dataset.
+#' @export
+ldgm_write_surrogate_map_hdf5 <- function(file,
+                                          block_name,
+                                          surrogate_map,
+                                          overwrite = FALSE,
+                                          file_index_base = c("zero", "one"),
+                                          compression = c("lzf", "gzip", "none"),
+                                          chunk_size = 1000L) {
+  check_hdf5_file_arg(file, must_exist = FALSE)
+  block_name <- check_hdf5_block_name(block_name)
+  file_index_base <- match.arg(file_index_base)
+  compression <- match.arg(compression)
+  if (length(chunk_size) != 1L || is.na(chunk_size) || chunk_size < 1L) {
+    stop("`chunk_size` must be a positive integer", call. = FALSE)
+  }
+  surrogate_map <- normalize_surrogate_hdf5_map(surrogate_map)
+  stored <- surrogate_map
+  if (file_index_base == "zero") {
+    stored <- stored - 1L
+  }
+  stored[is.na(surrogate_map)] <- -1L
+  result <- RC_write_graphld_surrogate_hdf5(
+    file,
+    block_name,
+    stored,
+    isTRUE(overwrite),
+    compression,
+    as.integer(chunk_size)
+  )
+  invisible(result)
+}
+
+#' Read a GraphLD-Style Surrogate-Marker HDF5 Map
+#'
+#' Reads one per-block surrogate-marker dataset from an HDF5 root. Values are
+#' returned as one-based R precision indices by default; negative sentinels are
+#' returned as `NA`.
+#'
+#' @param file HDF5 path.
+#' @param block_name Dataset name for the LD block.
+#' @param file_index_base Index convention used inside the HDF5 dataset. The
+#'   default `"zero"` matches upstream GraphLD/Python.
+#'
+#' @return Integer vector of one-based surrogate precision indices with `NA` for
+#'   negative sentinels.
+#' @export
+ldgm_read_surrogate_map_hdf5 <- function(file, block_name, file_index_base = c("zero", "one")) {
+  check_hdf5_file_arg(file, must_exist = TRUE)
+  block_name <- check_hdf5_block_name(block_name)
+  file_index_base <- match.arg(file_index_base)
+  raw <- RC_read_graphld_surrogate_hdf5(file, block_name)
+  if (any(!is.finite(raw) | raw != floor(raw))) {
+    stop("surrogate-map HDF5 dataset must contain finite integer values", call. = FALSE)
+  }
+  out <- as.integer(raw)
+  missing <- out < 0L
+  if (file_index_base == "zero") {
+    out <- out + 1L
+    out[missing] <- NA_integer_
+  } else {
+    out[out < 1L] <- NA_integer_
+  }
+  out
+}
+
 normalize_score_hdf5_variant_data <- function(variant_data) {
   if (!is.data.frame(variant_data)) {
     stop("`variant_data` must be a data frame", call. = FALSE)
@@ -178,4 +264,39 @@ normalize_score_hdf5_variant_data <- function(variant_data) {
   }
   variant_data$RSID <- as.character(variant_data$RSID)
   variant_data
+}
+
+check_hdf5_file_arg <- function(file, must_exist) {
+  if (!is.character(file) || length(file) != 1L || is.na(file) || !nzchar(file)) {
+    stop("`file` must be a non-empty string", call. = FALSE)
+  }
+  if (isTRUE(must_exist) && !file.exists(file)) {
+    stop("HDF5 file does not exist: ", file, call. = FALSE)
+  }
+  invisible(file)
+}
+
+check_hdf5_block_name <- function(block_name) {
+  if (!is.character(block_name) || length(block_name) != 1L || is.na(block_name) || !nzchar(block_name)) {
+    stop("`block_name` must be a non-empty string", call. = FALSE)
+  }
+  if (grepl("/", block_name, fixed = TRUE)) {
+    stop("`block_name` must not contain '/'", call. = FALSE)
+  }
+  block_name
+}
+
+normalize_surrogate_hdf5_map <- function(surrogate_map) {
+  if (!is.numeric(surrogate_map) && !is.integer(surrogate_map)) {
+    stop("`surrogate_map` must be integer or numeric", call. = FALSE)
+  }
+  if (length(surrogate_map) < 1L) {
+    stop("`surrogate_map` must contain at least one value", call. = FALSE)
+  }
+  values <- as.numeric(surrogate_map)
+  non_missing <- !is.na(values)
+  if (any(!is.finite(values[non_missing]) | values[non_missing] != floor(values[non_missing]) | values[non_missing] < 1)) {
+    stop("`surrogate_map` entries must be one-based positive integers or `NA`", call. = FALSE)
+  }
+  as.integer(values)
 }

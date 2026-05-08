@@ -91,3 +91,20 @@ ldgm_write_score_test_hdf5(
   overwrite = TRUE
 )
 expect_equal(ldgm_read_score_test_hdf5(h5_file_gzip, "trait_gzip")$gradient, gradient_h5, tolerance = 1e-12)
+
+surrogate_h5 <- tempfile(fileext = ".h5")
+surrogate_write <- ldgm_write_surrogate_map_hdf5(
+  surrogate_h5,
+  "block1",
+  c(1L, 3L, NA_integer_),
+  overwrite = TRUE,
+  compression = "none"
+)
+expect_equal(surrogate_write$block_name, "block1")
+expect_equal(surrogate_write$n, 3L)
+expect_equal(ldgm_read_surrogate_map_hdf5(surrogate_h5, "block1"), c(1L, 3L, NA_integer_))
+ldgm_write_surrogate_map_hdf5(surrogate_h5, "block2", c(2L, 2L, 1L), compression = "gzip")
+expect_equal(ldgm_read_surrogate_map_hdf5(surrogate_h5, "block2"), c(2L, 2L, 1L))
+expect_error(ldgm_write_surrogate_map_hdf5(surrogate_h5, "block1", c(1L, 2L)), "already exists")
+expect_error(ldgm_read_surrogate_map_hdf5(surrogate_h5, "missing"), "does not exist")
+expect_error(ldgm_write_surrogate_map_hdf5(surrogate_h5, "bad/name", c(1L)), "must not contain")

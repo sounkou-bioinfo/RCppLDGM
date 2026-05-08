@@ -40,7 +40,7 @@ kernels rather than the whole CLI:
 | single-block BLUP kernel | `ldgm_blup_block()` | implemented for full and selected views |
 | GraphLD BLUP block scheduler | `ldgm_partition_variants()`, `ldgm_run_blup()` | implemented as serial R scheduler; multiprocessing remains planned |
 | GraphLD `summary_stats: pl.DataFrame` / `annotation_data: pl.DataFrame` graphREML inputs | `LdgmSummaryStats`, `LdgmAnnotationData`, `ldgm_summary_stats()`, `ldgm_annotation_data()` | implemented as S7/s7contract structural interfaces with data-frame-backed default implementations |
-| GraphLD graphREML core/scheduler | `ldgm_reml_link()`, `ldgm_reml_block()`, `ldgm_run_reml()` | initial serial core, S7/s7contract annotation inputs, GraphLD-style pseudo-jackknife summaries, and a serial surrogate-marker path implemented; full CLI parity, surrogate-map file workflows, upstream-scale jackknife conformance, and multiprocessing remain planned |
+| GraphLD graphREML core/scheduler | `ldgm_reml_link()`, `ldgm_reml_surrogate_markers()`, `ldgm_reml_block()`, `ldgm_run_reml()` | initial serial core, S7/s7contract annotation inputs, GraphLD-style pseudo-jackknife summaries, serial surrogate-marker handling, and GraphLD-style surrogate-map HDF5 input implemented; full CLI parity, upstream-scale jackknife conformance, and multiprocessing remain planned |
 | GraphLD graphREML score-test HDF5 output | `ldgm_write_score_test_hdf5()`, optional `ldgm_run_reml(score_test_hdf5=...)` | native `hdf5lib` writer implemented for row data, `/traits/<trait>/{gradient,hessian}`, and `/traits/<trait>/parameters/{parameters,jackknife_parameters}`; broader score-test CLI schema remains planned |
 | GraphLD `score_test.py` variant-annotation statistic | `ldgm_score_test()`, `ldgm_score_test_hdf5()` | initial R-native score/jackknife/Z statistic implemented against GraphLD's gradient + variant-annotation path; gene-set conversion and meta-analysis remain planned |
 | GraphLD LD clumping | `ldgm_run_clump()` | implemented as serial R scheduler; multiprocessing remains planned |
@@ -131,6 +131,5 @@ Interpretation rules:
    scheduling where useful.
 3. Add larger stochastic inverse-diagonal conformance/performance comparisons
    against Python GraphLD/SuiteSparse on upstream LDGM blocks.
-4. Extend graphREML toward full CLI parity: surrogate-map HDF5/file workflows,
-   richer HDF5 score-test outputs, multiprocessing, and upstream-scale jackknife
-   conformance.
+4. Extend graphREML toward full CLI parity: richer HDF5 score-test outputs,
+   multiprocessing, and upstream-scale jackknife conformance.
