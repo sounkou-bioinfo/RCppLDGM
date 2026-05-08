@@ -24,6 +24,41 @@ expect_equal(
   tolerance = 1e-10
 )
 
+P_updated <- ldgm_precision_update(P, c(1, 0, 2))
+expected_updated <- expected_dense
+expected_updated[cbind(1:3, 1:3)] <- diag(expected_updated) + c(1, 0, 2)
+expect_true(inherits(P_updated, "dgCMatrix"))
+expect_equal(as.matrix(P_updated), expected_updated, tolerance = 1e-12)
+expect_equal(as.matrix(P), expected_dense, tolerance = 1e-12)
+expect_error(ldgm_precision_update(P, c(1, 2)), "length")
+expect_error(ldgm_precision_update(P, c(-3, 0, 0)), "non-positive")
+
+variant_info_update <- data.frame(index = 0:3, SNP = paste0("rs", 0:3))
+P4 <- Matrix::Matrix(
+  matrix(c(
+    2, -1, 0, 0,
+    -1, 2, -1, 0,
+    0, -1, 2, -1,
+    0, 0, -1, 2
+  ), nrow = 4),
+  sparse = TRUE
+)
+ldgm4 <- ldgm_precision(P4, variant_info_update)
+ldgm4_selected <- ldgm_precision_select(ldgm4, c(0L, 2L))
+ldgm4_updated <- ldgm_precision_update(ldgm4_selected, c(1, 2))
+expected_p4 <- as.matrix(P4)
+expected_p4[1, 1] <- expected_p4[1, 1] + 1
+expected_p4[3, 3] <- expected_p4[3, 3] + 2
+expect_true(inherits(ldgm4_updated, "ldgm_precision"))
+expect_equal(ldgm4_updated$which_indices, c(0L, 2L))
+expect_equal(as.matrix(ldgm4_updated$precision), expected_p4, tolerance = 1e-12)
+expect_equal(as.matrix(ldgm4$precision), as.matrix(P4), tolerance = 1e-12)
+expect_equal(
+  ldgm_precision_multiply(ldgm4_updated, c(1, 1)),
+  as.numeric(ldgm_precision_matrix(ldgm4_updated) %*% c(1, 1)),
+  tolerance = 1e-10
+)
+
 expect_equal(
   ldgm_gaussian_likelihood(b, P),
   as.numeric(-0.5 * (length(b) * log(2 * pi) +

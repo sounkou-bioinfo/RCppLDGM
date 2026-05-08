@@ -125,6 +125,53 @@ ldgm_precision_solve <- function(precision, b) {
   drop_if_vector(out, vector_input)
 }
 
+#' Update an LDGM Precision Matrix Diagonal
+#'
+#' Returns a copy of `precision` with `update` added to the relevant diagonal
+#' entries. For a selected `ldgm_precision` view, only the selected underlying
+#' rows are updated, matching GraphLD's `PrecisionOperator.update_matrix()`
+#' semantics while keeping R's functional copy-return style.
+#'
+#' @param precision Sparse precision matrix or `ldgm_precision` object.
+#' @param update Numeric vector with one value per active precision row.
+#'
+#' @return An updated sparse matrix for sparse-matrix input, or an updated
+#'   `ldgm_precision` object for `ldgm_precision` input.
+#' @export
+ldgm_precision_update <- function(precision, update) {
+  if (!is.numeric(update) || length(dim(update)) > 1L) {
+    stop("`update` must be a numeric vector", call. = FALSE)
+  }
+  update <- as.numeric(update)
+  expected_n <- precision_nrow(precision)
+  if (length(update) != expected_n) {
+    stop("`update` length must equal the active precision dimension", call. = FALSE)
+  }
+  if (anyNA(update)) {
+    stop("`update` must not contain missing values", call. = FALSE)
+  }
+
+  if (inherits(precision, "ldgm_precision")) {
+    matrix <- precision$precision
+    indices <- precision_indices(precision) + 1L
+    diagonal <- Matrix::diag(matrix)
+    diagonal[indices] <- diagonal[indices] + update
+    if (any(diagonal[indices] <= 0)) {
+      stop("update would make a diagonal element non-positive", call. = FALSE)
+    }
+    Matrix::diag(matrix) <- diagonal
+    return(ldgm_precision(matrix, precision$variant_info, precision$which_indices))
+  }
+
+  matrix <- as_dgCMatrix(precision)
+  diagonal <- Matrix::diag(matrix) + update
+  if (any(diagonal <= 0)) {
+    stop("update would make a diagonal element non-positive", call. = FALSE)
+  }
+  Matrix::diag(matrix) <- diagonal
+  as_dgCMatrix(matrix)
+}
+
 #' Log Determinant of an LDGM Precision Matrix
 #'
 #' Computes `log(det(precision))` using R `Matrix` sparse determinant methods.
