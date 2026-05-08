@@ -2,9 +2,9 @@
 #'
 #' Loads one LDGM precision block from a comma-separated `.edgelist` file and a
 #' matching `.snplist` file, following the behavior of GraphLD's `load_ldgm()`.
-#' Edge-list node ids are zero-based. Rows and columns with zero diagonal entries
-#' are dropped, and `variant_info$index` is remapped to the compact retained
-#' precision-matrix row ids.
+#' Upstream edge-list and snplist ids are converted to R-facing one-based
+#' precision indices. Rows and columns with zero diagonal entries are dropped,
+#' and `variant_info$index` is remapped to compact retained one-based row ids.
 #'
 #' @param filepath Path to a `.edgelist` file, or a directory containing one or
 #'   more `.edgelist` files.
@@ -76,10 +76,10 @@ ldgm_load_ldgm <- function(filepath, snplist_path = NULL, population = "EUR", sn
   retained_zero_based <- retained_rows - 1L
   num_rows <- max(max(variant_info$index), max(retained_zero_based)) + 1L
   row_map <- rep.int(-1L, num_rows)
-  row_map[retained_zero_based + 1L] <- seq_along(retained_rows) - 1L
+  row_map[retained_zero_based + 1L] <- seq_along(retained_rows)
   variant_info$original_index <- variant_info$index
   variant_info$index <- row_map[variant_info$original_index + 1L]
-  variant_info <- variant_info[variant_info$index >= 0L, , drop = FALSE]
+  variant_info <- variant_info[variant_info$index > 0L, , drop = FALSE]
   row.names(variant_info) <- NULL
 
   precision <- precision[retained_rows, retained_rows, drop = FALSE]
@@ -88,19 +88,20 @@ ldgm_load_ldgm <- function(filepath, snplist_path = NULL, population = "EUR", sn
 
 #' Read an LDGM Edge List File
 #'
-#' Reads a comma-separated, headerless LDGM edge-list file with zero-based
-#' columns `from`, `to`, and `weight`.
+#' Reads a comma-separated, headerless LDGM edge-list file. GraphLD/LDGM files
+#' store node ids as zero-based integers; this reader converts them to ordinary
+#' one-based R ids in the returned data frame.
 #'
 #' @param path Path to the edge-list file.
 #'
-#' @return A validated edge-list data frame.
+#' @return A validated edge-list data frame with one-based `from`/`to` ids.
 #' @export
 ldgm_read_edgelist <- function(path) {
   if (length(path) != 1L || is.na(path) || !file.exists(path)) {
     stop("edge-list file not found: ", path, call. = FALSE)
   }
   edge_list <- utils::read.csv(path, header = FALSE, col.names = c("from", "to", "weight"))
-  ldgm_edge_list(edge_list$from, edge_list$to, edge_list$weight)
+  ldgm_edge_list(edge_list$from + 1L, edge_list$to + 1L, edge_list$weight)
 }
 
 #' Read an LDGM SNP List File
@@ -123,7 +124,7 @@ ldgm_read_snplist <- function(path) {
 #'
 #' @param precision Sparse precision matrix.
 #' @param variant_info Data frame with at least an `index` column.
-#' @param which_indices Optional zero-based row/column indices defining a
+#' @param which_indices Optional one-based row/column indices defining a
 #'   GraphLD-style Schur-complement view.
 #'
 #' @return An `ldgm_precision` object.
@@ -137,7 +138,7 @@ ldgm_precision <- function(precision, variant_info, which_indices = NULL) {
     stop("`variant_info` must contain an `index` column", call. = FALSE)
   }
   if (!is.null(which_indices)) {
-    which_indices <- normalize_zero_based_indices(which_indices, nrow(precision))
+    which_indices <- normalize_one_based_indices(which_indices, nrow(precision))
   }
   structure(
     list(precision = precision, variant_info = variant_info, which_indices = which_indices),
@@ -165,10 +166,10 @@ ldgm_precision_matrix <- function(x) {
 #'
 #' Creates a GraphLD-style selected precision object. The underlying full
 #' precision matrix is retained, while multiplication, solve, log-determinant,
-#' and BLUP operate on the Schur complement for the selected zero-based indices.
+#' and BLUP operate on the Schur complement for the selected one-based indices.
 #'
 #' @param x An `ldgm_precision` object.
-#' @param indices Zero-based integer row/column indices, or a logical mask with
+#' @param indices One-based integer row/column indices, or a logical mask with
 #'   length equal to the active precision dimension. When `x` is already a
 #'   selected view, `indices` are interpreted relative to that active view and
 #'   then mapped back to the underlying full precision matrix, matching GraphLD's
@@ -181,13 +182,13 @@ ldgm_precision_select <- function(x, indices) {
     stop("`x` must be an `ldgm_precision` object", call. = FALSE)
   }
   if (is.null(x$which_indices)) {
-    which_indices <- normalize_zero_based_indices(indices, nrow(x$precision))
+    which_indices <- normalize_one_based_indices(indices, nrow(x$precision))
   } else {
     active_indices <- x$which_indices
-    relative_indices <- normalize_zero_based_indices(indices, length(active_indices))
+    relative_indices <- normalize_one_based_indices(indices, length(active_indices))
     which_indices <- active_indices[relative_indices + 1L]
   }
-  ldgm_precision(x$precision, x$variant_info, which_indices = which_indices)
+  ldgm_precision(x$precision, x$variant_info, which_indices = which_indices + 1L)
 }
 
 #' Compare Alleles and Return Phase
@@ -360,7 +361,7 @@ ldgm_merge_snplists <- function(precision,
 
   unique_indices <- sort(unique(as.integer(merged$index)))
   selected <- ldgm_precision_select(precision, unique_indices)
-  index_map <- stats::setNames(seq_along(unique_indices) - 1L, unique_indices)
+  index_map <- stats::setNames(seq_along(unique_indices), unique_indices)
   merged$index <- unname(index_map[as.character(merged$index)])
 
   if (isTRUE(representatives_only)) {
@@ -401,24 +402,24 @@ print.ldgm_precision <- function(x, ...) {
   invisible(x)
 }
 
-normalize_zero_based_indices <- function(indices, n) {
+normalize_one_based_indices <- function(indices, n) {
   if (is.logical(indices)) {
     if (length(indices) != n) {
       stop("logical `indices` must have length equal to the precision dimension", call. = FALSE)
     }
-    indices <- which(indices) - 1L
+    indices <- which(indices)
   }
   if (!is.numeric(indices) && !is.integer(indices)) {
-    stop("`indices` must be zero-based integers or a logical mask", call. = FALSE)
+    stop("`indices` must be one-based integers or a logical mask", call. = FALSE)
   }
   if (anyNA(indices) || any(indices != as.integer(indices))) {
     stop("`indices` must be non-missing integers", call. = FALSE)
   }
   indices <- as.integer(indices)
-  if (any(indices < 0L) || any(indices >= n)) {
-    stop("`indices` must be zero-based and within the precision dimension", call. = FALSE)
+  if (any(indices < 1L) || any(indices > n)) {
+    stop("`indices` must be one-based and within the precision dimension", call. = FALSE)
   }
-  unique(indices)
+  unique(indices) - 1L
 }
 
 merged_sumstats_col <- function(merged, variant_info, col) {

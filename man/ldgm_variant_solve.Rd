@@ -8,7 +8,7 @@ ldgm_variant_solve(precision, b)
 }
 \arguments{
 \item{precision}{An \code{ldgm_precision} object whose \code{variant_info} contains an
-integer zero-based \code{index} column.}
+integer one-based \code{index} column.}
 
 \item{b}{Numeric vector or matrix with one row/value per variant metadata row.}
 }
@@ -17,9 +17,9 @@ Numeric vector or matrix with one row/value per variant metadata row.
 }
 \description{
 GraphLD SNP lists can contain multiple variants with the same LDGM precision
-index, representing variants in perfect LD. This helper mirrors GraphLD's
-\code{PrecisionOperator.variant_solve()}: variant-level right-hand-side values are
-first summed by shared \code{variant_info$index}, the precision system is solved on
-the unique-index scale, and each solved index value is copied back to all
-variants that share it.
+index, representing variants in perfect LD. R-facing \code{variant_info$index}
+values are one-based. This helper mirrors GraphLD's \code{PrecisionOperator.variant_solve()}:
+variant-level right-hand-side values are first summed by shared index, the
+precision system is solved on the unique-index scale, and each solved index
+value is copied back to all variants that share it.
 }

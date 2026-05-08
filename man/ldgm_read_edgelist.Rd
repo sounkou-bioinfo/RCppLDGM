@@ -10,9 +10,10 @@ ldgm_read_edgelist(path)
 \item{path}{Path to the edge-list file.}
 }
 \value{
-A validated edge-list data frame.
+A validated edge-list data frame with one-based \code{from}/\code{to} ids.
 }
 \description{
-Reads a comma-separated, headerless LDGM edge-list file with zero-based
-columns \code{from}, \code{to}, and \code{weight}.
+Reads a comma-separated, headerless LDGM edge-list file. GraphLD/LDGM files
+store node ids as zero-based integers; this reader converts them to ordinary
+one-based R ids in the returned data frame.
 }

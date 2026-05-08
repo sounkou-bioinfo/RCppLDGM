@@ -385,18 +385,18 @@ aggregate_reml_by_index <- function(precision, values, n) {
   values <- as_numeric_matrix(values)
   if (inherits(precision, "ldgm_precision") && nrow(precision$variant_info) == nrow(values)) {
     indices <- as.integer(precision$variant_info$index)
+    if (anyNA(indices) || any(indices < 1L) || any(indices > n)) {
+      stop("variant indices must be one-based and within the precision dimension", call. = FALSE)
+    }
   } else {
     if (nrow(values) != n) {
       stop("annotation rows must match precision rows or ldgm variant_info rows", call. = FALSE)
     }
-    indices <- seq_len(n) - 1L
-  }
-  if (anyNA(indices) || any(indices < 0L) || any(indices >= n)) {
-    stop("variant indices must be zero-based and within the precision dimension", call. = FALSE)
+    indices <- seq_len(n)
   }
   out <- matrix(0, nrow = n, ncol = ncol(values))
   for (row in seq_along(indices)) {
-    out[indices[[row]] + 1L, ] <- out[indices[[row]] + 1L, ] + values[row, ]
+    out[indices[[row]], ] <- out[indices[[row]], ] + values[row, ]
   }
   if (ncol(out) == 1L) as.numeric(out[, 1L]) else out
 }
@@ -605,7 +605,7 @@ reml_variant_scores <- function(block_results,
     )
     del_h2_del_x <- as.numeric(sigmoid_stable(annotations %*% params_matrix) / denominator)
     indices <- reml_variant_indices(ldgms[[i]], length(node_grad), nrow(annotations))
-    scores[[i]] <- as.numeric(node_grad[indices + 1L] * del_h2_del_x)
+    scores[[i]] <- as.numeric(node_grad[indices] * del_h2_del_x)
   }
   unlist(scores, use.names = FALSE)
 }
@@ -617,10 +617,10 @@ reml_variant_indices <- function(precision, n_nodes, n_variants) {
     if (n_variants != n_nodes) {
       stop("annotation rows must match precision rows or ldgm variant_info rows", call. = FALSE)
     }
-    indices <- seq_len(n_nodes) - 1L
+    indices <- seq_len(n_nodes)
   }
-  if (anyNA(indices) || any(indices < 0L) || any(indices >= n_nodes)) {
-    stop("variant indices must be zero-based and within the precision dimension", call. = FALSE)
+  if (anyNA(indices) || any(indices < 1L) || any(indices > n_nodes)) {
+    stop("variant indices must be one-based and within the precision dimension", call. = FALSE)
   }
   indices
 }

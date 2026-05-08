@@ -5,7 +5,7 @@ Rcorr <- matrix(c(
 ), nrow = 3, byrow = TRUE)
 P <- methods::as(methods::as(Matrix::Matrix(solve(Rcorr), sparse = TRUE), "generalMatrix"), "dgCMatrix")
 variant_info <- data.frame(
-  index = 0:2,
+  index = 1:3,
   site_ids = paste0("rs", 1:3),
   position = c(100L, 200L, 300L),
   anc_alleles = c("A", "C", "G"),
@@ -73,7 +73,7 @@ utils::write.table(
   col.names = FALSE
 )
 utils::write.csv(
-  transform(variant_info, EUR = af, af = NULL),
+  transform(variant_info, index = index - 1L, EUR = af, af = NULL),
   file.path(clump_dir, "block.snplist"),
   row.names = FALSE,
   quote = TRUE

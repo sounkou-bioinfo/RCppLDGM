@@ -1,5 +1,5 @@
 variant_info1 <- data.frame(
-  index = 0:1,
+  index = 1:2,
   site_ids = c("rs1", "rs2"),
   position = c(100L, 150L),
   anc_alleles = c("A", "C"),
@@ -7,7 +7,7 @@ variant_info1 <- data.frame(
   af = c(0.1, 0.2)
 )
 variant_info2 <- data.frame(
-  index = 0L,
+  index = 1L,
   site_ids = "rs3",
   position = 250L,
   anc_alleles = "G",
@@ -15,11 +15,11 @@ variant_info2 <- data.frame(
   af = 0.3
 )
 ldgm1 <- ldgm_precision(
-  ldgm_sparse_precision(ldgm_edge_list(c(0L, 1L, 0L), c(0L, 1L, 1L), c(2, 3, 0.1))),
+  ldgm_sparse_precision(ldgm_edge_list(c(1L, 2L, 1L), c(1L, 2L, 2L), c(2, 3, 0.1))),
   variant_info1
 )
 ldgm2 <- ldgm_precision(
-  ldgm_sparse_precision(ldgm_edge_list(0L, 0L, 4)),
+  ldgm_sparse_precision(ldgm_edge_list(1L, 1L, 4)),
   variant_info2
 )
 
@@ -79,7 +79,7 @@ utils::write.table(
   col.names = FALSE
 )
 utils::write.csv(
-  transform(variant_info1, EUR = af, af = NULL),
+  transform(variant_info1, index = index - 1L, EUR = af, af = NULL),
   file.path(blup_dir, "block1.snplist"),
   row.names = FALSE,
   quote = TRUE

@@ -9,7 +9,7 @@ ldgm_precision_update_element(precision, index, value)
 \arguments{
 \item{precision}{Sparse precision matrix or \code{ldgm_precision} object.}
 
-\item{index}{Single zero-based active precision index.}
+\item{index}{Single one-based active precision index.}
 
 \item{value}{Single numeric value to add.}
 }

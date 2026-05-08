@@ -4,23 +4,33 @@
 \alias{ldgm_sparse_precision}
 \title{Build a Sparse LDGM Precision Matrix from an Edge List}
 \usage{
-ldgm_sparse_precision(graph, n = NULL, symmetric = TRUE)
+ldgm_sparse_precision(
+  graph,
+  n = NULL,
+  symmetric = TRUE,
+  index_base = c("one", "zero")
+)
 }
 \arguments{
 \item{graph}{A data frame with integer columns \code{from}, \code{to} and numeric column
 \code{weight}.}
 
-\item{n}{Optional matrix dimension. If omitted, \code{max(from, to) + 1} is used.}
+\item{n}{Optional matrix dimension. If omitted, \code{max(from, to)} is used for
+one-based ids and \code{max(from, to) + 1} for zero-based ids.}
 
 \item{symmetric}{If \code{TRUE}, add the transpose and restore the original
 diagonal, matching GraphLD \code{.edgelist} loading.}
+
+\item{index_base}{Either \code{"one"} for R-style one-based node ids, or \code{"zero"}
+for raw upstream GraphLD/LDGM ids.}
 }
 \value{
 A sparse \code{Matrix::dgCMatrix} precision matrix.
 }
 \description{
-Converts an LDGM precision-matrix edge list to a \code{Matrix::dgCMatrix}. This
-mirrors the loader used by GraphLD: edge-list node ids are zero-based, the
-matrix is symmetrized by adding its transpose, and original diagonal entries
-are restored so they are not doubled.
+Converts an LDGM precision-matrix edge list to a \code{Matrix::dgCMatrix}. R-facing
+edge lists use ordinary one-based R node ids by default. Upstream GraphLD
+\code{.edgelist} files are converted to this convention by \code{\link[=ldgm_read_edgelist]{ldgm_read_edgelist()}}.
+Set \code{index_base = "zero"} only when deliberately feeding raw upstream
+zero-based ids.
 }

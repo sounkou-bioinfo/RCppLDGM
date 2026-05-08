@@ -1,7 +1,7 @@
 P <- ldgm_sparse_precision(
   ldgm_edge_list(
-    from = c(0L, 1L, 2L, 0L, 1L),
-    to = c(0L, 1L, 2L, 1L, 2L),
+    from = c(1L, 2L, 3L, 1L, 2L),
+    to = c(1L, 2L, 3L, 2L, 3L),
     weight = c(2, 3, 4, 0.1, 0.2)
   )
 )
@@ -30,20 +30,20 @@ expected_updated[cbind(1:3, 1:3)] <- diag(expected_updated) + c(1, 0, 2)
 expect_true(inherits(P_updated, "dgCMatrix"))
 expect_equal(as.matrix(P_updated), expected_updated, tolerance = 1e-12)
 expect_equal(as.matrix(P), expected_dense, tolerance = 1e-12)
-P_element_updated <- ldgm_precision_update_element(P, 1L, 1)
+P_element_updated <- ldgm_precision_update_element(P, 2L, 1)
 expected_element_updated <- expected_dense
 expected_element_updated[2L, 2L] <- expected_element_updated[2L, 2L] + 1
 expect_equal(as.matrix(P_element_updated), expected_element_updated, tolerance = 1e-12)
 expect_error(ldgm_precision_update(P, c(1, 2)), "length")
 expect_error(ldgm_precision_update(P, c(-3, 0, 0)), "non-positive")
-expect_error(ldgm_precision_update_element(P, 3L, 1), "within")
-expect_error(ldgm_precision_update_element(P, 0L, -3), "non-positive")
+expect_error(ldgm_precision_update_element(P, 4L, 1), "within")
+expect_error(ldgm_precision_update_element(P, 1L, -3), "non-positive")
 P_scaled <- ldgm_precision_scale(P, 2.5)
 expect_equal(ldgm_precision_multiply(P_scaled, x), 2.5 * ldgm_precision_multiply(P, x), tolerance = 1e-12)
 expect_equal(as.matrix(P_scaled), 2.5 * expected_dense, tolerance = 1e-12)
 expect_error(ldgm_precision_scale(P, NA_real_), "multiplier")
 
-variant_info_update <- data.frame(index = 0:3, SNP = paste0("rs", 0:3))
+variant_info_update <- data.frame(index = 1:4, SNP = paste0("rs", 1:4))
 P4 <- Matrix::Matrix(
   matrix(c(
     2, -1, 0, 0,
@@ -54,7 +54,7 @@ P4 <- Matrix::Matrix(
   sparse = TRUE
 )
 ldgm4 <- ldgm_precision(P4, variant_info_update)
-ldgm4_selected <- ldgm_precision_select(ldgm4, c(0L, 2L))
+ldgm4_selected <- ldgm_precision_select(ldgm4, c(1L, 3L))
 ldgm4_updated <- ldgm_precision_update(ldgm4_selected, c(1, 2))
 expected_p4 <- as.matrix(P4)
 expected_p4[1, 1] <- expected_p4[1, 1] + 1
@@ -63,7 +63,7 @@ expect_true(inherits(ldgm4_updated, "ldgm_precision"))
 expect_equal(ldgm4_updated$which_indices, c(0L, 2L))
 expect_equal(as.matrix(ldgm4_updated$precision), expected_p4, tolerance = 1e-12)
 expect_equal(as.matrix(ldgm4$precision), as.matrix(P4), tolerance = 1e-12)
-ldgm4_element_updated <- ldgm_precision_update_element(ldgm4_selected, 1L, 3)
+ldgm4_element_updated <- ldgm_precision_update_element(ldgm4_selected, 2L, 3)
 expected_p4_element <- as.matrix(P4)
 expected_p4_element[3L, 3L] <- expected_p4_element[3L, 3L] + 3
 expect_equal(as.matrix(ldgm4_element_updated$precision), expected_p4_element, tolerance = 1e-12)
@@ -80,11 +80,11 @@ expect_equal(
   as.numeric(ldgm_precision_matrix(ldgm4_updated) %*% c(1, 1)),
   tolerance = 1e-10
 )
-ldgm4_sub1 <- ldgm_precision_select(ldgm4, c(1L, 2L))
-ldgm4_sub2 <- ldgm_precision_select(ldgm4_sub1, 1L)
+ldgm4_sub1 <- ldgm_precision_select(ldgm4, c(2L, 3L))
+ldgm4_sub2 <- ldgm_precision_select(ldgm4_sub1, 2L)
 expect_equal(ldgm4_sub2$which_indices, 2L)
-ldgm4_sub3 <- ldgm_precision_select(ldgm4, c(0L, 2L, 3L))
-ldgm4_sub4 <- ldgm_precision_select(ldgm4_sub3, c(1L, 2L))
+ldgm4_sub3 <- ldgm_precision_select(ldgm4, c(1L, 3L, 4L))
+ldgm4_sub4 <- ldgm_precision_select(ldgm4_sub3, c(2L, 3L))
 expect_equal(ldgm4_sub4$which_indices, c(2L, 3L))
 ldgm4_sub5 <- ldgm_precision_select(ldgm4_sub3, c(FALSE, TRUE, TRUE))
 expect_equal(ldgm4_sub5$which_indices, c(2L, 3L))
@@ -93,7 +93,7 @@ expect_error(ldgm_precision_select(ldgm4_sub3, c(TRUE, FALSE)), "length")
 P_dup <- Matrix::Matrix(matrix(c(2, -1, -1, 2), nrow = 2), sparse = TRUE)
 ldgm_dup <- ldgm_precision(
   P_dup,
-  data.frame(index = c(0L, 0L, 1L), SNP = c("rs1", "rs2", "rs3"))
+  data.frame(index = c(1L, 1L, 2L), SNP = c("rs1", "rs2", "rs3"))
 )
 variant_rhs <- c(1, 2, 3)
 expected_variant <- ldgm_precision_solve(ldgm_dup, c(3, 3))[c(1L, 1L, 2L)]
@@ -105,7 +105,7 @@ expect_equal(
   tolerance = 1e-10
 )
 expect_error(ldgm_variant_solve(ldgm_dup, c(1, 2)), "one row")
-expect_error(ldgm_variant_solve(ldgm_precision(P_dup, data.frame(index = c(0L, 2L))), c(1, 2)), "within")
+expect_error(ldgm_variant_solve(ldgm_precision(P_dup, data.frame(index = c(1L, 3L))), c(1, 2)), "within")
 
 expect_equal(
   ldgm_gaussian_likelihood(b, P),

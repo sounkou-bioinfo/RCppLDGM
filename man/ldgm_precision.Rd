@@ -11,7 +11,7 @@ ldgm_precision(precision, variant_info, which_indices = NULL)
 
 \item{variant_info}{Data frame with at least an \code{index} column.}
 
-\item{which_indices}{Optional zero-based row/column indices defining a
+\item{which_indices}{Optional one-based row/column indices defining a
 GraphLD-style Schur-complement view.}
 }
 \value{

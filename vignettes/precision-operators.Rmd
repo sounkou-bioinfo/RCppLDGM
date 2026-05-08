@@ -17,13 +17,13 @@ library(Matrix)
 ```
 
 GraphLD represents LDGM precision blocks as sparse linear operators. RcppLDGM
-keeps the same zero-based indexing convention at the file/API boundary while
-returning ordinary R vectors, matrices, sparse matrices, and data frames.
+uses one-based R ids in its R-facing precision APIs while file readers handle the
+conversion from upstream zero-based GraphLD/LDGM files.
 
 ```{r precision}
 edges <- ldgm_edge_list(
-  from = c(0L, 1L, 2L, 0L, 1L),
-  to = c(0L, 1L, 2L, 1L, 2L),
+  from = c(1L, 2L, 3L, 1L, 2L),
+  to = c(1L, 2L, 3L, 2L, 3L),
   weight = c(2, 3, 4, 0.1, 0.2)
 )
 P <- ldgm_sparse_precision(edges)
@@ -40,11 +40,11 @@ Selected views use GraphLD-style Schur-complement semantics.
 
 ```{r selected-view}
 variant_info <- data.frame(
-  index = c(0L, 0L, 1L, 2L),
+  index = c(1L, 1L, 2L, 3L),
   SNP = c("rs1", "rs1_proxy", "rs2", "rs3")
 )
 block <- ldgm_precision(P, variant_info)
-selected <- ldgm_precision_select(block, c(0L, 2L))
+selected <- ldgm_precision_select(block, c(1L, 3L))
 ldgm_precision_matrix(selected)
 ldgm_precision_multiply(selected, c(1, 1))
 ```

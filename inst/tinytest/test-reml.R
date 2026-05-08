@@ -1,7 +1,7 @@
 P_reml <- ldgm_sparse_precision(
   ldgm_edge_list(
-    from = c(0L, 1L, 2L, 0L, 1L),
-    to = c(0L, 1L, 2L, 1L, 2L),
+    from = c(1L, 2L, 3L, 1L, 2L),
+    to = c(1L, 2L, 3L, 2L, 3L),
     weight = c(2.5, 3.5, 4.5, 0.1, 0.15)
   )
 )
@@ -102,7 +102,7 @@ expect_true(all(is.finite(fit_jk$parameters_se)))
 expect_true(all(fit_jk$parameters_se >= 0))
 
 P_dup <- Matrix::Matrix(matrix(c(2, 0.1, 0.1, 3), 2), sparse = TRUE)
-variant_info_dup <- data.frame(index = c(0L, 1L, 1L), SNP = c("a", "b", "c"))
+variant_info_dup <- data.frame(index = c(1L, 2L, 2L), SNP = c("a", "b", "c"))
 ldgm_dup <- ldgm_precision(P_dup, variant_info_dup)
 annotations_dup <- cbind(base = c(1, 1, 1), coding = c(0, 1, 1))
 z_dup <- c(0.1, -0.2)

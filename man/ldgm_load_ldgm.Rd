@@ -32,7 +32,7 @@ input, a list of \code{ldgm_precision} objects.
 \description{
 Loads one LDGM precision block from a comma-separated \code{.edgelist} file and a
 matching \code{.snplist} file, following the behavior of GraphLD's \code{load_ldgm()}.
-Edge-list node ids are zero-based. Rows and columns with zero diagonal entries
-are dropped, and \code{variant_info$index} is remapped to the compact retained
-precision-matrix row ids.
+Upstream edge-list and snplist ids are converted to R-facing one-based
+precision indices. Rows and columns with zero diagonal entries are dropped,
+and \code{variant_info$index} is remapped to compact retained one-based row ids.
 }

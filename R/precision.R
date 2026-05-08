@@ -30,38 +30,60 @@ ldgm_set_openmp_threads <- function(n_threads) {
 
 #' Build a Sparse LDGM Precision Matrix from an Edge List
 #'
-#' Converts an LDGM precision-matrix edge list to a `Matrix::dgCMatrix`. This
-#' mirrors the loader used by GraphLD: edge-list node ids are zero-based, the
-#' matrix is symmetrized by adding its transpose, and original diagonal entries
-#' are restored so they are not doubled.
+#' Converts an LDGM precision-matrix edge list to a `Matrix::dgCMatrix`. R-facing
+#' edge lists use ordinary one-based R node ids by default. Upstream GraphLD
+#' `.edgelist` files are converted to this convention by [ldgm_read_edgelist()].
+#' Set `index_base = "zero"` only when deliberately feeding raw upstream
+#' zero-based ids.
 #'
 #' @param graph A data frame with integer columns `from`, `to` and numeric column
 #'   `weight`.
-#' @param n Optional matrix dimension. If omitted, `max(from, to) + 1` is used.
+#' @param n Optional matrix dimension. If omitted, `max(from, to)` is used for
+#'   one-based ids and `max(from, to) + 1` for zero-based ids.
 #' @param symmetric If `TRUE`, add the transpose and restore the original
 #'   diagonal, matching GraphLD `.edgelist` loading.
+#' @param index_base Either `"one"` for R-style one-based node ids, or `"zero"`
+#'   for raw upstream GraphLD/LDGM ids.
 #'
 #' @return A sparse `Matrix::dgCMatrix` precision matrix.
 #' @export
-ldgm_sparse_precision <- function(graph, n = NULL, symmetric = TRUE) {
+ldgm_sparse_precision <- function(graph, n = NULL, symmetric = TRUE, index_base = c("one", "zero")) {
   graph <- validate_edge_list(graph)
+  index_base <- match.arg(index_base)
   if (nrow(graph) == 0L && is.null(n)) {
     stop("`n` is required for an empty edge list", call. = FALSE)
   }
-  if (any(graph$from < 0L) || any(graph$to < 0L)) {
-    stop("sparse precision matrix node ids must be zero-based non-negative integers", call. = FALSE)
-  }
-  max_id <- if (nrow(graph) == 0L) -1L else max(graph$from, graph$to)
-  if (is.null(n)) {
-    n <- max_id + 1L
-  }
-  if (length(n) != 1L || is.na(n) || n <= max_id) {
-    stop("`n` must be a single integer greater than all node ids", call. = FALSE)
+  if (index_base == "one") {
+    if (any(graph$from < 1L) || any(graph$to < 1L)) {
+      stop("sparse precision matrix node ids must be one-based positive integers", call. = FALSE)
+    }
+    max_id <- if (nrow(graph) == 0L) 0L else max(graph$from, graph$to)
+    if (is.null(n)) {
+      n <- max_id
+    }
+    if (length(n) != 1L || is.na(n) || n < max_id) {
+      stop("`n` must be a single integer at least as large as all one-based node ids", call. = FALSE)
+    }
+    row_id <- graph$from
+    col_id <- graph$to
+  } else {
+    if (any(graph$from < 0L) || any(graph$to < 0L)) {
+      stop("zero-based sparse precision matrix node ids must be non-negative integers", call. = FALSE)
+    }
+    max_id <- if (nrow(graph) == 0L) -1L else max(graph$from, graph$to)
+    if (is.null(n)) {
+      n <- max_id + 1L
+    }
+    if (length(n) != 1L || is.na(n) || n <= max_id) {
+      stop("`n` must be a single integer greater than all zero-based node ids", call. = FALSE)
+    }
+    row_id <- graph$from + 1L
+    col_id <- graph$to + 1L
   }
 
   precision <- Matrix::sparseMatrix(
-    i = graph$from + 1L,
-    j = graph$to + 1L,
+    i = row_id,
+    j = col_id,
     x = graph$weight,
     dims = c(as.integer(n), as.integer(n)),
     giveCsparse = TRUE
@@ -143,7 +165,8 @@ ldgm_precision_scale <- function(precision, multiplier) {
   }
   multiplier <- as.numeric(multiplier)
   if (inherits(precision, "ldgm_precision")) {
-    return(ldgm_precision(precision$precision * multiplier, precision$variant_info, precision$which_indices))
+    which_indices <- if (is.null(precision$which_indices)) NULL else precision$which_indices + 1L
+    return(ldgm_precision(precision$precision * multiplier, precision$variant_info, which_indices))
   }
   as_dgCMatrix(as_dgCMatrix(precision) * multiplier)
 }
@@ -151,14 +174,14 @@ ldgm_precision_scale <- function(precision, multiplier) {
 #' Solve Variant-Level Right-Hand Sides with Duplicate Precision Indices
 #'
 #' GraphLD SNP lists can contain multiple variants with the same LDGM precision
-#' index, representing variants in perfect LD. This helper mirrors GraphLD's
-#' `PrecisionOperator.variant_solve()`: variant-level right-hand-side values are
-#' first summed by shared `variant_info$index`, the precision system is solved on
-#' the unique-index scale, and each solved index value is copied back to all
-#' variants that share it.
+#' index, representing variants in perfect LD. R-facing `variant_info$index`
+#' values are one-based. This helper mirrors GraphLD's `PrecisionOperator.variant_solve()`:
+#' variant-level right-hand-side values are first summed by shared index, the
+#' precision system is solved on the unique-index scale, and each solved index
+#' value is copied back to all variants that share it.
 #'
 #' @param precision An `ldgm_precision` object whose `variant_info` contains an
-#'   integer zero-based `index` column.
+#'   integer one-based `index` column.
 #' @param b Numeric vector or matrix with one row/value per variant metadata row.
 #'
 #' @return Numeric vector or matrix with one row/value per variant metadata row.
@@ -177,9 +200,10 @@ ldgm_variant_solve <- function(precision, b) {
   }
   indices <- as.integer(indices)
   n_active <- precision_nrow(precision)
-  if (any(indices < 0L) || any(indices >= n_active)) {
-    stop("variant `index` values must be zero-based and within the active precision dimension", call. = FALSE)
+  if (any(indices < 1L) || any(indices > n_active)) {
+    stop("variant `index` values must be one-based and within the active precision dimension", call. = FALSE)
   }
+  indices <- indices - 1L
 
   vector_input <- is.null(dim(b))
   b_matrix <- as_numeric_matrix(b)
@@ -205,7 +229,7 @@ ldgm_variant_solve <- function(precision, b) {
 #' semantics.
 #'
 #' @param precision Sparse precision matrix or `ldgm_precision` object.
-#' @param index Single zero-based active precision index.
+#' @param index Single one-based active precision index.
 #' @param value Single numeric value to add.
 #'
 #' @return An updated sparse matrix for sparse-matrix input, or an updated
@@ -213,18 +237,18 @@ ldgm_variant_solve <- function(precision, b) {
 #' @export
 ldgm_precision_update_element <- function(precision, index, value) {
   if (length(index) != 1L || is.na(index) || index != as.integer(index)) {
-    stop("`index` must be a single zero-based integer", call. = FALSE)
+    stop("`index` must be a single one-based integer", call. = FALSE)
   }
   if (length(value) != 1L || is.na(value) || !is.finite(value)) {
     stop("`value` must be a single finite number", call. = FALSE)
   }
   n_active <- precision_nrow(precision)
   index <- as.integer(index)
-  if (index < 0L || index >= n_active) {
-    stop("`index` must be zero-based and within the active precision dimension", call. = FALSE)
+  if (index < 1L || index > n_active) {
+    stop("`index` must be one-based and within the active precision dimension", call. = FALSE)
   }
   update <- numeric(n_active)
-  update[index + 1L] <- as.numeric(value)
+  update[index] <- as.numeric(value)
   ldgm_precision_update(precision, update)
 }
 
@@ -263,7 +287,8 @@ ldgm_precision_update <- function(precision, update) {
       stop("update would make a diagonal element non-positive", call. = FALSE)
     }
     Matrix::diag(matrix) <- diagonal
-    return(ldgm_precision(matrix, precision$variant_info, precision$which_indices))
+    which_indices <- if (is.null(precision$which_indices)) NULL else precision$which_indices + 1L
+    return(ldgm_precision(matrix, precision$variant_info, which_indices))
   }
 
   matrix <- as_dgCMatrix(precision)
@@ -528,7 +553,8 @@ ldgm_blup_block <- function(precision, z, sample_size, sigmasq) {
   rhs <- ldgm_precision_multiply(precision, z)
   if (inherits(precision, "ldgm_precision")) {
     updated_matrix <- precision$precision + selected_diagonal_update(precision, sample_size * sigmasq)
-    updated <- ldgm_precision(updated_matrix, precision$variant_info, precision$which_indices)
+    which_indices <- if (is.null(precision$which_indices)) NULL else precision$which_indices + 1L
+    updated <- ldgm_precision(updated_matrix, precision$variant_info, which_indices)
   } else {
     matrix <- as_dgCMatrix(precision)
     updated <- matrix + Matrix::Diagonal(nrow(matrix), x = sample_size * sigmasq)

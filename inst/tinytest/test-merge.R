@@ -12,7 +12,7 @@ P <- methods::as(methods::as(Matrix::Matrix(P_dense, sparse = TRUE), "generalMat
 variant_info <- data.frame(
   site_ids = paste0("rs", 0:3),
   position = c(10L, 20L, 30L, 40L),
-  index = 0:3,
+  index = 1:4,
   anc_alleles = c("A", "C", "G", "T"),
   deriv_alleles = c("G", "T", "A", "C"),
   af = c(0.1, 0.2, 0.3, 0.4),
@@ -50,7 +50,7 @@ expect_true(inherits(merged$ldgm, "ldgm_precision"))
 expect_equal(merged$sumstat_indices, c(0L, 1L, 3L))
 merged_info <- ldgm_variant_info(merged$ldgm)
 expect_equal(merged_info$site_ids, c("rs0", "rs1", "rs3"))
-expect_equal(merged_info$index, c(0L, 1L, 2L))
+expect_equal(merged_info$index, c(1L, 2L, 3L))
 expect_equal(merged_info$phase, c(1, -1, NA_real_))
 expect_equal(merged_info$Z, c(1, -2, NA_real_))
 expect_equal(merged_info$INFO, c(0.9, 0.8, 0.6))
@@ -103,4 +103,4 @@ expect_equal(by_position$sumstat_indices, c(0L, 1L, 3L))
 
 expect_error(ldgm_merge_snplists(ldgm, sumstats[, c("SNP", "REF", "ALT", "Z")]), "position")
 expect_error(ldgm_merge_snplists(ldgm, transform(sumstats, REF = "N", ALT = "N")), "matching alleles")
-expect_error(ldgm_precision_select(ldgm, 4L), "zero-based")
+expect_error(ldgm_precision_select(ldgm, 5L), "one-based")

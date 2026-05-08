@@ -20,8 +20,8 @@ kernels rather than the whole CLI:
 
 | GraphLD API | RcppLDGM function | Status |
 | --- | --- | --- |
-| `load_ldgm()` sparse edgelist/snplist loading | `ldgm_load_ldgm()`, `ldgm_read_edgelist()`, `ldgm_read_snplist()` | implemented for files and directories |
-| `load_ldgm()` sparse edgelist symmetrization | `ldgm_sparse_precision()` | implemented for in-memory edge lists |
+| `load_ldgm()` sparse edgelist/snplist loading | `ldgm_load_ldgm()`, `ldgm_read_edgelist()`, `ldgm_read_snplist()` | implemented for files and directories; upstream zero-based file ids are converted to R-facing one-based precision ids |
+| `load_ldgm()` sparse edgelist symmetrization | `ldgm_sparse_precision()` | implemented for in-memory one-based R edge lists, with explicit `index_base = "zero"` for raw upstream ids |
 | `PrecisionOperator.__getitem__` selected view | `ldgm_precision_select()` | implemented as Schur-complement view |
 | `PrecisionOperator.__matmul__` / `_matvec()` | `ldgm_precision_multiply()` | implemented for full and selected views |
 | `PrecisionOperator.solve()` | `ldgm_precision_solve()` | implemented for full and selected views |
