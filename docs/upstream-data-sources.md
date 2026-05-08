@@ -35,6 +35,21 @@ Rscript tools/check-upstream-graphld-data.R
 Set `RCPP_LDGM_GRAPHLD_BLUP=false` to skip the BLUP part, or set
 `RCPP_LDGM_GRAPHLD_POP=EAS` to exercise the EAS precision blocks.
 
+The staged GraphLD score-test HDF5 schema can also be checked through upstream
+GraphLD's Python `score_test_io.py` when Python `h5py` is available:
+
+```bash
+make upstream-graphld-hdf5-interop
+```
+
+This writes a tiny RcppLDGM HDF5 file, verifies it with the native R reader, then
+loads `/row_data`, trait names, and `/traits/<trait>/gradient` through the pinned
+upstream GraphLD Python I/O code. If `h5py` is unavailable the check skips by
+default; set `RCPP_LDGM_REQUIRE_H5PY=1` to make that a hard failure. The default
+compression is `none` for baseline schema interop; set
+`RCPP_LDGM_HDF5_COMPRESSION=gzip` or `lzf` to exercise filters in environments
+with matching Python/HDF5 filter support.
+
 ## Larger upstream GraphLD/LDGM downloads
 
 GraphLD documents the public data downloads in `.sync/graphld/data/Makefile`:
