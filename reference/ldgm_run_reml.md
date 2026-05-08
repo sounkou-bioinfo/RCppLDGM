@@ -32,6 +32,7 @@ ldgm_run_reml(
   score_test_jackknife_blocks = NULL,
   score_test_diagonal_method = diagonal_method,
   score_test_n_samples = 200L,
+  score_test_write_hessian = FALSE,
   score_test_project_annotations = TRUE,
   score_test_overwrite = FALSE
 )
@@ -109,7 +110,12 @@ ldgm_run_reml(
 - score_test_diagonal_method, score_test_n_samples:
 
   Inverse-diagonal estimator and probe count used for final per-variant
-  score gradients.
+  score gradients and optional Hessian/correction vectors.
+
+- score_test_write_hessian:
+
+  If `TRUE`, also compute and write the GraphLD-style per-variant
+  Hessian/correction vector to the score-test HDF5 trait group.
 
 - score_test_project_annotations:
 

@@ -3,6 +3,7 @@
 Writes the HDF5 layout used by GraphLD's graphREML score-test path: root
 metadata attributes, `/row_data/{CHR,POS,RSID,jackknife_blocks}`,
 `/groups`, `/traits/<trait_name>/gradient`, and optionally
+`/traits/<trait_name>/hessian` plus
 `/traits/<trait_name>/parameters/{parameters,jackknife_parameters}`.
 Native HDF5 support is linked through the CRAN `hdf5lib` package,
 including its bundled LZF/gzip filters.
@@ -16,6 +17,7 @@ ldgm_write_score_test_hdf5(
   gradient,
   trait_name = "trait",
   jackknife_blocks = NULL,
+  hessian = NULL,
   parameters = NULL,
   jackknife_parameters = NULL,
   overwrite = FALSE,
@@ -50,6 +52,11 @@ ldgm_write_score_test_hdf5(
   Optional integer jackknife block assignment vector. If omitted,
   `variant_data$jackknife_blocks` is used when present, otherwise all
   variants are assigned to block zero.
+
+- hessian:
+
+  Optional numeric variant Hessian/correction vector, one value per row
+  of `variant_data`, stored as `/traits/<trait_name>/hessian`.
 
 - parameters:
 

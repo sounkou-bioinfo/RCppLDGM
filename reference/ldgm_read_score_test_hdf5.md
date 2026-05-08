@@ -25,4 +25,4 @@ ldgm_read_score_test_hdf5(file, trait_name = NULL)
 ## Value
 
 A list with `variant_data`, `trait_names`, and, when requested,
-`gradient`.
+`gradient`, optional `hessian`, and optional fitted parameter datasets.

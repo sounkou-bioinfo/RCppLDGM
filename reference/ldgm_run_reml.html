@@ -77,6 +77,7 @@ and uses step-halving to require non-decreasing likelihood.</p>
 <span>  score_test_jackknife_blocks <span class="op">=</span> <span class="cn">NULL</span>,</span>
 <span>  score_test_diagonal_method <span class="op">=</span> <span class="va">diagonal_method</span>,</span>
 <span>  score_test_n_samples <span class="op">=</span> <span class="fl">200L</span>,</span>
+<span>  score_test_write_hessian <span class="op">=</span> <span class="cn">FALSE</span>,</span>
 <span>  score_test_project_annotations <span class="op">=</span> <span class="cn">TRUE</span>,</span>
 <span>  score_test_overwrite <span class="op">=</span> <span class="cn">FALSE</span></span>
 <span><span class="op">)</span></span></code></pre></div>
@@ -158,7 +159,14 @@ row data.</p></dd>
 
 <dt id="arg-score-test-diagonal-method-score-test-n-samples">score_test_diagonal_method, score_test_n_samples<a class="anchor" aria-label="anchor" href="#arg-score-test-diagonal-method-score-test-n-samples"></a></dt>
 <dd><p>Inverse-diagonal
-estimator and probe count used for final per-variant score gradients.</p></dd>
+estimator and probe count used for final per-variant score gradients and
+optional Hessian/correction vectors.</p></dd>
+
+
+<dt id="arg-score-test-write-hessian">score_test_write_hessian<a class="anchor" aria-label="anchor" href="#arg-score-test-write-hessian"></a></dt>
+<dd><p>If <code>TRUE</code>, also compute and write the
+GraphLD-style per-variant Hessian/correction vector to the score-test HDF5
+trait group.</p></dd>
 
 
 <dt id="arg-score-test-project-annotations">score_test_project_annotations<a class="anchor" aria-label="anchor" href="#arg-score-test-project-annotations"></a></dt>
