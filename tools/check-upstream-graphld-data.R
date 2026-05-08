@@ -41,6 +41,22 @@ message("Using upstream GraphLD data directory: ", normalizePath(data_dir, mustW
 message("Population: ", population, "; blocks: ", nrow(metadata))
 print(ldgm_openmp_info())
 
+annot_dir <- file.path(data_dir, "annot")
+if (dir.exists(annot_dir)) {
+  annotations <- ldgm_read_ldsc_annot(annot_dir, chromosomes = 1L)
+  stopifnot(is.data.frame(annotations), nrow(annotations) > 0L)
+  stopifnot(all(c("SNP", "base") %in% names(annotations)))
+  loaded_annotations <- ldgm_load_annotations(annot_dir, chromosomes = 1L)
+  loaded_annotation_frame <- ldgm_annotation_data_frame(loaded_annotations)
+  stopifnot(is.data.frame(loaded_annotation_frame), nrow(loaded_annotation_frame) == nrow(annotations))
+  bed_path <- file.path(annot_dir, "test_regions.bed")
+  if (file.exists(bed_path)) {
+    bed <- ldgm_read_bed(bed_path)
+    stopifnot(nrow(bed) == 3L, all(c("chrom", "chromStart", "chromEnd") %in% names(bed)))
+  }
+  message("Annotation smoke: rows=", nrow(annotations), ", columns=", ncol(annotations))
+}
+
 loaded <- vector("list", nrow(metadata))
 for (i in seq_len(nrow(metadata))) {
   edge_path <- file.path(data_dir, metadata$name[[i]])
