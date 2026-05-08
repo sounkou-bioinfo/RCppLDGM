@@ -30,8 +30,18 @@ expected_updated[cbind(1:3, 1:3)] <- diag(expected_updated) + c(1, 0, 2)
 expect_true(inherits(P_updated, "dgCMatrix"))
 expect_equal(as.matrix(P_updated), expected_updated, tolerance = 1e-12)
 expect_equal(as.matrix(P), expected_dense, tolerance = 1e-12)
+P_element_updated <- ldgm_precision_update_element(P, 1L, 1)
+expected_element_updated <- expected_dense
+expected_element_updated[2L, 2L] <- expected_element_updated[2L, 2L] + 1
+expect_equal(as.matrix(P_element_updated), expected_element_updated, tolerance = 1e-12)
 expect_error(ldgm_precision_update(P, c(1, 2)), "length")
 expect_error(ldgm_precision_update(P, c(-3, 0, 0)), "non-positive")
+expect_error(ldgm_precision_update_element(P, 3L, 1), "within")
+expect_error(ldgm_precision_update_element(P, 0L, -3), "non-positive")
+P_scaled <- ldgm_precision_scale(P, 2.5)
+expect_equal(ldgm_precision_multiply(P_scaled, x), 2.5 * ldgm_precision_multiply(P, x), tolerance = 1e-12)
+expect_equal(as.matrix(P_scaled), 2.5 * expected_dense, tolerance = 1e-12)
+expect_error(ldgm_precision_scale(P, NA_real_), "multiplier")
 
 variant_info_update <- data.frame(index = 0:3, SNP = paste0("rs", 0:3))
 P4 <- Matrix::Matrix(
@@ -53,6 +63,18 @@ expect_true(inherits(ldgm4_updated, "ldgm_precision"))
 expect_equal(ldgm4_updated$which_indices, c(0L, 2L))
 expect_equal(as.matrix(ldgm4_updated$precision), expected_p4, tolerance = 1e-12)
 expect_equal(as.matrix(ldgm4$precision), as.matrix(P4), tolerance = 1e-12)
+ldgm4_element_updated <- ldgm_precision_update_element(ldgm4_selected, 1L, 3)
+expected_p4_element <- as.matrix(P4)
+expected_p4_element[3L, 3L] <- expected_p4_element[3L, 3L] + 3
+expect_equal(as.matrix(ldgm4_element_updated$precision), expected_p4_element, tolerance = 1e-12)
+ldgm4_selected_scaled <- ldgm_precision_scale(ldgm4_selected, 2.5)
+expect_true(inherits(ldgm4_selected_scaled, "ldgm_precision"))
+expect_equal(ldgm4_selected_scaled$which_indices, c(0L, 2L))
+expect_equal(
+  ldgm_precision_multiply(ldgm4_selected_scaled, c(1, 1)),
+  2.5 * ldgm_precision_multiply(ldgm4_selected, c(1, 1)),
+  tolerance = 1e-10
+)
 expect_equal(
   ldgm_precision_multiply(ldgm4_updated, c(1, 1)),
   as.numeric(ldgm_precision_matrix(ldgm4_updated) %*% c(1, 1)),

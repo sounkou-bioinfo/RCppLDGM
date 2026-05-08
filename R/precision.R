@@ -125,6 +125,29 @@ ldgm_precision_solve <- function(precision, b) {
   drop_if_vector(out, vector_input)
 }
 
+#' Scale an LDGM Precision Matrix
+#'
+#' Returns a copy of `precision` multiplied by `multiplier`, mirroring GraphLD's
+#' `PrecisionOperator.times_scalar()`/scalar-multiplication behavior while
+#' preserving `ldgm_precision` metadata and selected-view indices.
+#'
+#' @param precision Sparse precision matrix or `ldgm_precision` object.
+#' @param multiplier Single finite numeric multiplier.
+#'
+#' @return An updated sparse matrix for sparse-matrix input, or an updated
+#'   `ldgm_precision` object for `ldgm_precision` input.
+#' @export
+ldgm_precision_scale <- function(precision, multiplier) {
+  if (length(multiplier) != 1L || is.na(multiplier) || !is.finite(multiplier)) {
+    stop("`multiplier` must be a single finite number", call. = FALSE)
+  }
+  multiplier <- as.numeric(multiplier)
+  if (inherits(precision, "ldgm_precision")) {
+    return(ldgm_precision(precision$precision * multiplier, precision$variant_info, precision$which_indices))
+  }
+  as_dgCMatrix(as_dgCMatrix(precision) * multiplier)
+}
+
 #' Solve Variant-Level Right-Hand Sides with Duplicate Precision Indices
 #'
 #' GraphLD SNP lists can contain multiple variants with the same LDGM precision
@@ -171,6 +194,38 @@ ldgm_variant_solve <- function(precision, b) {
   solved <- as_numeric_matrix(ldgm_precision_solve(precision, rhs))
   out <- solved[index1, , drop = FALSE]
   drop_if_vector(out, vector_input)
+}
+
+#' Update One LDGM Precision Diagonal Element
+#'
+#' Returns a copy of `precision` with `value` added to one active diagonal
+#' element. For a selected `ldgm_precision` view, `index` is relative to the
+#' selected active dimension and is mapped back to the corresponding underlying
+#' precision row, matching GraphLD's `PrecisionOperator.update_element()`
+#' semantics.
+#'
+#' @param precision Sparse precision matrix or `ldgm_precision` object.
+#' @param index Single zero-based active precision index.
+#' @param value Single numeric value to add.
+#'
+#' @return An updated sparse matrix for sparse-matrix input, or an updated
+#'   `ldgm_precision` object for `ldgm_precision` input.
+#' @export
+ldgm_precision_update_element <- function(precision, index, value) {
+  if (length(index) != 1L || is.na(index) || index != as.integer(index)) {
+    stop("`index` must be a single zero-based integer", call. = FALSE)
+  }
+  if (length(value) != 1L || is.na(value) || !is.finite(value)) {
+    stop("`value` must be a single finite number", call. = FALSE)
+  }
+  n_active <- precision_nrow(precision)
+  index <- as.integer(index)
+  if (index < 0L || index >= n_active) {
+    stop("`index` must be zero-based and within the active precision dimension", call. = FALSE)
+  }
+  update <- numeric(n_active)
+  update[index + 1L] <- as.numeric(value)
+  ldgm_precision_update(precision, update)
 }
 
 #' Update an LDGM Precision Matrix Diagonal
