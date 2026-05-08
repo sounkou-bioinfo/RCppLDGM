@@ -20,6 +20,8 @@ ldgm_run_reml(
   seed = NULL,
   num_jackknife_blocks = 100L,
   max_step_halving = 12L,
+  use_surrogate_markers = FALSE,
+  surrogate_maps = NULL,
   score_test_hdf5 = NULL,
   score_test_trait_name = "trait",
   score_test_variant_data = NULL,
@@ -59,6 +61,12 @@ replicates used for parameter, heritability, and enrichment standard errors.}
 
 \item{max_step_halving}{Maximum number of step halvings for a proposed Newton
 step.}
+
+\item{use_surrogate_markers}{If \code{TRUE}, replace missing per-variant Z scores
+using \code{\link[=ldgm_reml_surrogate_markers]{ldgm_reml_surrogate_markers()}} before fitting.}
+
+\item{surrogate_maps}{Optional one-based surrogate index map, or list of maps,
+used when \code{use_surrogate_markers = TRUE}.}
 
 \item{score_test_hdf5}{Optional HDF5 path. When supplied, final per-variant
 score-test gradients are written with \code{\link[=ldgm_write_score_test_hdf5]{ldgm_write_score_test_hdf5()}}.}
@@ -101,7 +109,7 @@ and uses step-halving to require non-decreasing likelihood.
 \details{
 This function is intended as the first R-native workflow surface and
 conformance target for graphREML kernels. It includes initial GraphLD-style
-pseudo-jackknife standard errors and optional score-test HDF5 output, but does
-not yet implement GraphLD's multiprocessing manager or surrogate-marker
-handling.
+pseudo-jackknife standard errors, optional score-test HDF5 output, and an
+initial serial surrogate-marker path for missing Z scores. It does not yet
+implement GraphLD's multiprocessing manager.
 }

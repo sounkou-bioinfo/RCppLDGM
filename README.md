@@ -156,8 +156,16 @@ for native experiments and conformance work, but it is not yet full
 GraphLD CLI parity.
 
 ``` r
-z <- c(1.2, -0.4, 0.7)
-annotations <- cbind(baseline = 1, coding = c(0, 1, 0))
+summary_stats <- ldgm_summary_stats(data.frame(
+  SNP = c("rs1", "rs2", "rs3"),
+  Z = c(1.2, -0.4, 0.7)
+))
+annotations <- ldgm_annotation_data(data.frame(
+  SNP = c("rs1", "rs2", "rs3"),
+  baseline = c(1, 1, 1),
+  coding = c(0, 1, 0)
+))
+z <- ldgm_summary_stats_frame(summary_stats)$Z
 
 fit <- ldgm_run_reml(
   precision,
@@ -249,15 +257,17 @@ make benchmark-upstream-ldgm
 
 Implemented today: native graph/bricking/reduction/SNP-list kernels,
 native `.trees` file extraction through vendored tskit C, GraphLD-style
-sparse precision operators, BLUP/clumping helpers, a serial graphREML
-core, pseudo-jackknife summaries, staged score-test HDF5 writing, and an
-initial variant-annotation score-test statistic.
+sparse precision operators, BLUP/clumping helpers, S7/s7contract
+GraphREML input interfaces, a serial graphREML core with an initial
+surrogate-marker path, pseudo-jackknife summaries, staged score-test
+HDF5 writing, and an initial variant-annotation score-test statistic.
 
 Still intentionally staged:
 
-- full Python GraphLD graphREML CLI parity: surrogate markers, richer
-  score-test HDF5 schema, multiprocessing/block-manager behavior, and
-  upstream-scale jackknife conformance;
+- full Python GraphLD graphREML CLI parity: surrogate-map file
+  workflows, richer score-test HDF5 schema,
+  multiprocessing/block-manager behavior, and upstream-scale jackknife
+  conformance;
 - larger GraphLD/SuiteSparse conformance and performance comparisons for
   BLUP, clumping, inverse diagonals, XNys, and graphREML;
 - broader real-data benchmark runs beyond the tiny upstream

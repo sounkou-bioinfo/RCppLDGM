@@ -101,6 +101,52 @@ expect_equal(length(fit_jk$variant_h2), 2L * nrow(annotations_reml))
 expect_true(all(is.finite(fit_jk$parameters_se)))
 expect_true(all(fit_jk$parameters_se >= 0))
 
+annotations_interface <- ldgm_annotation_data(data.frame(
+  SNP = c("rs1", "rs2", "rs3"),
+  CHR = c(1L, 1L, 1L),
+  POS = c(10L, 20L, 30L),
+  base = c(1, 1, 1),
+  coding = c(0, 1, 0)
+))
+block_interface <- ldgm_reml_block(
+  P_reml,
+  z_reml,
+  annotations_interface,
+  params_reml,
+  sample_size = 100,
+  link_fn_denominator = 10,
+  diagonal_method = "exact"
+)
+expect_equal(block_interface$per_variant_h2, link, tolerance = 1e-12)
+
+P_surrogate <- ldgm_precision(
+  Matrix::Diagonal(3, x = c(2, 3, 4)),
+  data.frame(index = c(1L, 2L, 3L), SNP = c("rs1", "rs2", "rs3"))
+)
+z_surrogate <- c(0.2, NA_real_, 0.7)
+surrogate <- ldgm_reml_surrogate_markers(P_surrogate, z_surrogate, surrogate_map = c(NA_integer_, 3L, NA_integer_))
+expect_equal(surrogate$z, c(0.2, 0.7, 0.7))
+expect_equal(surrogate$precision$variant_info$index, c(1L, 3L, 3L))
+expect_equal(surrogate$surrogate_rows$method, "surrogate_map")
+fit_surrogate <- ldgm_run_reml(
+  P_surrogate,
+  z_surrogate,
+  annotations_reml,
+  params = params_reml,
+  sample_size = 100,
+  link_fn_denominator = 10,
+  diagonal_method = "exact",
+  num_iterations = 1L,
+  use_surrogate_markers = TRUE,
+  surrogate_maps = c(NA_integer_, 3L, NA_integer_),
+  annotation_names = colnames(annotations_reml)
+)
+expect_true(is.finite(fit_surrogate$log$final_likelihood))
+expect_error(
+  ldgm_run_reml(P_surrogate, z_surrogate, annotations_reml, sample_size = 100, use_surrogate_markers = FALSE),
+  "finite non-missing"
+)
+
 P_dup <- Matrix::Matrix(matrix(c(2, 0.1, 0.1, 3), 2), sparse = TRUE)
 variant_info_dup <- data.frame(index = c(1L, 2L, 2L), SNP = c("a", "b", "c"))
 ldgm_dup <- ldgm_precision(P_dup, variant_info_dup)

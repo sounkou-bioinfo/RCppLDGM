@@ -66,7 +66,17 @@ reference:
   - ldgm_blup_block
   - ldgm_run_blup
   - ldgm_run_clump
+  - LdgmSummaryStats
+  - LdgmAnnotationData
+  - ldgm_summary_stats
+  - ldgm_summary_stats_frame
+  - ldgm_annotation_data
+  - ldgm_annotation_data_frame
+  - ldgm_annotation_columns
+  - ldgm_assert_summary_stats
+  - ldgm_assert_annotation_data
   - ldgm_reml_link
+  - ldgm_reml_surrogate_markers
   - ldgm_reml_block
   - ldgm_run_reml
 - title: Score-test HDF5

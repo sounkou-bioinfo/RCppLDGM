@@ -12,10 +12,114 @@
 #' @return Numeric vector of per-variant heritability contributions.
 #' @export
 ldgm_reml_link <- function(annotations, params, denominator = 6e6) {
-  annotations <- as_numeric_matrix(annotations)
+  annotations <- ldgm_annotation_matrix(annotations)
   params <- as_reml_params(params, ncol(annotations))
   check_reml_denominator(denominator)
   as.numeric(softplus_stable(annotations %*% params) / denominator)
+}
+
+#' Prepare GraphREML Z Scores with Surrogate Markers
+#'
+#' Assigns missing Z scores to GraphLD-style surrogate markers. Non-missing
+#' variants sharing the same LDGM precision index are preferred. Otherwise, an
+#' optional pre-computed one-based `surrogate_map` is used when it points to an
+#' observed index; if no mapped observed marker is available, the observed index
+#' with the largest squared entry in `solve(P, e_i)` is selected. The returned
+#' precision object has missing variant rows re-indexed to their surrogate, while
+#' the returned `z` vector is on the active precision-node scale.
+#'
+#' @param precision An `ldgm_precision` object with one-based `variant_info$index`.
+#' @param z Numeric Z scores, either one value per active precision node or one
+#'   value per `variant_info` row. Missing values are assigned surrogates.
+#' @param surrogate_map Optional integer vector of one-based surrogate precision
+#'   indices, one entry per active precision node. Missing or unobserved map
+#'   entries fall back to the correlation-based search.
+#'
+#' @return A list with `precision`, `z`, and `surrogate_rows`.
+#' @export
+ldgm_reml_surrogate_markers <- function(precision, z, surrogate_map = NULL) {
+  if (!inherits(precision, "ldgm_precision")) {
+    stop("`precision` must be an `ldgm_precision` object", call. = FALSE)
+  }
+  variant_info <- precision$variant_info
+  if (!"index" %in% names(variant_info)) {
+    stop("`precision$variant_info` must contain an `index` column", call. = FALSE)
+  }
+  n_nodes <- precision_nrow(precision)
+  original_indices <- as.integer(variant_info$index)
+  if (anyNA(original_indices) || any(original_indices < 1L) || any(original_indices > n_nodes)) {
+    stop("variant indices must be one-based and within the active precision dimension", call. = FALSE)
+  }
+  z <- as.numeric(z)
+  if (length(z) == n_nodes && length(z) != nrow(variant_info)) {
+    variant_z <- z[original_indices]
+  } else if (length(z) == nrow(variant_info)) {
+    variant_z <- z
+  } else if (length(z) == n_nodes) {
+    variant_z <- z[original_indices]
+  } else {
+    stop("`z` must have one value per active precision node or one value per variant_info row", call. = FALSE)
+  }
+  if (any(!is.na(variant_z) & !is.finite(variant_z))) {
+    stop("non-missing `z` values must be finite", call. = FALSE)
+  }
+  if (all(is.na(variant_z))) {
+    stop("at least one Z score must be non-missing to assign surrogate markers", call. = FALSE)
+  }
+
+  surrogate_map <- normalize_reml_surrogate_map(surrogate_map, n_nodes)
+  new_indices <- original_indices
+  new_z <- variant_z
+  observed_rows <- which(!is.na(variant_z))
+  observed_by_index <- split(observed_rows, original_indices[observed_rows])
+  observed_indices <- as.integer(names(observed_by_index))
+  observed_first_rows <- vapply(observed_by_index, `[[`, integer(1), 1L)
+  observed_z <- stats::setNames(variant_z[observed_first_rows], names(observed_by_index))
+
+  missing_rows <- which(is.na(variant_z))
+  surrogate_rows <- vector("list", length(missing_rows))
+  for (pos in seq_along(missing_rows)) {
+    row <- missing_rows[[pos]]
+    original_index <- original_indices[[row]]
+    selected <- reml_select_surrogate_index(
+      precision,
+      original_index,
+      observed_indices,
+      observed_by_index,
+      surrogate_map
+    )
+    new_indices[[row]] <- selected$index
+    new_z[[row]] <- unname(observed_z[[as.character(selected$index)]])
+    surrogate_rows[[pos]] <- data.frame(
+      row = row,
+      original_index = original_index,
+      surrogate_index = selected$index,
+      z = new_z[[row]],
+      method = selected$method,
+      stringsAsFactors = FALSE
+    )
+  }
+
+  variant_info$index <- new_indices
+  variant_info$Z <- new_z
+  precision$variant_info <- variant_info
+  node_z <- reml_z_by_original_index(original_indices, new_z, n_nodes)
+  surrogate_rows <- if (length(surrogate_rows) == 0L) {
+    data.frame(
+      row = integer(),
+      original_index = integer(),
+      surrogate_index = integer(),
+      z = numeric(),
+      method = character(),
+      stringsAsFactors = FALSE
+    )
+  } else {
+    do.call(rbind, surrogate_rows)
+  }
+  structure(
+    list(precision = precision, z = node_z, surrogate_rows = surrogate_rows),
+    class = "ldgm_reml_surrogates"
+  )
 }
 
 #' Compute One GraphREML Block Likelihood Slice
@@ -95,9 +199,9 @@ ldgm_reml_block <- function(precision,
 #'
 #' This function is intended as the first R-native workflow surface and
 #' conformance target for graphREML kernels. It includes initial GraphLD-style
-#' pseudo-jackknife standard errors and optional score-test HDF5 output, but does
-#' not yet implement GraphLD's multiprocessing manager or surrogate-marker
-#' handling.
+#' pseudo-jackknife standard errors, optional score-test HDF5 output, and an
+#' initial serial surrogate-marker path for missing Z scores. It does not yet
+#' implement GraphLD's multiprocessing manager.
 #'
 #' @param ldgms An `ldgm_precision`/sparse precision block or a list of blocks.
 #' @param z Numeric Z-score vector or list of vectors, one per block.
@@ -116,6 +220,10 @@ ldgm_reml_block <- function(precision,
 #'   replicates used for parameter, heritability, and enrichment standard errors.
 #' @param max_step_halving Maximum number of step halvings for a proposed Newton
 #'   step.
+#' @param use_surrogate_markers If `TRUE`, replace missing per-variant Z scores
+#'   using [ldgm_reml_surrogate_markers()] before fitting.
+#' @param surrogate_maps Optional one-based surrogate index map, or list of maps,
+#'   used when `use_surrogate_markers = TRUE`.
 #' @param score_test_hdf5 Optional HDF5 path. When supplied, final per-variant
 #'   score-test gradients are written with [ldgm_write_score_test_hdf5()].
 #' @param score_test_trait_name Trait group name to use under `/traits` when
@@ -155,6 +263,8 @@ ldgm_run_reml <- function(ldgms,
                           seed = NULL,
                           num_jackknife_blocks = 100L,
                           max_step_halving = 12L,
+                          use_surrogate_markers = FALSE,
+                          surrogate_maps = NULL,
                           score_test_hdf5 = NULL,
                           score_test_trait_name = "trait",
                           score_test_variant_data = NULL,
@@ -164,7 +274,16 @@ ldgm_run_reml <- function(ldgms,
                           score_test_write_hessian = FALSE,
                           score_test_project_annotations = TRUE,
                           score_test_overwrite = FALSE) {
-  blocks <- normalize_reml_blocks(ldgms, z, annotations)
+  if (!is.logical(use_surrogate_markers) || length(use_surrogate_markers) != 1L || is.na(use_surrogate_markers)) {
+    stop("`use_surrogate_markers` must be `TRUE` or `FALSE`", call. = FALSE)
+  }
+  blocks <- normalize_reml_blocks(
+    ldgms,
+    z,
+    annotations,
+    use_surrogate_markers = use_surrogate_markers,
+    surrogate_maps = surrogate_maps
+  )
   p <- ncol(blocks$annotations[[1L]])
   params <- if (is.null(params)) rep(0, p) else as.numeric(params)
   params <- as_reml_params(params, p)
@@ -365,7 +484,10 @@ prepare_reml_block <- function(precision, z, annotations, params, sample_size, i
   if (length(z) != n) {
     stop("`z` length must equal the precision matrix dimension", call. = FALSE)
   }
-  annotations <- as_numeric_matrix(annotations)
+  if (anyNA(z) || any(!is.finite(z))) {
+    stop("`z` must contain finite non-missing values; use `ldgm_reml_surrogate_markers()` for missing Z scores", call. = FALSE)
+  }
+  annotations <- ldgm_annotation_matrix(annotations)
   params <- as_reml_params(params, ncol(annotations))
   per_variant_h2 <- ldgm_reml_link(annotations, params, denominator = denominator)
   diag_update <- aggregate_reml_by_index(precision, per_variant_h2, n)
@@ -381,26 +503,111 @@ prepare_reml_block <- function(precision, z, annotations, params, sample_size, i
   )
 }
 
-normalize_reml_blocks <- function(ldgms, z, annotations) {
+normalize_reml_blocks <- function(ldgms,
+                                  z,
+                                  annotations,
+                                  use_surrogate_markers = FALSE,
+                                  surrogate_maps = NULL) {
   if (!is.list(ldgms) || inherits(ldgms, "ldgm_precision") || inherits(ldgms, "sparseMatrix")) {
     ldgms <- list(ldgms)
   }
   if (!is.list(z)) {
     z <- list(z)
   }
-  if (!is.list(annotations)) {
+  if (!is.list(annotations) || ldgm_implements(annotations, LdgmAnnotationData) || is.data.frame(annotations)) {
     annotations <- list(annotations)
   }
   n_blocks <- length(ldgms)
   if (length(z) != n_blocks || length(annotations) != n_blocks) {
     stop("`ldgms`, `z`, and `annotations` must contain the same number of blocks", call. = FALSE)
   }
-  annotations <- lapply(annotations, as_numeric_matrix)
+  surrogate_maps <- normalize_reml_surrogate_maps(surrogate_maps, n_blocks)
+  if (isTRUE(use_surrogate_markers)) {
+    for (i in seq_len(n_blocks)) {
+      if (!inherits(ldgms[[i]], "ldgm_precision")) {
+        if (anyNA(z[[i]]) || !is.null(surrogate_maps[[i]])) {
+          stop("surrogate-marker handling requires `ldgm_precision` blocks", call. = FALSE)
+        }
+      } else if (anyNA(z[[i]]) || !is.null(surrogate_maps[[i]])) {
+        surrogate <- ldgm_reml_surrogate_markers(ldgms[[i]], z[[i]], surrogate_map = surrogate_maps[[i]])
+        ldgms[[i]] <- surrogate$precision
+        z[[i]] <- surrogate$z
+      }
+    }
+  }
+  annotations <- lapply(annotations, ldgm_annotation_matrix)
+  z <- lapply(z, as.numeric)
   n_cols <- vapply(annotations, ncol, integer(1))
   if (length(unique(n_cols)) != 1L) {
     stop("all annotation blocks must have the same number of columns", call. = FALSE)
   }
   list(ldgms = ldgms, z = z, annotations = annotations)
+}
+
+normalize_reml_surrogate_maps <- function(surrogate_maps, n_blocks) {
+  if (is.null(surrogate_maps)) {
+    return(rep(list(NULL), n_blocks))
+  }
+  if (!is.list(surrogate_maps)) {
+    surrogate_maps <- list(surrogate_maps)
+  }
+  if (length(surrogate_maps) == 1L && n_blocks > 1L) {
+    surrogate_maps <- rep(surrogate_maps, n_blocks)
+  }
+  if (length(surrogate_maps) != n_blocks) {
+    stop("`surrogate_maps` must be `NULL`, one map, or one map per block", call. = FALSE)
+  }
+  surrogate_maps
+}
+
+normalize_reml_surrogate_map <- function(surrogate_map, n_nodes) {
+  if (is.null(surrogate_map)) {
+    return(NULL)
+  }
+  surrogate_map <- as.integer(surrogate_map)
+  if (length(surrogate_map) != n_nodes) {
+    stop("`surrogate_map` must have one entry per active precision node", call. = FALSE)
+  }
+  if (any(!is.na(surrogate_map) & (surrogate_map < 1L | surrogate_map > n_nodes))) {
+    stop("`surrogate_map` entries must be one-based active precision indices or `NA`", call. = FALSE)
+  }
+  surrogate_map
+}
+
+reml_select_surrogate_index <- function(precision,
+                                        missing_index,
+                                        observed_indices,
+                                        observed_by_index,
+                                        surrogate_map) {
+  if (as.character(missing_index) %in% names(observed_by_index)) {
+    return(list(index = missing_index, method = "same_index"))
+  }
+  if (!is.null(surrogate_map)) {
+    mapped <- surrogate_map[[missing_index]]
+    if (!is.na(mapped) && as.character(mapped) %in% names(observed_by_index)) {
+      return(list(index = mapped, method = "surrogate_map"))
+    }
+  }
+  indicator <- numeric(precision_nrow(precision))
+  indicator[[missing_index]] <- 1
+  correlations <- as.numeric(ldgm_precision_solve(precision, indicator))
+  candidate_score <- correlations[observed_indices]^2
+  if (length(candidate_score) == 0L || all(!is.finite(candidate_score))) {
+    stop("could not find an observed surrogate marker", call. = FALSE)
+  }
+  observed_indices <- observed_indices[is.finite(candidate_score)]
+  candidate_score <- candidate_score[is.finite(candidate_score)]
+  list(index = observed_indices[[which.max(candidate_score)]], method = "correlation")
+}
+
+reml_z_by_original_index <- function(original_indices, z, n_nodes) {
+  first_rows <- !duplicated(original_indices)
+  out <- rep(NA_real_, n_nodes)
+  out[original_indices[first_rows]] <- z[first_rows]
+  if (anyNA(out)) {
+    stop("`precision$variant_info` must contain at least one row per active precision node", call. = FALSE)
+  }
+  as.numeric(out)
 }
 
 aggregate_reml_by_index <- function(precision, values, n) {

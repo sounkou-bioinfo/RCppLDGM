@@ -9,3 +9,7 @@
 #' @useDynLib RcppLDGM, .registration = TRUE
 #' @importFrom Rcpp sourceCpp
 "_PACKAGE"
+
+.onLoad <- function(...) {
+  S7::methods_register()
+}

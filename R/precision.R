@@ -569,7 +569,7 @@ as_dgCMatrix <- function(x) {
   if (!inherits(x, "sparseMatrix")) {
     x <- Matrix::Matrix(x, sparse = TRUE)
   }
-  if (inherits(x, "symmetricMatrix") || inherits(x, "triangularMatrix")) {
+  if (inherits(x, "symmetricMatrix") || inherits(x, "triangularMatrix") || inherits(x, "diagonalMatrix")) {
     x <- methods::as(x, "generalMatrix")
   }
   methods::as(x, "dgCMatrix")
