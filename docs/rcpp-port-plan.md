@@ -229,4 +229,5 @@ venv and requires the upstream Python test stack (`networkx`, `msprime`,
 `tskit`, `numpy`, `pandas`, `tqdm`).
 
 See also `docs/graphld-port-plan.md` for the GraphLD interface/performance
-roadmap and `docs/upstream-data-sources.md` for upstream-owned real data sources.
+roadmap, `docs/interface-inventory.md` for the local input/interface inventory,
+and `docs/upstream-data-sources.md` for upstream-owned real data sources.

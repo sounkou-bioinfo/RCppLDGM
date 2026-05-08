@@ -288,9 +288,10 @@ Still intentionally staged:
 - direct native in-memory tree-sequence object wiring beyond `.trees`
   file input.
 
-See the vignettes and [`docs/rcpp-port-plan.md`](docs/rcpp-port-plan.md)
-/ [`docs/graphld-port-plan.md`](docs/graphld-port-plan.md) for deeper
-design and validation notes.
+See the vignettes, [`docs/rcpp-port-plan.md`](docs/rcpp-port-plan.md),
+[`docs/graphld-port-plan.md`](docs/graphld-port-plan.md), and
+[`docs/interface-inventory.md`](docs/interface-inventory.md) for deeper
+interface, design, and validation notes.
 
 ## See also
 
