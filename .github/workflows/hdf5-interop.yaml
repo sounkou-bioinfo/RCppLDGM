@@ -39,5 +39,11 @@ jobs:
       - name: Install Python HDF5 interop dependencies
         run: python -m pip install --upgrade numpy polars h5py
 
+      - name: Fetch pinned upstream GraphLD I/O module
+        run: |
+          mkdir -p .sync
+          git clone --filter=blob:none https://github.com/oclb/graphld.git .sync/graphld
+          git -C .sync/graphld checkout 823d92baf6178e1948bc10637064c4e29c6c6b62
+
       - name: Check GraphLD score-test HDF5 interop through h5py
         run: make upstream-graphld-hdf5-interop
