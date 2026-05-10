@@ -55,6 +55,15 @@ R CMD build .
 R CMD check --no-manual RcppLDGM_0.0.0.9000.tar.gz
 ```
 
+Extended conformance preset (new dedicated target/workflow):
+
+```bash
+make upstream-conformance
+```
+
+This runs upstream ldgm conformance, GraphLD smoke/readers, and strict HDF5
+interop in one sequence.
+
 Optional/strict gates:
 
 ```bash
