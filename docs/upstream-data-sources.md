@@ -127,11 +127,16 @@ The generator requires the upstream Python test dependencies (`networkx`,
 `msprime`, `tskit`, `numpy`, `pandas`, `polars`, `tqdm`, `click`, `h5py`, and
 `filelock`) plus `scikit-sparse<0.5.0` (pinned to avoid the
 `'tuple' object is not callable` incompatibility with newer releases).
+On Linux this also requires system SuiteSparse/CHOLMOD headers (`libsuitesparse-dev`)
+for native extension builds of `scikit-sparse`; CI installs this dependency first.
 If they are absent, the setup step fails fast rather than fabricating local substitutes.
 
 Current local run evidence: `make upstream-ldgm-conformance` generated ten
 upstream examples in `.sync/ldgm-goldens` and
 `tools/check-upstream-ldgm-goldens.R` passed against those generated artifacts.
+
+The `.sync` directories are generated scratch space for pinned upstream fixtures and
+are intentionally not committed.
 
 ## Policy
 
