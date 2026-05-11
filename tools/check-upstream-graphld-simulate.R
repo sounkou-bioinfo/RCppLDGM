@@ -13,6 +13,41 @@ as_bool <- function(x) {
   tolower(as.character(x)) %in% c("1", "true", "yes", "y")
 }
 
+default_python <- function() {
+  local_py <- file.path(".sync", "ldgm-python", "bin", "python")
+  if (file.exists(local_py)) {
+    local_py
+  } else {
+    "python3"
+  }
+}
+
+ensure_sksparse_compat <- function(python, message_prefix) {
+  python_code <- "import sksparse, sys;"
+  python_code <- paste0(
+    python_code,
+    "parts = sksparse.__version__.split('.'); ",
+    "major = int(parts[0]); ",
+    "minor = int(parts[1]); ",
+    "sys.exit(1 if (major, minor) >= (0, 5) else 0)"
+  )
+
+  cmd <- sprintf("%s -c %s", shQuote(python), shQuote(python_code))
+  check <- system(cmd, intern = TRUE)
+  status <- attr(check, "status")
+  if (is.null(status)) {
+    status <- 0L
+  }
+  if (!identical(status, 0L)) {
+    fail(
+      message_prefix,
+      " uses an incompatible sksparse/CHOLMOD version. Rebuild .sync upstream Python env via tools/setup-upstream-python.sh, ",
+      "which pins scikit-sparse<0.5.0.\nObserved output:\n",
+      paste(check, collapse = "\n")
+    )
+  }
+}
+
 fail <- function(...) stop(paste0(...), call. = FALSE)
 
 compare_df <- function(actual, expected, columns, tolerance = 1e-6, label = "data frame") {
@@ -77,7 +112,8 @@ compare_df <- function(actual, expected, columns, tolerance = 1e-6, label = "dat
   invisible(TRUE)
 }
 
-python <- arg("RCPP_LDGM_PYTHON", "python3")
+python <- arg("RCPP_LDGM_PYTHON", default_python())
+ensure_sksparse_compat(python, "GraphLD upstream simulation")
 graphld_root <- arg("RCPP_LDGM_GRAPHLD_ROOT", ".sync/graphld")
 metadata_path <- arg("RCPP_LDGM_GRAPHLD_SIM_METADATA", file.path(graphld_root, "data/test/metadata.csv"))
 population <- arg("RCPP_LDGM_GRAPHLD_POP", "EUR")
