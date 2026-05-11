@@ -428,7 +428,8 @@ ldgm_block_catalog <- function(x,
   if (ldgm_implements(x, LdgmBlockCatalog) && !is.data.frame(x) && !is.character(x)) {
     return(x)
   }
-  metadata <- ldgm_block_metadata_frame(x, populations = populations, chromosomes = chromosomes)
+  requested_populations <- populations %||% population
+  metadata <- ldgm_block_metadata_frame(x, populations = requested_populations, chromosomes = chromosomes)
   if (is.null(ldgm_dir)) {
     ldgm_dir <- ldgm_block_directory(x)
   }

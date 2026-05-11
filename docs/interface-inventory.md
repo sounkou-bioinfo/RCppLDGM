@@ -46,7 +46,7 @@ arguments as stable interfaces unless they are deliberately exposed in R.
 | Parquet multi-trait summary stats | `.sync/graphld/src/graphld/parquet_io.py`, `.sync/graphld/data/test/example_multi_trait.parquet` | `ldgm_parquet_traits()`, `ldgm_read_parquet_sumstats()`, `ldgm_read_parquet_sumstats_multi()` using optional `nanoparquet` | tinytest sumstats readers; GraphLD data smoke; pinned Python value conformance via `tools/check-upstream-graphld-readers.R` | Expand conformance across more schemas and missingness edge cases |
 | GWAS VCF input | `.sync/graphld/src/graphld/vcf_io.py`, `.sync/graphld/data/test/example.gwas.vcf` | `ldgm_read_gwas_vcf()`, `ldgm_validate_gwas_vcf_format()` | tinytest sumstats readers; GraphLD data smoke; pinned Python value conformance via `tools/check-upstream-graphld-readers.R` | Add multi-sample/out-of-scope behavior notes and larger fixtures |
 | BED/range and annotation directory inputs | GraphLD `read_bed()`, `load_annotations()`, `.sync/graphld/data/test/annot/` | `ldgm_read_bed()`, `ldgm_annotate_ranges()`, `ldgm_load_annotations()` | tinytest annotations; GraphLD data smoke; pinned Python value conformance via `tools/check-upstream-graphld-readers.R` | Expand conformance for nontrivial BED overlaps and optional position/allele augmentation |
-| Simulation workflow inputs | `.sync/graphld/src/graphld/simulate.py`, GraphLD `simulate` CLI | Planned | None in R yet | Define minimal R simulation interface and upstream conformance expectations |
+| Simulation workflow inputs | `.sync/graphld/src/graphld/simulate.py`, GraphLD `simulate` CLI | Serial R prototype (`ldgm_simulate()`) with metadata path and annotation inputs | Partially implemented with tinytest smoke and seed-repeat checks | `tools/check-upstream-graphld-simulate.R` / `tools/generate-upstream-graphld-simulate.py` conformance gate is scaffolded; upstream Python runtime parity remains blocked by `TypeError: 'tuple' object is not callable` |
 | Gene-set and gene-table inputs | `.sync/graphld/src/score_test/genesets.py`, `convert_scores.py` | `ldgm_read_gmt()`, `ldgm_read_gene_table()`, `ldgm_gene_variant_matrix()`, `ldgm_gene_set_annotations()`, `ldgm_gene_set_variant_annotations()`, `ldgm_convert_variant_to_gene_scores()` | tinytest gene-sets/HDF5; GraphLD data smoke; pinned Python value conformance via `tools/check-upstream-graphld-readers.R` | Expand conformance for nearest-gene tie/edge cases and full convert-scores CLI parity |
 | MATLAB legacy workflows | `MATLAB/*.m`, `MATLAB/precision/*.m`, `MATLAB/utility/*.m` | Partially covered by precision, BLUP, likelihood, allele merge | Unit tests and precision benchmark cover selected kernels | Decide whether DENTIST, imputation, PGS projection, and precision estimation are in scope |
 
@@ -96,7 +96,10 @@ arguments as stable interfaces unless they are deliberately exposed in R.
    trait groups and non-gradient trait-specific datasets.
 4. Add upstream Python conformance for BLUP, clumping, graphREML summaries, and
    stochastic inverse diagonal estimators.
-5. Wire `LdgmBlockCatalog` into any remaining GraphREML/block-manager paths that
+5. Define and run a pinned GraphLD simulation conformance gate (`ldgm_simulate()`) using
+   `tools/generate-upstream-graphld-simulate.py` + `tools/check-upstream-graphld-simulate.R`,
+   documenting exact seed/metadata/chromosome filters and `TypeError` blocker status.
+6. Wire `LdgmBlockCatalog` into any remaining GraphREML/block-manager paths that
    still take loose metadata/data-directory arguments.
-6. Revisit MATLAB-only workflows and mark each as implemented, planned, or out of
+7. Revisit MATLAB-only workflows and mark each as implemented, planned, or out of
    scope with a compatibility reason.

@@ -66,6 +66,7 @@ jobs:
         run: |
           make upstream-graphld-smoke
           make upstream-graphld-reader-conformance
+          make upstream-graphld-simulate-conformance
 
       - name: Run GraphLD HDF5 interop gate
         env:

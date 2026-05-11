@@ -32,6 +32,22 @@ RCPP_LDGM_GRAPHLD_MAX_BLOCKS=2 \
 Rscript tools/check-upstream-graphld-data.R
 ```
 
+`ldgm_simulate()` conformance can be checked through a pinned generator/check
+pair that writes a small metadata-filtered fixture and compares against
+`ldgm_simulate()` with the same command context:
+
+```bash
+RCPP_LDGM_GRAPHLD_ROOT=.sync/graphld \
+RCPP_LDGM_GRAPHLD_SIM_METADATA=.sync/graphld/data/test/metadata.csv \
+RCPP_LDGM_GRAPHLD_POP=EUR \
+RCPP_LDGM_GRAPHLD_MAX_BLOCKS=1 \
+RCPP_LDGM_SIM_RANDOM_SEED=42 \
+Rscript tools/check-upstream-graphld-simulate.R
+```
+
+Set `RCPP_LDGM_REQUIRE_GRAPHLD_SIMULATE=true` to make upstream-generation failures
+hard failures instead of skips.
+
 Set `RCPP_LDGM_GRAPHLD_BLUP=false` to skip the BLUP part, or set
 `RCPP_LDGM_GRAPHLD_POP=EAS` to exercise the EAS precision blocks.
 
@@ -108,8 +124,10 @@ RCPP_LDGM_UPSTREAM_GOLDENS=.sync/ldgm-goldens \
 ```
 
 The generator requires the upstream Python test dependencies (`networkx`,
-`msprime`, `tskit`, `numpy`, `pandas`, and `tqdm`). If they are absent, it reports
-the missing modules rather than fabricating local substitutes.
+`msprime`, `tskit`, `numpy`, `pandas`, `polars`, `tqdm`, `click`, `h5py`, and
+`filelock`) plus `scikit-sparse<0.5.0` (pinned to avoid the
+`'tuple' object is not callable` incompatibility with newer releases).
+If they are absent, the setup step fails fast rather than fabricating local substitutes.
 
 Current local run evidence: `make upstream-ldgm-conformance` generated ten
 upstream examples in `.sync/ldgm-goldens` and
