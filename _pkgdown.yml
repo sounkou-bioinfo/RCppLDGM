@@ -133,6 +133,7 @@ reference:
   - ldgm_read_surrogate_map_hdf5
   - ldgm_score_test
   - ldgm_score_test_hdf5
+  - ldgm_score_test_hdf5_results
   - ldgm_score_test_meta
   - ldgm_score_test_hdf5_meta
 - title: Native runtime

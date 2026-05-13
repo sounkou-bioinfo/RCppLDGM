@@ -138,8 +138,25 @@ expect_equal(names(h5_meta_group$trait_results), c("score_trait", "score_trait_b
 h5_meta_all <- ldgm_score_test_hdf5_meta(h5_score_file, annotations = annotation_table)
 expect_equal(h5_meta_all$results$z, meta_score$results$z, tolerance = 1e-12)
 
+h5_results <- ldgm_score_test_hdf5_results(h5_score_file, annotation_table)
+expect_equal(names(h5_results$results), c("annotation", "score_trait_Z", "score_trait_b_Z", "pair_Z"))
+expect_equal(h5_results$results$score_trait_Z, h5_score$results$z, tolerance = 1e-12)
+expect_equal(h5_results$results$score_trait_b_Z, score_result_b$results$z, tolerance = 1e-12)
+expect_equal(h5_results$results$pair_Z, meta_score$results$z, tolerance = 1e-12)
+expect_equal(names(h5_results$group_results), "pair")
+
+h5_gene_results <- ldgm_score_test_hdf5_results(
+  h5_score_file,
+  gene_sets_score,
+  gene_table = gene_table_score,
+  nearest_weights = 1
+)
+expect_equal(h5_gene_results$results$score_trait_Z, variant_gene_score$results$z, tolerance = 1e-12)
+expect_equal(h5_gene_results$results$pair_Z, h5_gene_results$group_results$pair$results$z, tolerance = 1e-12)
+
 expect_error(ldgm_score_test(gradient_score[-1], annotations_score, blocks_score[-1]), "one row")
 expect_error(ldgm_score_test(gradient_score, annotations_score, blocks_score[-1]), "jackknife_blocks")
 expect_error(ldgm_score_test_hdf5(h5_score_file, "score_trait", data.frame(RSID = c("rs1", "rs1"), coding = c(1, 0))), "duplicates")
 expect_error(ldgm_score_test_hdf5(h5_score_file, "score_trait", gene_sets_score), "gene_table")
 expect_error(ldgm_score_test_hdf5_meta(h5_score_file, "missing_group", annotation_table), "trait or trait group")
+expect_error(ldgm_score_test_hdf5_results(h5_score_file, gene_sets_score), "gene_table")

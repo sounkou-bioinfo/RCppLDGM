@@ -50,7 +50,7 @@ Rscript -e 'options(warn=2); tinytest::test_package("RcppLDGM", testdir = "inst/
 RCPP_LDGM_UPSTREAM_GOLDENS=.sync/ldgm-goldens Rscript tools/check-upstream-ldgm-goldens.R
 Rscript tools/check-upstream-graphld-data.R
 Rscript tools/check-upstream-graphld-readers.R
-Rscript tools/check-upstream-graphld-simulate.R  # currently skips when upstream run_simulate() raises runtime errors
+Rscript tools/check-upstream-graphld-simulate.R
 Rscript -e 'pkgdown::build_site(new_process = FALSE, install = FALSE)'
 R CMD build .
 R CMD check --no-manual RcppLDGM_0.0.0.9000.tar.gz
@@ -63,8 +63,7 @@ make upstream-conformance
 ```
 
 This runs upstream ldgm conformance, GraphLD smoke/readers, HDF5 interop, and the
-`upstream-graphld-simulate-conformance` scaffold in one sequence (the latter
-currently skips with a non-fatal skip when upstream `run_simulate()` is blocked).
+`upstream-graphld-simulate-conformance` gate in one sequence.
 
 Optional/strict gates:
 
@@ -91,7 +90,7 @@ scoped out with a compatibility rationale:
    tiny upstream fixtures and smoke data.
 4. Direct native in-memory tree-sequence object integration beyond the current
    `.trees` file and reticulate object/table boundary.
-5. Full upstream-parity simulation conformance: `ldgm_simulate()` has a pinned conformance scaffold (`tools/generate-upstream-graphld-simulate.py` and `tools/check-upstream-graphld-simulate.R`), but upstream Python `run_simulate()` currently raises `TypeError: 'tuple' object is not callable` in `PrecisionOperator.solve`, so upstream parity remains blocked.
+5. Full upstream-parity simulation conformance beyond the current pinned gate: `ldgm_simulate()` now passes the current one-scenario conformance gate (`tools/generate-upstream-graphld-simulate.py` and `tools/check-upstream-graphld-simulate.R`), but broader metadata/block scenarios and larger fixture coverage still remain to be verified.
 6. Explicit scope decisions for MATLAB-only workflows: DENTIST, imputation, PGS
    projection, and precision estimation.
 7. Python HDF5 interop in strict mode on systems with `h5py`/GraphLD dependencies

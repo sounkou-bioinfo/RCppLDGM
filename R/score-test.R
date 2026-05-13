@@ -282,6 +282,71 @@ ldgm_score_test_hdf5_meta <- function(file,
   ldgm_score_test_meta(trait_results, trait_names = trait_names)
 }
 
+#' Build a GraphLD-Style Score-Test Z-Score Table from HDF5
+#'
+#' Runs [ldgm_score_test_hdf5()] over selected traits, then appends one Z-score
+#' column per trait plus one additional Z-score column per matching trait group.
+#' The returned `results` table mirrors the main text output shape of GraphLD's
+#' `score_test.py` command.
+#'
+#' @inheritParams ldgm_score_test_hdf5_meta
+#'
+#' @return A list with a GraphLD-style `results` data frame, per-trait
+#'   `trait_results`, per-group `group_results`, the resolved `trait_names`, and
+#'   the matching trait `groups` used for meta-analysis columns.
+#' @export
+ldgm_score_test_hdf5_results <- function(file,
+                                         annotations,
+                                         trait_names = NULL,
+                                         by = "RSID",
+                                         annotation_cols = NULL,
+                                         gene_table = NULL,
+                                         nearest_weights = NULL) {
+  h5 <- ldgm_read_score_test_hdf5(file)
+  trait_names <- resolve_score_test_hdf5_traits(file, trait_names)
+  trait_results <- lapply(
+    trait_names,
+    function(trait_name) {
+      ldgm_score_test_hdf5(
+        file,
+        trait_name = trait_name,
+        annotations = annotations,
+        by = by,
+        annotation_cols = annotation_cols,
+        gene_table = gene_table,
+        nearest_weights = nearest_weights
+      )
+    }
+  )
+  names(trait_results) <- trait_names
+
+  first <- trait_results[[1L]]
+  results <- data.frame(
+    annotation = as.character(first$results$annotation),
+    stringsAsFactors = FALSE,
+    check.names = FALSE
+  )
+  group_results <- list()
+  for (trait_name in trait_names) {
+    results <- append_score_test_z_column(results, paste0(trait_name, "_Z"), trait_results[[trait_name]]$results$z)
+  }
+
+  groups <- select_score_test_trait_groups(h5$groups %||% list(), trait_names)
+  for (group_name in names(groups)) {
+    group_result <- ldgm_score_test_meta(trait_results[groups[[group_name]]], trait_names = groups[[group_name]])
+    group_results[[group_name]] <- group_result
+    results <- append_score_test_z_column(results, paste0(group_name, "_Z"), group_result$results$z)
+  }
+
+  list(
+    results = results,
+    trait_results = trait_results,
+    group_results = group_results,
+    trait_names = trait_names,
+    groups = groups
+  )
+}
+
 is_score_test_result <- function(x) {
   is.list(x) && !is.null(x$results) && !is.null(x$jackknife_scores)
 }
@@ -478,6 +543,18 @@ resolve_score_test_gene_set_by <- function(variant_data, annotations, gene_sets,
     return(gene_set_key(gene_sets, variant_data))
   }
   resolve_score_test_annotation_by(variant_data, annotations, by)
+}
+
+append_score_test_z_column <- function(results, column, z) {
+  if (column %in% names(results)) {
+    stop("duplicate score-test output column: ", column, call. = FALSE)
+  }
+  z <- as.numeric(z)
+  if (length(z) != nrow(results) || anyNA(z) || any(!is.finite(z))) {
+    stop("score-test Z columns must contain one finite value per annotation", call. = FALSE)
+  }
+  results[[column]] <- z
+  results
 }
 
 resolve_score_test_hdf5_traits <- function(file, trait_names) {
