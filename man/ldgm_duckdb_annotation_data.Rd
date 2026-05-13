@@ -37,19 +37,19 @@ metadata columns into R, and partitions by LDGM metadata blocks inside
 DuckDB.
 }
 \examples{
-\dontshow{if (requireNamespace("DBI", quietly = TRUE) && requireNamespace("duckdb", quietly = TRUE)) withAutoprint(\{ # examplesIf}
-con <- DBI::dbConnect(duckdb::duckdb(), dbdir = ":memory:")
-on.exit(DBI::dbDisconnect(con, shutdown = TRUE), add = TRUE)
-DBI::dbWriteTable(
+\dontshow{if (FALSE) withAutoprint(\{ # examplesIf}
+dbdir <- tempfile(fileext = ".duckdb")
+drv <- duckdb::duckdb()
+con <- DBI::dbConnect(drv, dbdir = dbdir)
+on.exit({
+  DBI::dbDisconnect(con, shutdown = TRUE)
+  unlink(dbdir)
+}, add = TRUE)
+provider <- ldgm_duckdb_annotation_data(
   con,
-  "annotations",
-  data.frame(
-    CHR = 1L,
-    POS = c(10L, 20L),
-    af = c(0.4, 0.2)
-  )
+  DBI::SQL("(SELECT 1 AS CHR, 10 AS POS, 0.4 AS af UNION ALL SELECT 1 AS CHR, 20 AS POS, 0.2 AS af)"),
+  annotation_cols = "af"
 )
-provider <- ldgm_duckdb_annotation_data(con, "annotations", annotation_cols = "af")
 ldgm_annotation_data_frame(provider)
 \dontshow{\}) # examplesIf}
 }

@@ -18,22 +18,19 @@
 #' @param pos_col Position column in `from`.
 #'
 #' @return An object implementing [LdgmSummaryStats].
-#' @examplesIf requireNamespace("DBI", quietly = TRUE) && requireNamespace("duckdb", quietly = TRUE)
-#' con <- DBI::dbConnect(duckdb::duckdb(), dbdir = ":memory:")
-#' on.exit(DBI::dbDisconnect(con, shutdown = TRUE), add = TRUE)
-#' DBI::dbWriteTable(
+#' @examplesIf FALSE
+#' dbdir <- tempfile(fileext = ".duckdb")
+#' drv <- duckdb::duckdb()
+#' con <- DBI::dbConnect(drv, dbdir = dbdir)
+#' on.exit({
+#'   DBI::dbDisconnect(con, shutdown = TRUE)
+#'   unlink(dbdir)
+#' }, add = TRUE)
+#' provider <- ldgm_duckdb_summary_stats(
 #'   con,
-#'   "sumstats",
-#'   data.frame(
-#'     CHR = 1L,
-#'     POS = c(10L, 20L),
-#'     SNP = c("rs1", "rs2"),
-#'     REF = c("A", "C"),
-#'     ALT = c("G", "T"),
-#'     Z = c(0.5, -0.25)
-#'   )
+#'   DBI::SQL("(SELECT 1 AS CHR, 10 AS POS, 'rs1' AS SNP, 'A' AS REF, 'G' AS ALT, 0.5 AS Z UNION ALL SELECT 1 AS CHR, 20 AS POS, 'rs2' AS SNP, 'C' AS REF, 'T' AS ALT, -0.25 AS Z)"),
+#'   required_cols = c("SNP", "Z")
 #' )
-#' provider <- ldgm_duckdb_summary_stats(con, "sumstats")
 #' ldgm_summary_stats_frame(provider)
 #' @export
 ldgm_duckdb_summary_stats <- function(con,
@@ -92,19 +89,19 @@ ldgm_duckdb_summary_stats <- function(con,
 #' @param pos_col Position column in `from`.
 #'
 #' @return An object implementing [LdgmAnnotationData].
-#' @examplesIf requireNamespace("DBI", quietly = TRUE) && requireNamespace("duckdb", quietly = TRUE)
-#' con <- DBI::dbConnect(duckdb::duckdb(), dbdir = ":memory:")
-#' on.exit(DBI::dbDisconnect(con, shutdown = TRUE), add = TRUE)
-#' DBI::dbWriteTable(
+#' @examplesIf FALSE
+#' dbdir <- tempfile(fileext = ".duckdb")
+#' drv <- duckdb::duckdb()
+#' con <- DBI::dbConnect(drv, dbdir = dbdir)
+#' on.exit({
+#'   DBI::dbDisconnect(con, shutdown = TRUE)
+#'   unlink(dbdir)
+#' }, add = TRUE)
+#' provider <- ldgm_duckdb_annotation_data(
 #'   con,
-#'   "annotations",
-#'   data.frame(
-#'     CHR = 1L,
-#'     POS = c(10L, 20L),
-#'     af = c(0.4, 0.2)
-#'   )
+#'   DBI::SQL("(SELECT 1 AS CHR, 10 AS POS, 0.4 AS af UNION ALL SELECT 1 AS CHR, 20 AS POS, 0.2 AS af)"),
+#'   annotation_cols = "af"
 #' )
-#' provider <- ldgm_duckdb_annotation_data(con, "annotations", annotation_cols = "af")
 #' ldgm_annotation_data_frame(provider)
 #' @export
 ldgm_duckdb_annotation_data <- function(con,
@@ -165,22 +162,17 @@ ldgm_duckdb_annotation_data <- function(con,
 #'   `jackknife_blocks`.
 #'
 #' @return An object implementing [LdgmScoreTestVariantData].
-#' @examplesIf requireNamespace("DBI", quietly = TRUE) && requireNamespace("duckdb", quietly = TRUE)
-#' con <- DBI::dbConnect(duckdb::duckdb(), dbdir = ":memory:")
-#' on.exit(DBI::dbDisconnect(con, shutdown = TRUE), add = TRUE)
-#' DBI::dbWriteTable(
-#'   con,
-#'   "variant_rows",
-#'   data.frame(
-#'     chrom = 1L,
-#'     position = c(10L, 20L),
-#'     snp_id = c("rs1", "rs2"),
-#'     block_id = c(0L, 1L)
-#'   )
-#' )
+#' @examplesIf FALSE
+#' dbdir <- tempfile(fileext = ".duckdb")
+#' drv <- duckdb::duckdb()
+#' con <- DBI::dbConnect(drv, dbdir = dbdir)
+#' on.exit({
+#'   DBI::dbDisconnect(con, shutdown = TRUE)
+#'   unlink(dbdir)
+#' }, add = TRUE)
 #' provider <- ldgm_duckdb_score_test_variant_data(
 #'   con,
-#'   "variant_rows",
+#'   DBI::SQL("(SELECT 1 AS chrom, 10 AS position, 'rs1' AS snp_id, 0 AS block_id UNION ALL SELECT 1 AS chrom, 20 AS position, 'rs2' AS snp_id, 1 AS block_id)"),
 #'   chrom_col = "chrom",
 #'   pos_col = "position",
 #'   rsid_col = "snp_id",
@@ -234,22 +226,17 @@ ldgm_duckdb_score_test_variant_data <- function(con,
 #'   `jackknife_blocks`.
 #'
 #' @return An object implementing [LdgmScoreTestGeneData].
-#' @examplesIf requireNamespace("DBI", quietly = TRUE) && requireNamespace("duckdb", quietly = TRUE)
-#' con <- DBI::dbConnect(duckdb::duckdb(), dbdir = ":memory:")
-#' on.exit(DBI::dbDisconnect(con, shutdown = TRUE), add = TRUE)
-#' DBI::dbWriteTable(
-#'   con,
-#'   "gene_rows",
-#'   data.frame(
-#'     chrom = c(1L, 1L),
-#'     position = c(100L, 250L),
-#'     ensg = c("ENSG1", "ENSG2"),
-#'     symbol = c("GENE1", "GENE2")
-#'   )
-#' )
+#' @examplesIf FALSE
+#' dbdir <- tempfile(fileext = ".duckdb")
+#' drv <- duckdb::duckdb()
+#' con <- DBI::dbConnect(drv, dbdir = dbdir)
+#' on.exit({
+#'   DBI::dbDisconnect(con, shutdown = TRUE)
+#'   unlink(dbdir)
+#' }, add = TRUE)
 #' provider <- ldgm_duckdb_score_test_gene_data(
 #'   con,
-#'   "gene_rows",
+#'   DBI::SQL("(SELECT 1 AS chrom, 100 AS position, 'ENSG1' AS ensg, 'GENE1' AS symbol UNION ALL SELECT 1 AS chrom, 250 AS position, 'ENSG2' AS ensg, 'GENE2' AS symbol)"),
 #'   chrom_col = "chrom",
 #'   pos_col = "position",
 #'   gene_id_col = "ensg",
@@ -300,9 +287,6 @@ ldgm_duckdb_score_test_gene_data <- function(con,
   }
   if (!inherits(con, "duckdb_connection")) {
     stop("`con` must inherit from `duckdb_connection`", call. = FALSE)
-  }
-  if (!isTRUE(DBI::dbIsValid(con))) {
-    stop("`con` must be a valid DuckDB connection", call. = FALSE)
   }
   invisible(con)
 }

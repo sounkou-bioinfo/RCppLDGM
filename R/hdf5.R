@@ -457,7 +457,7 @@ ldgm_write_score_test_trait_groups <- function(file, groups) {
       stop("`groups` names must not contain '/'", call. = FALSE)
     }
   }
-  normalized <- setNames(vector("list", length(groups)), group_names %||% character())
+  normalized <- stats::setNames(vector("list", length(groups)), group_names %||% character())
   for (i in seq_along(groups)) {
     values <- as.character(groups[[i]])
     if (length(values) < 1L || anyNA(values) || any(!nzchar(values))) {
@@ -561,7 +561,7 @@ select_score_test_trait_groups <- function(groups, trait_names) {
   }
   trait_names <- unique(as.character(trait_names))
   keep <- logical(length(groups))
-  out <- setNames(vector("list", length(groups)), names(groups))
+  out <- stats::setNames(vector("list", length(groups)), names(groups))
   for (i in seq_along(groups)) {
     values <- as.character(groups[[i]])
     values <- values[values %in% trait_names]
@@ -602,7 +602,7 @@ normalize_score_hdf5_trait_datasets <- function(x, n, label, reserved) {
       call. = FALSE
     )
   }
-  out <- setNames(vector("list", length(x)), names_x)
+  out <- stats::setNames(vector("list", length(x)), names_x)
   for (i in seq_along(x)) {
     values <- x[[i]]
     if (is.matrix(values) || is.array(values)) {

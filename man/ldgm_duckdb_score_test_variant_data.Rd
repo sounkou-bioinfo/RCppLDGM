@@ -40,22 +40,17 @@ canonical GraphLD HDF5 names, so backends can expose source-specific column
 names without leaking them into the writer API.
 }
 \examples{
-\dontshow{if (requireNamespace("DBI", quietly = TRUE) && requireNamespace("duckdb", quietly = TRUE)) withAutoprint(\{ # examplesIf}
-con <- DBI::dbConnect(duckdb::duckdb(), dbdir = ":memory:")
-on.exit(DBI::dbDisconnect(con, shutdown = TRUE), add = TRUE)
-DBI::dbWriteTable(
-  con,
-  "variant_rows",
-  data.frame(
-    chrom = 1L,
-    position = c(10L, 20L),
-    snp_id = c("rs1", "rs2"),
-    block_id = c(0L, 1L)
-  )
-)
+\dontshow{if (FALSE) withAutoprint(\{ # examplesIf}
+dbdir <- tempfile(fileext = ".duckdb")
+drv <- duckdb::duckdb()
+con <- DBI::dbConnect(drv, dbdir = dbdir)
+on.exit({
+  DBI::dbDisconnect(con, shutdown = TRUE)
+  unlink(dbdir)
+}, add = TRUE)
 provider <- ldgm_duckdb_score_test_variant_data(
   con,
-  "variant_rows",
+  DBI::SQL("(SELECT 1 AS chrom, 10 AS position, 'rs1' AS snp_id, 0 AS block_id UNION ALL SELECT 1 AS chrom, 20 AS position, 'rs2' AS snp_id, 1 AS block_id)"),
   chrom_col = "chrom",
   pos_col = "position",
   rsid_col = "snp_id",

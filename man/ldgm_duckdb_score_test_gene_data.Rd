@@ -42,22 +42,17 @@ table, view, or subquery. Requested columns are projected into R with the
 canonical HDF5 names expected by the gene score writer.
 }
 \examples{
-\dontshow{if (requireNamespace("DBI", quietly = TRUE) && requireNamespace("duckdb", quietly = TRUE)) withAutoprint(\{ # examplesIf}
-con <- DBI::dbConnect(duckdb::duckdb(), dbdir = ":memory:")
-on.exit(DBI::dbDisconnect(con, shutdown = TRUE), add = TRUE)
-DBI::dbWriteTable(
-  con,
-  "gene_rows",
-  data.frame(
-    chrom = c(1L, 1L),
-    position = c(100L, 250L),
-    ensg = c("ENSG1", "ENSG2"),
-    symbol = c("GENE1", "GENE2")
-  )
-)
+\dontshow{if (FALSE) withAutoprint(\{ # examplesIf}
+dbdir <- tempfile(fileext = ".duckdb")
+drv <- duckdb::duckdb()
+con <- DBI::dbConnect(drv, dbdir = dbdir)
+on.exit({
+  DBI::dbDisconnect(con, shutdown = TRUE)
+  unlink(dbdir)
+}, add = TRUE)
 provider <- ldgm_duckdb_score_test_gene_data(
   con,
-  "gene_rows",
+  DBI::SQL("(SELECT 1 AS chrom, 100 AS position, 'ENSG1' AS ensg, 'GENE1' AS symbol UNION ALL SELECT 1 AS chrom, 250 AS position, 'ENSG2' AS ensg, 'GENE2' AS symbol)"),
   chrom_col = "chrom",
   pos_col = "position",
   gene_id_col = "ensg",

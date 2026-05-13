@@ -37,7 +37,7 @@ is assigned to a null component with zero variance.}
 
 \item{alpha_param}{Allele-frequency-dependent architecture exponent.}
 
-\item{annotation_dependent_polygenicity}{If \\code{TRUE}, causal-probability
+\item{annotation_dependent_polygenicity}{If \code{TRUE}, causal-probability
 effects are driven by annotations. Not implemented in this R port yet.}
 
 \item{link_fn}{Mapping from annotation matrix rows to per-variant relative
@@ -76,11 +76,11 @@ A data frame with columns \code{CHR}, \code{SNP}, \code{POS},
 }
 \description{
 This is a native R implementation of GraphLD's
-\\code{run_simulate()} workflow for block-wise simulation of summary statistics.
-It mirrors the core upstream behavior where \\code{beta} and \\code{alpha} are
+\code{run_simulate()} workflow for block-wise simulation of summary statistics.
+It mirrors the core upstream behavior where \code{beta} and \code{alpha} are
 generated from LDGM annotations, and noise is added through a triangular solve.
 }
 \details{
-The function intentionally runs in serial for now; \\code{num_processes} and
+The function intentionally runs in serial for now; \code{num_processes} and
 parallelism-related arguments are accepted for compatibility only.
 }

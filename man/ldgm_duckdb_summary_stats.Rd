@@ -39,22 +39,19 @@ full source table first. For BLUP or clumping workflows, include \code{REF} and
 \code{ALT} in the DuckDB source when you want allele-aware phase matching.
 }
 \examples{
-\dontshow{if (requireNamespace("DBI", quietly = TRUE) && requireNamespace("duckdb", quietly = TRUE)) withAutoprint(\{ # examplesIf}
-con <- DBI::dbConnect(duckdb::duckdb(), dbdir = ":memory:")
-on.exit(DBI::dbDisconnect(con, shutdown = TRUE), add = TRUE)
-DBI::dbWriteTable(
+\dontshow{if (FALSE) withAutoprint(\{ # examplesIf}
+dbdir <- tempfile(fileext = ".duckdb")
+drv <- duckdb::duckdb()
+con <- DBI::dbConnect(drv, dbdir = dbdir)
+on.exit({
+  DBI::dbDisconnect(con, shutdown = TRUE)
+  unlink(dbdir)
+}, add = TRUE)
+provider <- ldgm_duckdb_summary_stats(
   con,
-  "sumstats",
-  data.frame(
-    CHR = 1L,
-    POS = c(10L, 20L),
-    SNP = c("rs1", "rs2"),
-    REF = c("A", "C"),
-    ALT = c("G", "T"),
-    Z = c(0.5, -0.25)
-  )
+  DBI::SQL("(SELECT 1 AS CHR, 10 AS POS, 'rs1' AS SNP, 'A' AS REF, 'G' AS ALT, 0.5 AS Z UNION ALL SELECT 1 AS CHR, 20 AS POS, 'rs2' AS SNP, 'C' AS REF, 'T' AS ALT, -0.25 AS Z)"),
+  required_cols = c("SNP", "Z")
 )
-provider <- ldgm_duckdb_summary_stats(con, "sumstats")
 ldgm_summary_stats_frame(provider)
 \dontshow{\}) # examplesIf}
 }
