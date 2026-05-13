@@ -19,6 +19,7 @@ def parse_args() -> argparse.Namespace:
     parser.add_argument("--population", default="EUR")
     parser.add_argument("--out", required=True)
     parser.add_argument("--seed", type=int, default=123)
+    parser.add_argument("--num-iterations", type=int, default=3)
     return parser.parse_args()
 
 
@@ -115,7 +116,7 @@ def main() -> None:
     pl.DataFrame({"per_variant_h2": np.asarray(per_variant_h2, dtype=float).reshape(-1)}).write_csv(out_dir / "per_variant_h2.csv")
 
     model = gld.ModelOptions()
-    method = gld.MethodOptions(num_iterations=1, run_serial=True, verbose=False)
+    method = gld.MethodOptions(num_iterations=args.num_iterations, run_serial=True, verbose=False)
     summary = gld.run_graphREML(
         model_options=model,
         method_options=method,
@@ -135,6 +136,13 @@ def main() -> None:
             "num_iterations": [int(summary["log"]["num_iterations"])],
         }
     ).write_csv(out_dir / "reml_summary.csv")
+    pl.DataFrame(
+        {
+            "iteration": np.arange(1, len(summary["likelihood_history"]) + 1),
+            "likelihood": np.asarray(summary["likelihood_history"], dtype=float).reshape(-1),
+            "trust_region_lambda": np.asarray(summary["log"]["trust_region_lambdas"], dtype=float).reshape(-1),
+        }
+    ).write_csv(out_dir / "reml_history.csv")
 
 
 if __name__ == "__main__":

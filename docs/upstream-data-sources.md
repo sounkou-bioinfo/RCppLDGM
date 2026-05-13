@@ -44,7 +44,7 @@ RCPP_LDGM_GRAPHLD_MAX_BLOCKS=2 \
 Rscript tools/check-upstream-graphld-blup-clump.R
 ```
 
-A pinned fixed-block GraphREML core and one-step optimizer-summary check can be
+A pinned fixed-block GraphREML core and multi-iteration optimizer-summary check can be
 run on the same upstream test slice. This compares upstream GraphLD's
 initialized block likelihood, gradient, Hessian, and per-variant heritability
 vector against `ldgm_reml_block()`, then compares a one-iteration

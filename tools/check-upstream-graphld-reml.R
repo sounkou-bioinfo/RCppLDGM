@@ -146,6 +146,7 @@ data_dir <- arg("RCPP_LDGM_GRAPHLD_DATA", file.path(graphld_root, "data/test"))
 population <- arg("RCPP_LDGM_GRAPHLD_POP", "EUR")
 strict <- as_bool(arg("RCPP_LDGM_REQUIRE_GRAPHLD_REML", "false"))
 seed <- as.integer(arg("RCPP_LDGM_GRAPHLD_REML_SEED", "123"))
+num_iterations <- as.integer(arg("RCPP_LDGM_GRAPHLD_REML_NUM_ITERATIONS", "3"))
 
 ensure_sksparse_compat(python, "GraphLD GraphREML conformance")
 out_dir <- tempfile("graphld-reml-goldens-")
@@ -156,6 +157,7 @@ cmd <- c(
   "--data-dir", data_dir,
   "--population", population,
   "--seed", as.character(seed),
+  "--num-iterations", as.character(num_iterations),
   "--out", out_dir
 )
 status <- system2(python, cmd, stdout = TRUE, stderr = TRUE)
@@ -172,7 +174,8 @@ if (!identical(exit_status, 0L)) {
 metrics_path <- file.path(out_dir, "reml_metrics.csv")
 h2_path <- file.path(out_dir, "per_variant_h2.csv")
 summary_path <- file.path(out_dir, "reml_summary.csv")
-if (!file.exists(metrics_path) || !file.exists(h2_path) || !file.exists(summary_path)) {
+history_path <- file.path(out_dir, "reml_history.csv")
+if (!file.exists(metrics_path) || !file.exists(h2_path) || !file.exists(summary_path) || !file.exists(history_path)) {
   fail("GraphLD GraphREML outputs missing from generator: ", out_dir)
 }
 expected_metrics <- utils::read.csv(metrics_path, stringsAsFactors = FALSE, check.names = FALSE)
@@ -223,7 +226,7 @@ fit <- ldgm_run_reml(
   params = 0,
   sample_size = inputs$sample_size,
   annotation_names = "base",
-  num_iterations = 1L,
+  num_iterations = num_iterations,
   num_jackknife_blocks = 1L,
   seed = seed
 )
@@ -236,11 +239,16 @@ if (!identical(isTRUE(fit$log$converged), as.logical(expected_summary$converged[
   fail("GraphREML convergence flag differs")
 }
 compare_numeric(fit$log$num_iterations, expected_summary$num_iterations[[1L]], tolerance = 0, label = "GraphREML num_iterations")
+expected_history <- utils::read.csv(history_path, stringsAsFactors = FALSE, check.names = FALSE)
+compare_numeric(fit$likelihood_history, expected_history$likelihood, tolerance = 1e-3, label = "GraphREML likelihood history")
+compare_numeric(fit$log$trust_region_lambdas, expected_history$trust_region_lambda, tolerance = 1e-12, label = "GraphREML trust-region history")
+compare_numeric(seq_along(fit$likelihood_history), expected_history$iteration, tolerance = 0, label = "GraphREML iteration history")
 
 message(
   "GraphREML conformance: block=", inputs$block_name,
   ", active_indices=", length(inputs$z),
   ", variant_rows=", length(block_fit$per_variant_h2),
-  ", parameter=", format(unname(fit$parameters[[1L]]), scientific = TRUE)
+  ", parameter=", format(unname(fit$parameters[[1L]]), scientific = TRUE),
+  ", iterations=", num_iterations
 )
 message("Upstream GraphLD GraphREML conformance check passed.")
