@@ -109,6 +109,37 @@ struct TreeHolder {
   TreeHolder &operator=(const TreeHolder &) = delete;
 };
 
+struct TableCollectionHolder {
+  tsk_table_collection_t value;
+  bool active;
+
+  TableCollectionHolder() : active(false) {
+    std::memset(&value, 0, sizeof(value));
+  }
+
+  ~TableCollectionHolder() {
+    release();
+  }
+
+  void release() {
+    if (active) {
+      tsk_table_collection_free(&value);
+      active = false;
+      std::memset(&value, 0, sizeof(value));
+    }
+  }
+
+  void copy_from(const tsk_treeseq_t *ts) {
+    release();
+    active = true;
+    const int ret = tsk_treeseq_copy_tables(ts, &value, 0);
+    check_tsk(ret, "failed to copy tskit tables from tree sequence");
+  }
+
+  TableCollectionHolder(const TableCollectionHolder &) = delete;
+  TableCollectionHolder &operator=(const TableCollectionHolder &) = delete;
+};
+
 DataFrame make_initial_edges(const std::vector<double> &left,
                              const std::vector<double> &right,
                              const std::vector<int> &parent,
@@ -340,6 +371,12 @@ DataFrame extract_mutations(const tsk_treeseq_t &ts) {
       _["stringsAsFactors"] = false);
 }
 
+void validate_prune_threshold(double threshold) {
+  if (!std::isfinite(threshold) || threshold < 0 || threshold > 0.5) {
+    stop("`threshold` must be a finite number between 0 and 0.5");
+  }
+}
+
 List extract_metadata(const tsk_treeseq_t &ts) {
   return List::create(
       _["source"] = "native-tskit-c",
@@ -400,6 +437,85 @@ List extract_tree_tables(const tsk_treeseq_t &ts) {
       _["metadata"] = extract_metadata(ts));
 }
 
+SEXP prune_sites_xptr(SEXP xptr, double threshold) {
+  validate_prune_threshold(threshold);
+  tsk_treeseq_t *input = borrow_treeseq_xptr(xptr);
+  const tsk_size_t num_sites = tsk_treeseq_get_num_sites(input);
+  const tsk_size_t num_mutations = tsk_treeseq_get_num_mutations(input);
+  const tsk_size_t num_samples = tsk_treeseq_get_num_samples(input);
+
+  std::vector<tsk_bool_t> keep_sites(num_sites, 0);
+  std::vector<tsk_bool_t> keep_mutations(num_mutations, 0);
+
+  TreeHolder tree;
+  tree.init(input);
+  int ret = tsk_tree_first(&tree.value);
+  if (ret < 0) {
+    check_tsk(ret, "failed to read first tskit tree");
+  }
+  while (ret == TSK_TREE_OK) {
+    const tsk_site_t *sites = nullptr;
+    tsk_size_t sites_length = 0;
+    check_tsk(tsk_tree_get_sites(&tree.value, &sites, &sites_length),
+              "failed to read tskit tree sites");
+    for (tsk_size_t j = 0; j < sites_length; ++j) {
+      const tsk_site_t &site = sites[j];
+      if (site.mutations_length != 1) {
+        stop("native prune_sites currently requires exactly one mutation per site");
+      }
+      tsk_size_t derived_count = 0;
+      check_tsk(tsk_tree_get_num_samples(&tree.value, site.mutations[0].node, &derived_count),
+                "failed to compute derived-allele sample count");
+      const double freq = static_cast<double>(derived_count) /
+          static_cast<double>(num_samples);
+      if (freq >= threshold && freq <= 1.0 - threshold) {
+        keep_sites[site.id] = 1;
+        keep_mutations[site.mutations[0].id] = 1;
+      }
+    }
+    ret = tsk_tree_next(&tree.value);
+    if (ret < 0) {
+      check_tsk(ret, "failed to advance tskit tree iterator");
+    }
+  }
+
+  TableCollectionHolder tables;
+  tables.copy_from(input);
+
+  std::vector<tsk_id_t> site_id_map(num_sites, TSK_NULL);
+  check_tsk(tsk_site_table_keep_rows(&tables.value.sites, keep_sites.data(), 0,
+                                     site_id_map.data()),
+            "failed to prune tskit site table");
+  check_tsk(tsk_mutation_table_keep_rows(&tables.value.mutations,
+                                         keep_mutations.data(), 0, nullptr),
+            "failed to prune tskit mutation table");
+
+  for (tsk_id_t mutation_id = 0;
+       mutation_id < static_cast<tsk_id_t>(tables.value.mutations.num_rows);
+       ++mutation_id) {
+    const tsk_id_t old_site_id = tables.value.mutations.site[mutation_id];
+    if (old_site_id < 0 || old_site_id >= static_cast<tsk_id_t>(site_id_map.size())) {
+      stop("pruned mutation references an out-of-bounds site id");
+    }
+    const tsk_id_t new_site_id = site_id_map[old_site_id];
+    if (new_site_id == TSK_NULL) {
+      stop("pruned mutation references a deleted site");
+    }
+    tables.value.mutations.site[mutation_id] = new_site_id;
+  }
+
+  tsk_treeseq_t *output = new tsk_treeseq_t();
+  std::memset(output, 0, sizeof(*output));
+  try {
+    check_tsk(tsk_treeseq_init(output, &tables.value, TSK_TS_INIT_BUILD_INDEXES),
+              "failed to build pruned tskit tree sequence");
+  } catch (...) {
+    delete output;
+    throw;
+  }
+  return wrap_treeseq_xptr(output);
+}
+
 } // namespace
 
 // [[Rcpp::export(name = "RC_tskit_tree_sequence_load")]]
@@ -434,4 +550,9 @@ List tskit_tree_tables_from_file_cpp(std::string path) {
 List tskit_tree_tables_from_treeseq_cpp(SEXP xptr) {
   tsk_treeseq_t *ts = borrow_treeseq_xptr(xptr);
   return extract_tree_tables(*ts);
+}
+
+// [[Rcpp::export(name = "RC_tskit_tree_sequence_prune_sites")]]
+SEXP tskit_tree_sequence_prune_sites_cpp(SEXP xptr, double threshold) {
+  return prune_sites_xptr(xptr, threshold);
 }

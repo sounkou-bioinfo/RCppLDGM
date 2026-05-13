@@ -24,6 +24,70 @@ ldgm_tskit_treeseq <- function(file) {
   )
 }
 
+#' Prune Low-Frequency Sites from tskit Tree Sequences
+#'
+#' Removes sites whose derived-allele frequency is below `threshold` or above
+#' `1 - threshold`, matching upstream `ldgm.utility.prune_sites()` semantics for
+#' tree sequences with exactly one mutation per site. Native `.trees` paths and
+#' `ldgm_tskit_treeseq()` handles use the vendored tskit C API. Live Python
+#' `tskit.TreeSequence` objects use a small reticulate helper that mirrors the
+#' upstream Python loop.
+#'
+#' @param x A `.trees` file path, a native `ldgm_tskit_treeseq` handle, or a
+#'   Python `tskit.TreeSequence` object from `reticulate`.
+#' @param threshold Finite site-frequency threshold in `[0, 0.5]`.
+#' @param python Optional path to the Python executable containing `tskit`; used
+#'   only for Python-object inputs.
+#' @param backend Backend selector. `"auto"` and `"native"` use vendored tskit C
+#'   for `.trees` paths and native handles. Python objects require `"auto"` or
+#'   `"reticulate"`.
+#'
+#' @return A pruned `ldgm_tskit_treeseq` handle for native inputs, or a pruned
+#'   Python `tskit.TreeSequence` object for Python inputs.
+#' @export
+ldgm_prune_sites <- function(x,
+                             threshold,
+                             python = NULL,
+                             backend = c("auto", "native", "reticulate")) {
+  backend <- match.arg(backend)
+  if (!is.numeric(threshold) || length(threshold) != 1L || is.na(threshold) || !is.finite(threshold) ||
+      threshold < 0 || threshold > 0.5) {
+    stop("`threshold` must be a single finite number between 0 and 0.5", call. = FALSE)
+  }
+  threshold <- as.numeric(threshold)
+
+  if (is.character(x)) {
+    if (length(x) != 1L || is.na(x) || !nzchar(x)) {
+      stop("`x` must be a single `.trees` path, an `ldgm_tskit_treeseq` handle, or a Python tskit object", call. = FALSE)
+    }
+    if (!file.exists(x)) {
+      stop("`.trees` file does not exist: ", x, call. = FALSE)
+    }
+    if (identical(backend, "reticulate")) {
+      stop("reticulate pruning only supports live Python tskit objects; use `backend = \"auto\"` or `\"native\"` for `.trees` paths", call. = FALSE)
+    }
+    return(ldgm_prune_sites(ldgm_tskit_treeseq(x), threshold = threshold, backend = "native"))
+  }
+  if (inherits(x, "ldgm_tskit_treeseq")) {
+    if (identical(backend, "reticulate")) {
+      stop("reticulate pruning only supports live Python tskit objects", call. = FALSE)
+    }
+    return(structure(
+      list(xptr = RC_tskit_tree_sequence_prune_sites(ldgm_tskit_treeseq_xptr(x), threshold), path = NULL),
+      class = "ldgm_tskit_treeseq"
+    ))
+  }
+  if (inherits(x, "python.builtin.object")) {
+    if (identical(backend, "native")) {
+      stop("native pruning only supports `.trees` paths and `ldgm_tskit_treeseq()` handles; use `backend = \"reticulate\"` for Python objects", call. = FALSE)
+    }
+    ensure_reticulate_tskit(python = python)
+    helper <- reticulate_tskit_prune_helper()
+    return(helper(x, threshold))
+  }
+  stop("`x` must be a single `.trees` path, an `ldgm_tskit_treeseq` handle, or a Python tskit object", call. = FALSE)
+}
+
 #' Build LDGM Tree Tables from tskit Inputs
 #'
 #' Optional adapter that extracts the canonical tree-diff tables consumed by the
@@ -150,6 +214,34 @@ ensure_reticulate_tskit <- function(python = NULL) {
   }
   invisible(TRUE)
 }
+
+reticulate_tskit_prune_helper <- local({
+  helper <- NULL
+  function() {
+    if (!is.null(helper)) {
+      return(helper)
+    }
+    code <- reticulate::py_run_string(
+      "
+
+def _rcppldgm_prune_sites(ts, threshold):
+    a = ts.num_samples
+    sites_to_delete = []
+    for tree in ts.trees():
+        for site in tree.sites():
+            if len(site.mutations) != 1:
+                raise ValueError('reticulate prune_sites currently requires exactly one mutation per site')
+            freq = tree.num_samples(site.mutations[0].node) / a
+            if freq < threshold or freq > 1 - threshold:
+                sites_to_delete.append(site.id)
+    return ts.delete_sites(sites_to_delete)
+",
+      convert = FALSE
+    )
+    helper <<- code$`_rcppldgm_prune_sites`
+    helper
+  }
+})
 
 reticulate_tskit_extract_helper <- local({
   helper <- NULL

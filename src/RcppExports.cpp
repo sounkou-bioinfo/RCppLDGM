@@ -342,6 +342,18 @@ BEGIN_RCPP
     return rcpp_result_gen;
 END_RCPP
 }
+// tskit_tree_sequence_prune_sites_cpp
+SEXP tskit_tree_sequence_prune_sites_cpp(SEXP xptr, double threshold);
+RcppExport SEXP _RcppLDGM_tskit_tree_sequence_prune_sites_cpp(SEXP xptrSEXP, SEXP thresholdSEXP) {
+BEGIN_RCPP
+    Rcpp::RObject rcpp_result_gen;
+    Rcpp::RNGScope rcpp_rngScope_gen;
+    Rcpp::traits::input_parameter< SEXP >::type xptr(xptrSEXP);
+    Rcpp::traits::input_parameter< double >::type threshold(thresholdSEXP);
+    rcpp_result_gen = Rcpp::wrap(tskit_tree_sequence_prune_sites_cpp(xptr, threshold));
+    return rcpp_result_gen;
+END_RCPP
+}
 
 static const R_CallMethodDef CallEntries[] = {
     {"_RcppLDGM_brick_edges_from_tables_cpp", (DL_FUNC) &_RcppLDGM_brick_edges_from_tables_cpp, 21},
@@ -366,6 +378,7 @@ static const R_CallMethodDef CallEntries[] = {
     {"_RcppLDGM_tskit_tree_sequence_load_cpp", (DL_FUNC) &_RcppLDGM_tskit_tree_sequence_load_cpp, 1},
     {"_RcppLDGM_tskit_tree_tables_from_file_cpp", (DL_FUNC) &_RcppLDGM_tskit_tree_tables_from_file_cpp, 1},
     {"_RcppLDGM_tskit_tree_tables_from_treeseq_cpp", (DL_FUNC) &_RcppLDGM_tskit_tree_tables_from_treeseq_cpp, 1},
+    {"_RcppLDGM_tskit_tree_sequence_prune_sites_cpp", (DL_FUNC) &_RcppLDGM_tskit_tree_sequence_prune_sites_cpp, 2},
     {NULL, NULL, 0}
 };
 

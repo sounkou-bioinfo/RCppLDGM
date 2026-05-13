@@ -166,6 +166,46 @@ ts.dump(path)
     expect_equal(path_ldgm$snplist, bundle_ldgm$snplist)
     expect_equal(path_ldgm$snplist, native_ldgm$snplist)
   }
+
+  prune_py <- reticulate::py_run_string(
+    "
+import msprime
+for seed in range(1, 100):
+    prune_ts = msprime.sim_ancestry(
+        samples=100,
+        sequence_length=100000,
+        recombination_rate=1e-8,
+        population_size=10000,
+        random_seed=seed,
+    )
+    prune_ts = msprime.sim_mutations(prune_ts, rate=1e-8, random_seed=seed + 1000)
+    if any(len(site.mutations) != 1 for site in prune_ts.sites()):
+        continue
+    geno = prune_ts.genotype_matrix()
+    if geno.shape[0] > 0 and ((geno.sum(axis=1) == 1).any() or (geno.sum(axis=1) == 99).any()):
+        break
+else:
+    raise RuntimeError('failed to generate low-frequency pruning fixture')
+prune_path = tempfile.NamedTemporaryFile(suffix='.trees', delete=False).name
+prune_ts.dump(prune_path)
+",
+    convert = FALSE
+  )
+  prune_path <- reticulate::py_to_r(prune_py$prune_path)
+  on.exit(unlink(prune_path), add = TRUE)
+  prune_native <- ldgm_tskit_treeseq(prune_path)
+  before_prune <- ldgm_tree_tables_from_tskit(prune_native)
+  after_prune_path <- ldgm_prune_sites(prune_path, threshold = 0.02)
+  after_prune_native <- ldgm_prune_sites(prune_native, threshold = 0.02)
+  after_prune_python <- ldgm_prune_sites(prune_py$prune_ts, threshold = 0.02)
+  expect_true(inherits(after_prune_path, "ldgm_tskit_treeseq"))
+  expect_true(inherits(after_prune_native, "ldgm_tskit_treeseq"))
+  after_path_tables <- ldgm_tree_tables_from_tskit(after_prune_path)
+  after_native_tables <- ldgm_tree_tables_from_tskit(after_prune_native)
+  after_python_tables <- ldgm_tree_tables_from_tskit(after_prune_python)
+  expect_true(nrow(after_path_tables$mutations) < nrow(before_prune$mutations))
+  expect_equal(after_path_tables$mutations, after_native_tables$mutations)
+  expect_equal(after_path_tables$mutations, after_python_tables$mutations)
 }
 
 expect_error(

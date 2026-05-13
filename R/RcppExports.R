@@ -89,3 +89,7 @@ RC_tskit_tree_tables_from_treeseq <- function(xptr) {
     .Call(`_RcppLDGM_tskit_tree_tables_from_treeseq_cpp`, xptr)
 }
 
+RC_tskit_tree_sequence_prune_sites <- function(xptr, threshold) {
+    .Call(`_RcppLDGM_tskit_tree_sequence_prune_sites_cpp`, xptr, threshold)
+}
+
