@@ -32,7 +32,7 @@ but several declared compatibility surfaces remain incomplete or unverified.
 | LDGM table/bricking/reduction pipeline | `R/bricks.R`, `R/tree-tables.R`, `R/snplist.R`, `tools/check-upstream-ldgm-goldens.R` | Implemented against pinned upstream goldens; larger workloads remain future work |
 | Native `.trees` adapter | `R/tskit-adapter.R`, `src/tskit_adapter.cpp`, `src/tskit/`, `src/tskit/README.RcppLDGM` | Implemented for file paths using vendored tskit C `C_1.3.1`; direct native in-memory object wiring remains future work |
 | GraphLD precision operators | `R/precision.R`, `src/precision_native.cpp`, `inst/tinytest/test-precision.R`, `tools/benchmark-precision.R` | Implemented; upstream-scale SuiteSparse conformance/performance remains future work |
-| GraphLD BLUP/clumping | `R/blup.R`, `R/clump.R`, `inst/tinytest/test-blup.R`, `inst/tinytest/test-clump.R`, `tools/check-upstream-graphld-data.R` | Serial scheduler implemented; multiprocessing and pinned Python output conformance remain future work |
+| GraphLD BLUP/clumping | `R/blup.R`, `R/clump.R`, `inst/tinytest/test-blup.R`, `inst/tinytest/test-clump.R`, `tools/check-upstream-graphld-data.R`, `tools/check-upstream-graphld-blup-clump.R` | Serial scheduler implemented; pinned Python output conformance on upstream test blocks implemented; multiprocessing remains future work |
 | GraphREML | `R/reml.R`, `inst/tinytest/test-reml.R`, `tools/check-upstream-graphld-data.R` | Serial core, pseudo-jackknife, surrogate/HDF5 slices implemented; full CLI/block-manager/upstream-scale jackknife parity remains future work |
 | Score-test and HDF5 | `R/score-test.R`, `R/hdf5.R`, `src/hdf5_score.cpp`, `inst/tinytest/test-score-test.R`, `inst/tinytest/test-hdf5.R`, `tools/check-graphld-hdf5-python-interop.R` | Variant/gene HDF5 and score/meta-analysis surfaces implemented; broader GraphLD CLI schema and h5py-required CI remain future work |
 | Formal interfaces | `R/interfaces.R`, `docs/interface-inventory.md`, man pages for `LdgmSummaryStats`, `LdgmAnnotationData`, `LdgmBlockCatalog` | Implemented for major current inputs |
@@ -50,6 +50,7 @@ Rscript -e 'options(warn=2); tinytest::test_package("RcppLDGM", testdir = "inst/
 RCPP_LDGM_UPSTREAM_GOLDENS=.sync/ldgm-goldens Rscript tools/check-upstream-ldgm-goldens.R
 Rscript tools/check-upstream-graphld-data.R
 Rscript tools/check-upstream-graphld-readers.R
+Rscript tools/check-upstream-graphld-blup-clump.R
 Rscript tools/check-upstream-graphld-simulate.R
 Rscript -e 'pkgdown::build_site(new_process = FALSE, install = FALSE)'
 R CMD build .
@@ -83,9 +84,10 @@ scoped out with a compatibility rationale:
 
 1. Full GraphLD graphREML CLI parity: multiprocessing/block-manager behavior,
    richer score-test schema, and upstream-scale jackknife conformance.
-2. Pinned Python output conformance for BLUP, clumping, graphREML summaries,
-   score-test meta-analysis, selected precision views, and stochastic inverse
-   diagonal estimators on upstream GraphLD data.
+2. Pinned Python output conformance for graphREML summaries, score-test
+   meta-analysis, selected precision views, and stochastic inverse diagonal
+   estimators on upstream GraphLD data. BLUP and clumping now have pinned
+   upstream-output conformance on the current test blocks.
 3. Larger LDGM/GraphLD performance and conformance workloads beyond the current
    tiny upstream fixtures and smoke data.
 4. Direct native in-memory tree-sequence object integration beyond the current

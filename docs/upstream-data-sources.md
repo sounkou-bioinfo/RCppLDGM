@@ -32,6 +32,21 @@ RCPP_LDGM_GRAPHLD_MAX_BLOCKS=2 \
 Rscript tools/check-upstream-graphld-data.R
 ```
 
+BLUP/clumping output conformance can be checked directly against pinned upstream
+GraphLD Python outputs on the same filtered metadata slice:
+
+```bash
+RCPP_LDGM_PYTHON=.sync/ldgm-python/bin/python \
+RCPP_LDGM_GRAPHLD_ROOT=.sync/graphld \
+RCPP_LDGM_GRAPHLD_DATA=.sync/graphld/data/test \
+RCPP_LDGM_GRAPHLD_POP=EUR \
+RCPP_LDGM_GRAPHLD_MAX_BLOCKS=2 \
+Rscript tools/check-upstream-graphld-blup-clump.R
+```
+
+Set `RCPP_LDGM_REQUIRE_GRAPHLD_BLUP_CLUMP=true` to make upstream-generation
+failures hard failures instead of skips.
+
 `ldgm_simulate()` conformance can be checked through a pinned generator/check
 pair that writes a small metadata-filtered fixture and compares against
 `ldgm_simulate()` with the same command context:
