@@ -41,6 +41,8 @@ groups, gene data, and the variant-by-gene matrix.
 \description{
 R-native counterpart of GraphLD's variant-to-gene score conversion. It reads
 variant-level score-test HDF5 output, builds a nearest-gene matrix with
-\code{\link[=ldgm_gene_variant_matrix]{ldgm_gene_variant_matrix()}}, projects each trait gradient to genes, and
-writes a gene-level GraphLD-style HDF5 file.
+\code{\link[=ldgm_gene_variant_matrix]{ldgm_gene_variant_matrix()}}, projects each trait gradient to genes, carries
+through fitted parameter datasets, and when available also projects the
+per-row \code{hessian} vector plus any numeric per-row trait datasets to gene
+level before writing a GraphLD-style gene HDF5 file.
 }

@@ -47,7 +47,7 @@ arguments as stable interfaces unless they are deliberately exposed in R.
 | GWAS VCF input | `.sync/graphld/src/graphld/vcf_io.py`, `.sync/graphld/data/test/example.gwas.vcf` | `ldgm_read_gwas_vcf()`, `ldgm_validate_gwas_vcf_format()` | tinytest sumstats readers; GraphLD data smoke; pinned Python value conformance via `tools/check-upstream-graphld-readers.R` | Add multi-sample/out-of-scope behavior notes and larger fixtures |
 | BED/range and annotation directory inputs | GraphLD `read_bed()`, `load_annotations()`, `.sync/graphld/data/test/annot/` | `ldgm_read_bed()`, `ldgm_annotate_ranges()`, `ldgm_load_annotations()` | tinytest annotations; GraphLD data smoke; pinned Python value conformance via `tools/check-upstream-graphld-readers.R` | Expand conformance for nontrivial BED overlaps and optional position/allele augmentation |
 | Simulation workflow inputs | `.sync/graphld/src/graphld/simulate.py`, GraphLD `simulate` CLI | Serial R prototype (`ldgm_simulate()`) with metadata path and annotation inputs | Partially implemented with tinytest smoke, seed-repeat checks, and a pinned multi-scenario conformance gate covering one-block, multi-block, and mixture runs | Larger fixture coverage, multiprocessing behavior, and more edge-case metadata slices still remain beyond the current `tools/check-upstream-graphld-simulate.R` / `tools/generate-upstream-graphld-simulate.py` gate |
-| Gene-set and gene-table inputs | `.sync/graphld/src/score_test/genesets.py`, `convert_scores.py` | `ldgm_read_gmt()`, `ldgm_read_gene_table()`, `ldgm_gene_variant_matrix()`, `ldgm_gene_set_annotations()`, `ldgm_gene_set_variant_annotations()`, `ldgm_convert_variant_to_gene_scores()`, gene-set aware `ldgm_score_test_hdf5()`, and gene-set aware `ldgm_score_test_hdf5_meta()` | tinytest gene-sets/HDF5; GraphLD data smoke; pinned Python value conformance via `tools/check-upstream-graphld-readers.R` | Expand conformance for nearest-gene tie/edge cases and full convert-scores CLI parity |
+| Gene-set and gene-table inputs | `.sync/graphld/src/score_test/genesets.py`, `convert_scores.py` | `ldgm_read_gmt()`, `ldgm_read_gene_table()`, `ldgm_gene_variant_matrix()`, `ldgm_gene_set_annotations()`, `ldgm_gene_set_variant_annotations()`, `ldgm_convert_variant_to_gene_scores()`, gene-set aware `ldgm_score_test_hdf5()`, and gene-set aware `ldgm_score_test_hdf5_meta()` | tinytest gene-sets/HDF5; GraphLD data smoke; pinned Python value conformance via `tools/check-upstream-graphld-readers.R`; gene conversion now also preserves trait groups, parameter datasets, optional `hessian`, and projected numeric per-row trait datasets | Expand conformance for nearest-gene tie/edge cases and full convert-scores CLI parity |
 | MATLAB legacy workflows | `MATLAB/*.m`, `MATLAB/precision/*.m`, `MATLAB/utility/*.m` | Partially covered by precision, BLUP, likelihood, allele merge | Unit tests and precision benchmark cover selected kernels | Decide whether DENTIST, imputation, PGS projection, and precision estimation are in scope |
 
 ## Local places to mine for interface contracts
@@ -93,8 +93,9 @@ arguments as stable interfaces unless they are deliberately exposed in R.
    especially missingness, alternate schemas, BED overlap edge cases, and
    nearest-gene ties.
 3. Expand convert-scores coverage toward full GraphLD CLI parity, including
-   trait groups, non-gradient trait-specific datasets, and provider-backed row
-   tables that do not require eager in-memory materialization.
+   provider-backed row tables that do not require eager in-memory
+   materialization plus any remaining non-projected dataset semantics beyond the
+   current trait-group, parameter, `hessian`, and numeric per-row dataset path.
 4. Add upstream Python conformance for BLUP, clumping, GraphREML summaries beyond
    the current fixed-block and multi-iteration optimizer-summary gates, and expand inverse-diagonal coverage beyond the current selected/full xdiag+hutchinson test-block gate.
 5. Define and run a pinned GraphLD simulation conformance gate (`ldgm_simulate()`) using

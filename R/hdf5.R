@@ -288,8 +288,10 @@ ldgm_write_gene_score_hdf5 <- function(file,
 #'
 #' R-native counterpart of GraphLD's variant-to-gene score conversion. It reads
 #' variant-level score-test HDF5 output, builds a nearest-gene matrix with
-#' [ldgm_gene_variant_matrix()], projects each trait gradient to genes, and
-#' writes a gene-level GraphLD-style HDF5 file.
+#' [ldgm_gene_variant_matrix()], projects each trait gradient to genes, carries
+#' through fitted parameter datasets, and when available also projects the
+#' per-row `hessian` vector plus any numeric per-row trait datasets to gene
+#' level before writing a GraphLD-style gene HDF5 file.
 #'
 #' @param variant_stats_hdf5 Input variant-level score-test HDF5 path.
 #' @param gene_stats_hdf5 Output gene-level HDF5 path.
@@ -355,13 +357,23 @@ ldgm_convert_variant_to_gene_scores <- function(variant_stats_hdf5,
   )
   for (i in seq_along(trait_names)) {
     trait <- ldgm_read_score_test_hdf5(variant_stats_hdf5, trait_names[[i]])
-    gene_gradient <- as.numeric(as.numeric(trait$gradient) %*% G)
+    gene_gradient <- project_score_hdf5_vector_to_genes(trait$gradient, G, "gradient")
+    gene_hessian <- if (is.null(trait$hessian)) {
+      NULL
+    } else {
+      project_score_hdf5_vector_to_genes(trait$hessian, G, "hessian")
+    }
+    gene_trait_datasets <- project_score_hdf5_trait_datasets_to_genes(trait$trait_datasets, G)
     ldgm_write_gene_score_hdf5(
       gene_stats_hdf5,
       gene_data = gene_data,
       gradient = gene_gradient,
       trait_name = trait_names[[i]],
       jackknife_blocks = gene_jackknife,
+      hessian = gene_hessian,
+      trait_datasets = gene_trait_datasets,
+      parameters = trait$parameters,
+      jackknife_parameters = trait$jackknife_parameters,
       overwrite = isTRUE(overwrite) && i == 1L,
       compression = compression,
       chunk_size = chunk_size,
@@ -553,6 +565,37 @@ ldgm_read_surrogate_map_hdf5 <- function(file, block_name, file_index_base = c("
     out[out < 1L] <- NA_integer_
   }
   out
+}
+
+project_score_hdf5_vector_to_genes <- function(x, G, label) {
+  values <- as.numeric(x)
+  if (length(values) != nrow(G) || anyNA(values)) {
+    stop("`", label, "` must contain one non-missing value per variant", call. = FALSE)
+  }
+  as.numeric(values %*% G)
+}
+
+project_score_hdf5_trait_datasets_to_genes <- function(x, G) {
+  if (is.null(x) || length(x) == 0L) {
+    return(list())
+  }
+  out <- list()
+  out_names <- character(0)
+  for (i in seq_along(x)) {
+    values <- x[[i]]
+    if (is.factor(values)) {
+      values <- as.character(values)
+    }
+    if (is.character(values)) {
+      next
+    }
+    if (!(is.logical(values) || is.integer(values) || is.numeric(values))) {
+      next
+    }
+    out[[length(out) + 1L]] <- project_score_hdf5_vector_to_genes(values, G, names(x)[[i]])
+    out_names[[length(out_names) + 1L]] <- names(x)[[i]]
+  }
+  stats::setNames(out, out_names)
 }
 
 select_score_test_trait_groups <- function(groups, trait_names) {

@@ -212,8 +212,15 @@ ldgm_write_score_test_hdf5(
   variant_gene_h5,
   data.frame(CHR = c(1L, 1L, 1L), POS = c(90L, 220L, 280L), RSID = paste0("rs", 1:3)),
   gradient = c(1, 2, 3),
+  hessian = c(10, 20, 30),
   trait_name = "trait1",
   jackknife_blocks = c(0L, 0L, 1L),
+  trait_datasets = list(
+    posterior_scale = c(1, 2, 3),
+    label = c("a", "b", "c")
+  ),
+  parameters = c(0.5),
+  jackknife_parameters = matrix(c(0.4, 0.6), ncol = 1L),
   overwrite = TRUE
 )
 ldgm_write_score_test_hdf5(
@@ -246,6 +253,11 @@ expect_equal(conversion$groups, list(pair = c("trait1", "trait2")))
 expect_equal(converted$data_type, "gene")
 expect_equal(converted$row_data$gene_id, c("ENSG1", "ENSG2"))
 expect_equal(converted$gradient, c(1, 5), tolerance = 1e-12)
+expect_equal(converted$hessian, c(10, 50), tolerance = 1e-12)
+expect_equal(converted$parameters, c(0.5), tolerance = 1e-12)
+expect_equal(converted$jackknife_parameters, matrix(c(0.4, 0.6), ncol = 1L), tolerance = 1e-12)
+expect_equal(converted$trait_datasets$posterior_scale, c(1, 5), tolerance = 1e-12)
+expect_true(!"label" %in% names(converted$trait_datasets))
 expect_equal(as.integer(converted$row_data$jackknife_blocks), c(0L, 1L))
 expect_equal(ldgm_read_score_test_trait_groups(converted_gene_h5), list(pair = c("trait1", "trait2")))
 expect_true(all(c("trait1", "trait2") %in% ldgm_read_score_test_hdf5(converted_gene_h5)$trait_names))
