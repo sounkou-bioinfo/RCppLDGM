@@ -73,6 +73,20 @@ def _load_convert_scores(repo_root: Path):
     return module
 
 
+def _load_genesets(repo_root: Path):
+    module_dir = _score_test_module_dir(repo_root)
+    module_path = module_dir / "genesets.py"
+    if not module_path.exists():
+        _require_or_skip(f"upstream GraphLD genesets.py not found at {module_path}")
+    sys.path.insert(0, str(module_dir))
+    spec = importlib.util.spec_from_file_location("graphld_upstream_genesets", module_path)
+    if spec is None or spec.loader is None:
+        raise RuntimeError(f"could not load import spec for {module_path}")
+    module = importlib.util.module_from_spec(spec)
+    spec.loader.exec_module(module)
+    return module
+
+
 def _to_list(series_or_array):
     values = series_or_array.to_list() if hasattr(series_or_array, "to_list") else list(series_or_array)
     decoded = []
@@ -117,6 +131,18 @@ def _normalize_list(values):
             continue
         normalized.append(value)
     return normalized
+
+
+def _read_gmt(gmt_path: Path) -> dict[str, list[str]]:
+    gene_sets: dict[str, list[str]] = {}
+    with gmt_path.open("r", encoding="utf-8") as handle:
+        for line in handle:
+            fields = line.rstrip("\n").split("\t")
+            if len(fields) >= 3 and fields[0]:
+                gene_sets[fields[0]] = [gene for gene in fields[2:] if gene]
+    if not gene_sets:
+        raise AssertionError(f"no gene sets found in {gmt_path}")
+    return gene_sets
 
 
 def _assert_gene_conversion(
@@ -206,12 +232,77 @@ def _assert_gene_conversion(
         upstream_gene_hdf5.unlink(missing_ok=True)
 
 
+def _assert_gene_set_scores(
+    score_test_io,
+    score_test,
+    genesets_mod,
+    variant_hdf5: Path,
+    gene_hdf5: Path,
+    gene_table_path: Path,
+    gmt_path: Path,
+    trait_name: str,
+    expected_variant_score_path: Path,
+    expected_variant_jackknife_path: Path,
+    expected_gene_score_path: Path,
+    expected_gene_jackknife_path: Path,
+):
+    import polars as pl
+
+    gene_sets = _read_gmt(gmt_path)
+    gene_set_names = list(gene_sets.keys())
+
+    variant_table = score_test_io.load_row_data(str(variant_hdf5))
+    variant_trait = score_test_io.load_trait_data(str(variant_hdf5), trait_name, variant_table)
+    gene_table = score_test_io.load_gene_table(
+        str(gene_table_path), chromosomes=variant_table["CHR"].unique().sort().to_list()
+    )
+    variant_annotations = genesets_mod.convert_gene_to_variant_annotations(
+        gene_sets, variant_table, gene_table, np.array([1.0])
+    )
+    variant_annot = score_test.VariantAnnot(variant_annotations, gene_set_names)
+    variant_point, variant_jackknife = score_test.run_score_test(variant_trait, variant_annot)
+
+    expected_variant_score = pl.read_csv(expected_variant_score_path, separator="\t")
+    expected_variant_jackknife = pl.read_csv(expected_variant_jackknife_path, separator="\t")
+    np.testing.assert_allclose(
+        variant_point.ravel(), expected_variant_score["score"].to_numpy(), rtol=0, atol=1e-12
+    )
+    np.testing.assert_allclose(
+        variant_jackknife,
+        expected_variant_jackknife.select(gene_set_names).to_numpy(),
+        rtol=0,
+        atol=1e-12,
+    )
+    variant_z = variant_point.ravel() / np.std(variant_jackknife, axis=0) / np.sqrt(variant_jackknife.shape[0] - 1)
+    np.testing.assert_allclose(variant_z, expected_variant_score["z"].to_numpy(), rtol=0, atol=1e-12)
+
+    gene_table_r = score_test_io.load_row_data(str(gene_hdf5))
+    gene_trait = score_test_io.load_trait_data(str(gene_hdf5), trait_name, gene_table_r)
+    gene_annot = score_test.GeneAnnot(gene_sets)
+    gene_point, gene_jackknife = score_test.run_score_test(gene_trait, gene_annot)
+
+    expected_gene_score = pl.read_csv(expected_gene_score_path, separator="\t")
+    expected_gene_jackknife = pl.read_csv(expected_gene_jackknife_path, separator="\t")
+    np.testing.assert_allclose(gene_point.ravel(), expected_gene_score["score"].to_numpy(), rtol=0, atol=1e-12)
+    np.testing.assert_allclose(
+        gene_jackknife,
+        expected_gene_jackknife.select(gene_set_names).to_numpy(),
+        rtol=0,
+        atol=1e-12,
+    )
+    if gene_jackknife.shape[0] > 1:
+        gene_z = gene_point.ravel() / np.std(gene_jackknife, axis=0) / np.sqrt(gene_jackknife.shape[0] - 1)
+        np.testing.assert_allclose(gene_z, expected_gene_score["z"].to_numpy(), rtol=0, atol=1e-12)
+
+
 def main(argv: list[str]) -> int:
-    if len(argv) not in {3, 5, 7, 9, 11}:
+    if len(argv) not in {3, 5, 7, 9, 11, 16}:
         print(
             "usage: check-graphld-hdf5-python-interop.py <file.h5> <trait> "
             "[expected-score.tsv expected-jackknife.tsv "
-            "[surrogate-map.h5 block-name [second-trait expected-meta.tsv [gene-table.tsv gene-file.h5]]]]",
+            "[surrogate-map.h5 block-name [second-trait expected-meta.tsv "
+            "[gene-table.tsv gene-file.h5 [gene-sets.gmt variant-gene-score.tsv "
+            "variant-gene-jackknife.tsv gene-pathway-score.tsv gene-pathway-jackknife.tsv]]]]]",
             file=sys.stderr,
         )
         return 2
@@ -291,7 +382,7 @@ def main(argv: list[str]) -> int:
     jackknife_estimates = None
     score_test = None
     annotations = None
-    if len(argv) in {5, 9, 11}:
+    if len(argv) in {5, 9, 11, 16}:
         score_test = _load_score_test(repo_root)
         expected_score = pl.read_csv(argv[3], separator="\t")
         expected_jackknife = pl.read_csv(argv[4], separator="\t")
@@ -317,7 +408,7 @@ def main(argv: list[str]) -> int:
         z_scores = point_estimates.ravel() / np.std(jackknife_estimates, axis=0) / np.sqrt(jackknife_estimates.shape[0] - 1)
         np.testing.assert_allclose(z_scores, expected_score["z"].to_numpy(), rtol=0, atol=1e-12)
 
-    if len(argv) in {7, 9, 11}:
+    if len(argv) in {7, 9, 11, 16}:
         surrogate_path = Path(argv[5])
         block_name = argv[6]
         with h5py.File(surrogate_path, "r") as handle:
@@ -325,7 +416,7 @@ def main(argv: list[str]) -> int:
                 raise AssertionError(f"surrogate block {block_name!r} not found in {surrogate_path}")
             np.testing.assert_array_equal(handle[block_name][:], np.array([0, 2, -1]))
 
-    if len(argv) in {9, 11}:
+    if len(argv) in {9, 11, 16}:
         if score_test is None or annotations is None or point_estimates is None or jackknife_estimates is None:
             raise AssertionError("meta-analysis check requires score-test estimates from the first trait")
         from meta_analysis import MetaAnalysis  # type: ignore
@@ -345,7 +436,7 @@ def main(argv: list[str]) -> int:
         )
         np.testing.assert_allclose(meta.z_scores.ravel(), expected_meta["z"].to_numpy(), rtol=0, atol=1e-12)
 
-    if len(argv) == 11:
+    if len(argv) in {11, 16}:
         gene_table_path = Path(argv[9])
         gene_hdf5_path = Path(argv[10])
         convert_scores = _load_convert_scores(repo_root)
@@ -357,6 +448,32 @@ def main(argv: list[str]) -> int:
             gene_hdf5_path,
             trait_name,
             second_trait,
+        )
+
+    if len(argv) == 16:
+        if score_test is None:
+            raise AssertionError("gene-set score checks require upstream score_test module")
+        gene_table_path = Path(argv[9])
+        gene_hdf5_path = Path(argv[10])
+        gmt_path = Path(argv[11])
+        expected_variant_gene_score = Path(argv[12])
+        expected_variant_gene_jackknife = Path(argv[13])
+        expected_gene_pathway_score = Path(argv[14])
+        expected_gene_pathway_jackknife = Path(argv[15])
+        genesets_mod = _load_genesets(repo_root)
+        _assert_gene_set_scores(
+            score_test_io,
+            score_test,
+            genesets_mod,
+            hdf5_path,
+            gene_hdf5_path,
+            gene_table_path,
+            gmt_path,
+            trait_name,
+            expected_variant_gene_score,
+            expected_variant_gene_jackknife,
+            expected_gene_pathway_score,
+            expected_gene_pathway_jackknife,
         )
 
     print("GraphLD Python score_test_io HDF5 interop check passed.")

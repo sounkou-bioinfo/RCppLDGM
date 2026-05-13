@@ -98,9 +98,30 @@ score_annotations <- data.frame(
 score_result <- ldgm_score_test_hdf5(h5, trait_name, score_annotations)
 score_result_b <- ldgm_score_test_hdf5(h5, trait_name_b, score_annotations)
 score_meta <- ldgm_score_test_hdf5_meta(h5, c(trait_name, trait_name_b), score_annotations)
+gene_sets <- list(pathway_a = c("GENE1"), pathway_b = c("GENE2"))
+gmt_path <- tempfile("rcppldgm-gene-sets-", fileext = ".gmt")
+writeLines(
+  c(
+    "pathway_a\tdescription a\tGENE1",
+    "pathway_b\tdescription b\tGENE2"
+  ),
+  gmt_path
+)
+variant_gene_score <- ldgm_score_test_hdf5(
+  h5,
+  trait_name,
+  gene_sets,
+  gene_table = gene_table_path,
+  nearest_weights = 1
+)
+gene_pathway_score <- ldgm_score_test_hdf5(gene_h5, trait_name, gene_sets)
 score_result_path <- tempfile("rcppldgm-score-test-result-", fileext = ".tsv")
 score_jackknife_path <- tempfile("rcppldgm-score-test-jackknife-", fileext = ".tsv")
 score_meta_path <- tempfile("rcppldgm-score-test-meta-", fileext = ".tsv")
+variant_gene_score_path <- tempfile("rcppldgm-variant-gene-score-", fileext = ".tsv")
+variant_gene_jackknife_path <- tempfile("rcppldgm-variant-gene-jackknife-", fileext = ".tsv")
+gene_pathway_score_path <- tempfile("rcppldgm-gene-pathway-score-", fileext = ".tsv")
+gene_pathway_jackknife_path <- tempfile("rcppldgm-gene-pathway-jackknife-", fileext = ".tsv")
 write.table(score_result$results, score_result_path, sep = "\t", row.names = FALSE, quote = FALSE)
 write.table(
   data.frame(block = rownames(score_result$jackknife_scores), score_result$jackknife_scores, check.names = FALSE),
@@ -110,6 +131,22 @@ write.table(
   quote = FALSE
 )
 write.table(score_meta$results, score_meta_path, sep = "\t", row.names = FALSE, quote = FALSE)
+write.table(variant_gene_score$results, variant_gene_score_path, sep = "\t", row.names = FALSE, quote = FALSE)
+write.table(
+  data.frame(block = rownames(variant_gene_score$jackknife_scores), variant_gene_score$jackknife_scores, check.names = FALSE),
+  variant_gene_jackknife_path,
+  sep = "\t",
+  row.names = FALSE,
+  quote = FALSE
+)
+write.table(gene_pathway_score$results, gene_pathway_score_path, sep = "\t", row.names = FALSE, quote = FALSE)
+write.table(
+  data.frame(block = rownames(gene_pathway_score$jackknife_scores), gene_pathway_score$jackknife_scores, check.names = FALSE),
+  gene_pathway_jackknife_path,
+  sep = "\t",
+  row.names = FALSE,
+  quote = FALSE
+)
 
 stopifnot(
   identical(as.integer(native$variant_data$CHR), variant_data$CHR),
@@ -140,7 +177,11 @@ stopifnot(
   isTRUE(all.equal(native_gene$hessian, c(-0.03, -0.03), tolerance = 1e-12, check.attributes = FALSE)),
   isTRUE(all.equal(native_gene$parameters, parameters, tolerance = 1e-12, check.attributes = FALSE)),
   isTRUE(all.equal(native_gene$jackknife_parameters, jackknife_parameters, tolerance = 1e-12, check.attributes = FALSE)),
-  isTRUE(all.equal(native_gene$trait_datasets$posterior_scale, c(2.5, 0.5), tolerance = 1e-12, check.attributes = FALSE))
+  isTRUE(all.equal(native_gene$trait_datasets$posterior_scale, c(2.5, 0.5), tolerance = 1e-12, check.attributes = FALSE)),
+  isTRUE(all.equal(variant_gene_score$results$score, c(-0.1, 0.3), tolerance = 1e-12, check.attributes = FALSE)),
+  isTRUE(all.equal(variant_gene_score$results$z, c(-2, 2), tolerance = 1e-12, check.attributes = FALSE)),
+  isTRUE(all.equal(gene_pathway_score$results$score, c(-0.1, 0.3), tolerance = 1e-12, check.attributes = FALSE)),
+  all(is.na(gene_pathway_score$results$z))
 )
 
 script <- file.path("tools", "check-graphld-hdf5-python-interop.py")
@@ -157,7 +198,12 @@ status <- system2(
     trait_name_b,
     score_meta_path,
     gene_table_path,
-    gene_h5
+    gene_h5,
+    gmt_path,
+    variant_gene_score_path,
+    variant_gene_jackknife_path,
+    gene_pathway_score_path,
+    gene_pathway_jackknife_path
   )
 )
 if (!identical(status, 0L)) {

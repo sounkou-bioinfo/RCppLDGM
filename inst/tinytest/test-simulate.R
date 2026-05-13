@@ -134,3 +134,61 @@ provider_result <- ldgm_simulate(
 expect_equal(nrow(provider_result), 3L)
 expect_equal(annotation_provider_calls$partition, 1L)
 expect_true(all(is.finite(provider_result$Z)))
+
+multi_sim_dir <- tempfile("ldgm-sim-multi-pop-")
+dir.create(multi_sim_dir)
+writeLines(
+  c("0,0,2", "1,1,3", "2,2,4", "0,1,0.1", "1,2,0.2"),
+  file.path(multi_sim_dir, "multi.EUR.edgelist")
+)
+file.copy(file.path(multi_sim_dir, "multi.EUR.edgelist"), file.path(multi_sim_dir, "multi.AFR.edgelist"))
+utils::write.csv(
+  data.frame(
+    index = 0:2,
+    anc_alleles = c("A", "C", "T"),
+    deriv_alleles = c("G", "T", "C"),
+    EUR = c(0.40, 0.20, 0.30),
+    AFR = c(0.10, 0.60, 0.80),
+    site_ids = c("rs1", "rs2", "rs3"),
+    position = c(10L, 20L, 30L),
+    swap = c("+", "+", "+"),
+    stringsAsFactors = FALSE
+  ),
+  file.path(multi_sim_dir, "multi.snplist"),
+  row.names = FALSE
+)
+multi_metadata <- data.frame(
+  chrom = c(1L, 1L),
+  chromStart = c(1L, 101L),
+  chromEnd = c(100L, 200L),
+  population = c("EUR", "AFR"),
+  name = c("multi.EUR.edgelist", "multi.AFR.edgelist"),
+  snplistName = c("multi.snplist", "multi.snplist"),
+  stringsAsFactors = FALSE
+)
+
+eur_ann <- RcppLDGM:::.ldgm_simulate_block_annotations(NULL, multi_metadata[1, , drop = FALSE], multi_sim_dir)
+afr_ann <- RcppLDGM:::.ldgm_simulate_block_annotations(NULL, multi_metadata[2, , drop = FALSE], multi_sim_dir)
+expect_equal(eur_ann$af, c(0.40, 0.20, 0.30), tolerance = 1e-12)
+expect_equal(afr_ann$af, c(0.10, 0.60, 0.80), tolerance = 1e-12)
+
+multi_catalog <- ldgm_block_catalog(
+  multi_metadata,
+  ldgm_dir = multi_sim_dir,
+  populations = c("EUR", "AFR")
+)
+multi_result <- ldgm_simulate(
+  sample_size = 500,
+  heritability = 0.2,
+  component_variance = c(0.5),
+  component_weight = c(1),
+  random_seed = 11,
+  ldgm_metadata_path = multi_catalog,
+  populations = c("EUR", "AFR"),
+  population = "EUR",
+  run_in_serial = TRUE,
+  verbose = FALSE
+)
+expect_equal(nrow(multi_result), 6L)
+expect_true(all(multi_result$N == 500L))
+expect_true(all(is.finite(multi_result$Z)))

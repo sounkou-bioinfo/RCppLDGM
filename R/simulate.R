@@ -26,7 +26,10 @@
 #'   \link{LdgmBlockCatalog}.
 #' @param population Fallback population label used when the metadata path does not
 #'   include an explicit population column.
-#' @param populations Optional population filter for metadata blocks.
+#' @param populations Optional population filter for metadata blocks. May be a
+#'   character vector of ancestry labels; when metadata rows carry a
+#'   `population` column, each retained block uses that row's allele-frequency
+#'   column from the matching `.snplist`.
 #' @param chromosomes Optional chromosome filter for metadata blocks.
 #' @param run_in_serial Compatibility shim for GraphLD API parity. Serial execution
 #'   is always used.
@@ -444,6 +447,14 @@ ldgm_default_simulation_link_fn <- function(annotation_matrix) {
     stop("snplist file not found for simulation annotations: ", snplist_path)
   }
 
+  row_population <- population
+  if ("population" %in% names(metadata_row)) {
+    metadata_population <- as.character(metadata_row$population[[1L]])
+    if (!is.na(metadata_population) && nzchar(metadata_population)) {
+      row_population <- metadata_population
+    }
+  }
+
   variant_info <- utils::read.csv(snplist_path, stringsAsFactors = FALSE, check.names = FALSE)
   required <- c("site_ids", "position", "deriv_alleles", "anc_alleles")
   missing <- setdiff(required, names(variant_info))
@@ -452,10 +463,10 @@ ldgm_default_simulation_link_fn <- function(annotation_matrix) {
   }
   if ("af" %in% names(variant_info)) {
     af_values <- variant_info$af
-  } else if (!is.null(population) && population %in% names(variant_info)) {
-    af_values <- variant_info[[population]]
+  } else if (!is.null(row_population) && row_population %in% names(variant_info)) {
+    af_values <- variant_info[[row_population]]
   } else {
-    stop("snplist is missing `af` and population `", population, "` column")
+    stop("snplist is missing `af` and population `", row_population, "` column")
   }
 
   data.frame(

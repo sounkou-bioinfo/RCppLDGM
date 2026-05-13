@@ -115,7 +115,8 @@ This writes a tiny RcppLDGM HDF5 file, verifies it with the native R reader, the
 loads `/row_data`, trait names, `/traits/<trait>/{gradient,hessian}`, parameter
 datasets, a tiny variant-annotation score-test statistic through the pinned
 upstream GraphLD Python I/O code, a variant-to-gene conversion round trip against
-upstream `convert_scores.py`, and a GraphLD-style root surrogate-map dataset
+upstream `convert_scores.py`, variant- and gene-level gene-set/pathway score-test
+parity on the same tiny fixtures, and a GraphLD-style root surrogate-map dataset
 through Python `h5py`. If
 `h5py` is unavailable the check skips by default; set
 `RCPP_LDGM_REQUIRE_H5PY=1` to make that a hard failure. The repository also runs

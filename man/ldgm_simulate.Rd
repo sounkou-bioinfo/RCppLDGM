@@ -54,7 +54,10 @@ heritability.}
 \item{population}{Fallback population label used when the metadata path does not
 include an explicit population column.}
 
-\item{populations}{Optional population filter for metadata blocks.}
+\item{populations}{Optional population filter for metadata blocks. May be a
+character vector of ancestry labels; when metadata rows carry a
+\code{population} column, each retained block uses that row's allele-frequency
+column from the matching \code{.snplist}.}
 
 \item{chromosomes}{Optional chromosome filter for metadata blocks.}
 
