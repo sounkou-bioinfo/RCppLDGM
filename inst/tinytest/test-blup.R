@@ -107,12 +107,18 @@ catalog_result <- ldgm_run_blup(
 )
 expect_equal(catalog_result$weight, expected1, tolerance = 1e-10)
 
+single_summary_provider_calls <- new.env(parent = emptyenv())
+single_summary_provider_calls$required_cols <- character(0)
 single_summary_provider <- ldgm_summary_stats_provider(
-  frame = function(required_cols) blocks[[1]][, unique(c(required_cols, "REF", "ALT")), drop = FALSE],
+  frame = function(required_cols) {
+    single_summary_provider_calls$required_cols <- required_cols
+    blocks[[1]][, required_cols, drop = FALSE]
+  },
   required_cols = c("SNP", "Z")
 )
 provider_single_result <- ldgm_run_blup(ldgm1, single_summary_provider, sigmasq = 0.01, sample_size = 100)
 expect_equal(provider_single_result$weight, expected1, tolerance = 1e-10)
+expect_equal(single_summary_provider_calls$required_cols, c("Z", "POS", "SNP", "REF", "ALT"))
 
 partition_calls_blup <- new.env(parent = emptyenv())
 partition_calls_blup$n <- 0L

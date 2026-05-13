@@ -63,6 +63,7 @@ reference:
   - ldgm_merge_alleles
   - ldgm_merge_snplists
   - ldgm_partition_variants
+  - ldgm_partition_variant_data
   - ldgm_blup_block
   - ldgm_run_blup
   - ldgm_run_clump
@@ -76,8 +77,12 @@ reference:
   - LdgmSummaryStats
   - LdgmAnnotationData
   - ldgm_summary_stats
+  - ldgm_summary_stats_provider
+  - ldgm_duckdb_summary_stats
   - ldgm_summary_stats_frame
   - ldgm_annotation_data
+  - ldgm_annotation_data_provider
+  - ldgm_duckdb_annotation_data
   - ldgm_annotation_data_frame
   - ldgm_annotation_columns
   - ldgm_assert_summary_stats
@@ -105,10 +110,20 @@ reference:
   - ldgm_gene_set_variant_annotations
 - title: Score-test HDF5
   contents:
+  - LdgmScoreTestVariantData
+  - LdgmScoreTestGeneData
+  - ldgm_score_test_variant_data
+  - ldgm_score_test_variant_data_frame
+  - ldgm_score_test_gene_data
+  - ldgm_score_test_gene_data_frame
+  - ldgm_assert_score_test_variant_data
+  - ldgm_assert_score_test_gene_data
   - ldgm_hdf5_filter_info
   - ldgm_write_score_test_hdf5
+  - ldgm_write_score_test_trait_groups
   - ldgm_write_gene_score_hdf5
   - ldgm_read_score_test_hdf5
+  - ldgm_read_score_test_trait_groups
   - ldgm_convert_variant_to_gene_scores
   - ldgm_write_surrogate_map_hdf5
   - ldgm_read_surrogate_map_hdf5

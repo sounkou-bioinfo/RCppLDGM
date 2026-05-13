@@ -108,8 +108,13 @@ catalog_result <- ldgm_run_clump(
 )
 expect_equal(catalog_result$is_index, c(TRUE, FALSE, TRUE))
 
+single_summary_provider_clump_calls <- new.env(parent = emptyenv())
+single_summary_provider_clump_calls$required_cols <- character(0)
 single_summary_provider_clump <- ldgm_summary_stats_provider(
-  frame = function(required_cols) sumstats[, unique(c(required_cols, "REF", "ALT")), drop = FALSE],
+  frame = function(required_cols) {
+    single_summary_provider_clump_calls$required_cols <- required_cols
+    sumstats[, required_cols, drop = FALSE]
+  },
   required_cols = c("SNP", "Z")
 )
 provider_single_clump <- ldgm_run_clump(
@@ -120,6 +125,7 @@ provider_single_clump <- ldgm_run_clump(
   match_by_position = FALSE
 )
 expect_equal(provider_single_clump$is_index, clumped$is_index)
+expect_equal(single_summary_provider_clump_calls$required_cols, c("Z", "POS", "SNP", "REF", "ALT"))
 
 partition_calls_clump <- new.env(parent = emptyenv())
 partition_calls_clump$n <- 0L
