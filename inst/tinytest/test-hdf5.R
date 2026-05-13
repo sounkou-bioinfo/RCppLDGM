@@ -216,6 +216,14 @@ ldgm_write_score_test_hdf5(
   jackknife_blocks = c(0L, 0L, 1L),
   overwrite = TRUE
 )
+ldgm_write_score_test_hdf5(
+  variant_gene_h5,
+  data.frame(CHR = c(1L, 1L, 1L), POS = c(90L, 220L, 280L), RSID = paste0("rs", 1:3)),
+  gradient = c(3, 2, 1),
+  trait_name = "trait2",
+  jackknife_blocks = c(0L, 0L, 1L)
+)
+ldgm_write_score_test_trait_groups(variant_gene_h5, list(pair = c("trait1", "trait2")))
 converted_gene_h5 <- tempfile(fileext = ".h5")
 gene_table_h5 <- data.frame(
   CHR = c(1L, 1L),
@@ -233,11 +241,14 @@ conversion <- ldgm_convert_variant_to_gene_scores(
   overwrite = TRUE
 )
 converted <- ldgm_read_score_test_hdf5(converted_gene_h5, "trait1")
-expect_equal(conversion$trait_names, "trait1")
+expect_equal(conversion$trait_names, c("trait1", "trait2"))
+expect_equal(conversion$groups, list(pair = c("trait1", "trait2")))
 expect_equal(converted$data_type, "gene")
 expect_equal(converted$row_data$gene_id, c("ENSG1", "ENSG2"))
 expect_equal(converted$gradient, c(1, 5), tolerance = 1e-12)
 expect_equal(as.integer(converted$row_data$jackknife_blocks), c(0L, 1L))
+expect_equal(ldgm_read_score_test_trait_groups(converted_gene_h5), list(pair = c("trait1", "trait2")))
+expect_true(all(c("trait1", "trait2") %in% ldgm_read_score_test_hdf5(converted_gene_h5)$trait_names))
 
 surrogate_h5 <- tempfile(fileext = ".h5")
 surrogate_write <- ldgm_write_surrogate_map_hdf5(

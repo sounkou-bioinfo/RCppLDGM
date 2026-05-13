@@ -302,8 +302,8 @@ ldgm_write_gene_score_hdf5 <- function(file,
 #'   first trait.
 #' @param compression,chunk_size,source Passed to [ldgm_write_gene_score_hdf5()].
 #'
-#' @return Invisibly, a list with output file, converted traits, gene data, and
-#'   the variant-by-gene matrix.
+#' @return Invisibly, a list with output file, converted traits, preserved trait
+#'   groups, gene data, and the variant-by-gene matrix.
 #' @export
 ldgm_convert_variant_to_gene_scores <- function(variant_stats_hdf5,
                                                 gene_stats_hdf5,
@@ -368,7 +368,17 @@ ldgm_convert_variant_to_gene_scores <- function(variant_stats_hdf5,
       source = source
     )
   }
-  invisible(list(file = gene_stats_hdf5, trait_names = trait_names, gene_data = gene_data, gene_variant_matrix = G))
+  groups <- select_score_test_trait_groups(variant_header$groups %||% list(), trait_names)
+  if (length(groups) > 0L) {
+    ldgm_write_score_test_trait_groups(gene_stats_hdf5, groups)
+  }
+  invisible(list(
+    file = gene_stats_hdf5,
+    trait_names = trait_names,
+    groups = groups,
+    gene_data = gene_data,
+    gene_variant_matrix = G
+  ))
 }
 
 #' Read GraphLD-Style Score-Test HDF5 Output
@@ -543,6 +553,24 @@ ldgm_read_surrogate_map_hdf5 <- function(file, block_name, file_index_base = c("
     out[out < 1L] <- NA_integer_
   }
   out
+}
+
+select_score_test_trait_groups <- function(groups, trait_names) {
+  if (length(groups) == 0L) {
+    return(list())
+  }
+  trait_names <- unique(as.character(trait_names))
+  keep <- logical(length(groups))
+  out <- setNames(vector("list", length(groups)), names(groups))
+  for (i in seq_along(groups)) {
+    values <- as.character(groups[[i]])
+    values <- values[values %in% trait_names]
+    if (length(values) > 0L) {
+      out[[i]] <- values
+      keep[[i]] <- TRUE
+    }
+  }
+  out[keep]
 }
 
 normalize_score_hdf5_trait_datasets <- function(x, n, label, reserved) {

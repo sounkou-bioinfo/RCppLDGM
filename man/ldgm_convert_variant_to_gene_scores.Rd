@@ -35,8 +35,8 @@ first trait.}
 \item{compression, chunk_size, source}{Passed to \code{\link[=ldgm_write_gene_score_hdf5]{ldgm_write_gene_score_hdf5()}}.}
 }
 \value{
-Invisibly, a list with output file, converted traits, gene data, and
-the variant-by-gene matrix.
+Invisibly, a list with output file, converted traits, preserved trait
+groups, gene data, and the variant-by-gene matrix.
 }
 \description{
 R-native counterpart of GraphLD's variant-to-gene score conversion. It reads
