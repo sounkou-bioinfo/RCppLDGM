@@ -5,7 +5,8 @@ expect_true(isTRUE(filters$lzf))
 variant_data_h5 <- data.frame(
   CHR = c(1L, 1L, 2L),
   POS = c(101L, 202L, 303L),
-  SNP = c("rs1", "rs2", "rs3")
+  SNP = c("rs1", "rs2", "rs3"),
+  af = c(0.1, 0.2, 0.3)
 )
 gradient_h5 <- c(0.25, -0.5, 0.75)
 hessian_h5 <- c(-0.01, -0.02, -0.03)
@@ -38,6 +39,7 @@ expect_equal(read_h5$variant_data$RSID, variant_data_h5$SNP)
 expect_equal(as.numeric(read_h5$variant_data$CHR), as.numeric(variant_data_h5$CHR))
 expect_equal(as.numeric(read_h5$variant_data$POS), as.numeric(variant_data_h5$POS))
 expect_equal(as.numeric(read_h5$variant_data$jackknife_blocks), as.numeric(jackknife_h5))
+expect_equal(read_h5$variant_data$af, variant_data_h5$af, tolerance = 1e-12)
 expect_equal(read_h5$gradient, gradient_h5, tolerance = 1e-12)
 expect_equal(read_h5$hessian, hessian_h5, tolerance = 1e-12)
 expect_equal(read_h5$parameters, parameters_h5, tolerance = 1e-12)
@@ -60,12 +62,14 @@ ldgm_write_score_test_hdf5(
   variant_provider_projection,
   gradient_h5,
   trait_name = "trait_provider",
+  row_data_cols = c("af", "jackknife_blocks"),
   overwrite = TRUE
 )
 read_h5_provider <- ldgm_read_score_test_hdf5(h5_file_provider, "trait_provider")
 expect_equal(read_h5_provider$variant_data$RSID, variant_data_h5$SNP)
 expect_equal(as.integer(read_h5_provider$variant_data$jackknife_blocks), jackknife_h5)
-expect_equal(variant_provider_projection_calls$required_cols, c("CHR", "POS", "SNP", "jackknife_blocks"))
+expect_equal(read_h5_provider$variant_data$af, variant_data_h5$af, tolerance = 1e-12)
+expect_equal(variant_provider_projection_calls$required_cols, c("CHR", "POS", "SNP", "af", "jackknife_blocks"))
 
 ldgm_write_score_test_hdf5(
   h5_file,
@@ -132,6 +136,7 @@ gene_data_h5 <- data.frame(
   POS = c(100L, 250L),
   gene_id = c("ENSG1", "ENSG2"),
   gene_name = c("GENE1", "GENE2"),
+  biotype = c("coding", "noncoding"),
   stringsAsFactors = FALSE
 )
 gene_h5 <- tempfile(fileext = ".h5")
@@ -147,6 +152,7 @@ ldgm_write_gene_score_hdf5(
 gene_read <- ldgm_read_score_test_hdf5(gene_h5, "gene_trait")
 expect_equal(gene_read$data_type, "gene")
 expect_equal(gene_read$row_data$gene_id, gene_data_h5$gene_id)
+expect_equal(gene_read$row_data$biotype, gene_data_h5$biotype)
 expect_equal(gene_read$gradient, c(1.5, -0.5), tolerance = 1e-12)
 
 gene_provider_projection_calls <- new.env(parent = emptyenv())
@@ -163,12 +169,14 @@ ldgm_write_gene_score_hdf5(
   gene_provider_projection,
   gradient = c(1.5, -0.5),
   trait_name = "gene_provider",
+  row_data_cols = c("biotype", "jackknife_blocks"),
   overwrite = TRUE
 )
 gene_read_provider <- ldgm_read_score_test_hdf5(gene_h5_provider, "gene_provider")
 expect_equal(gene_read_provider$row_data$gene_id, gene_data_h5$gene_id)
 expect_equal(as.integer(gene_read_provider$row_data$jackknife_blocks), c(0L, 1L))
-expect_equal(gene_provider_projection_calls$required_cols, c("CHR", "POS", "gene_id", "gene_name", "jackknife_blocks"))
+expect_equal(gene_read_provider$row_data$biotype, gene_data_h5$biotype)
+expect_equal(gene_provider_projection_calls$required_cols, c("CHR", "POS", "gene_id", "gene_name", "biotype", "jackknife_blocks"))
 
 variant_gene_h5 <- tempfile(fileext = ".h5")
 ldgm_write_score_test_hdf5(

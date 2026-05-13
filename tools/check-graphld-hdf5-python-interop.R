@@ -16,6 +16,7 @@ variant_data <- data.frame(
   CHR = c(1L, 1L, 2L),
   POS = c(10L, 20L, 30L),
   RSID = c("rs1", "rs2", "rs3"),
+  AF = c(0.1, 0.2, 0.3),
   stringsAsFactors = FALSE
 )
 gradient <- c(0.1, -0.2, 0.3)
@@ -88,6 +89,7 @@ stopifnot(
   identical(as.integer(native$variant_data$CHR), variant_data$CHR),
   identical(as.integer(native$variant_data$POS), variant_data$POS),
   identical(as.character(native$variant_data$RSID), variant_data$RSID),
+  isTRUE(all.equal(native$variant_data$AF, variant_data$AF, tolerance = 1e-12, check.attributes = FALSE)),
   identical(as.integer(native$variant_data$jackknife_blocks), jackknife_blocks),
   identical(native$groups, list(body = trait_name, combined = c(trait_name, trait_name_b))),
   identical(ldgm_read_score_test_trait_groups(h5), list(body = trait_name, combined = c(trait_name, trait_name_b))),

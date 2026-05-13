@@ -12,7 +12,7 @@ ldgm_hdf5_filter_info <- function() {
 #' Write GraphLD-Style Score-Test HDF5 Output
 #'
 #' Writes the HDF5 layout used by GraphLD's graphREML score-test path: root
-#' metadata attributes, `/row_data/{CHR,POS,RSID,jackknife_blocks}`, `/groups`,
+#' metadata attributes, `/row_data/{CHR,POS,RSID,jackknife_blocks,...}`, `/groups`,
 #' `/traits/<trait_name>/gradient`, and optionally
 #' `/traits/<trait_name>/hessian` plus
 #' `/traits/<trait_name>/parameters/{parameters,jackknife_parameters}`. Native
@@ -29,6 +29,11 @@ ldgm_hdf5_filter_info <- function() {
 #' @param jackknife_blocks Optional integer jackknife block assignment vector. If
 #'   omitted, `variant_data$jackknife_blocks` is used when present, otherwise all
 #'   variants are assigned to block zero.
+#' @param row_data_cols Optional additional columns to carry through from
+#'   `variant_data` into `/row_data`. This is mainly useful for provider-backed
+#'   inputs that should only project specific extra columns. Include
+#'   `"jackknife_blocks"` here when provider-backed inputs should supply default
+#'   jackknife assignments.
 #' @param hessian Optional numeric variant Hessian/correction vector, one value
 #'   per row of `variant_data`, stored as `/traits/<trait_name>/hessian`.
 #' @param parameters Optional numeric fitted parameter vector stored under the
@@ -49,6 +54,7 @@ ldgm_write_score_test_hdf5 <- function(file,
                                        gradient,
                                        trait_name = "trait",
                                        jackknife_blocks = NULL,
+                                       row_data_cols = NULL,
                                        hessian = NULL,
                                        parameters = NULL,
                                        jackknife_parameters = NULL,
@@ -73,8 +79,12 @@ ldgm_write_score_test_hdf5 <- function(file,
     stop("`source` must be a single non-missing string", call. = FALSE)
   }
 
-  variant_required_cols <- if (is.null(jackknife_blocks)) "jackknife_blocks" else NULL
-  variant_data <- ldgm_score_test_variant_data_frame(variant_data, required_cols = variant_required_cols)
+  row_data_cols <- if (is.null(row_data_cols)) {
+    character()
+  } else {
+    validate_provider_column_names(row_data_cols, "row_data_cols")
+  }
+  variant_data <- ldgm_score_test_variant_data_frame(variant_data, required_cols = row_data_cols)
   n <- nrow(variant_data)
   gradient <- as.numeric(gradient)
   if (length(gradient) != n || anyNA(gradient)) {
@@ -116,7 +126,7 @@ ldgm_write_score_test_hdf5 <- function(file,
 
   result <- RC_write_graphld_score_hdf5(
     file,
-    variant_data[, c("CHR", "POS", "RSID"), drop = FALSE],
+    variant_data,
     gradient,
     hessian,
     trait_name,
@@ -147,6 +157,11 @@ ldgm_write_score_test_hdf5 <- function(file,
 #' @param jackknife_blocks Optional integer jackknife block assignment vector. If
 #'   omitted, `gene_data$jackknife_blocks` is used when present, otherwise all
 #'   genes are assigned to block zero.
+#' @param row_data_cols Optional additional columns to carry through from
+#'   `gene_data` into `/row_data`. This is mainly useful for provider-backed
+#'   inputs that should only project specific extra columns. Include
+#'   `"jackknife_blocks"` here when provider-backed inputs should supply default
+#'   jackknife assignments.
 #' @param hessian Optional numeric gene Hessian/correction vector, one value per
 #'   row of `gene_data`.
 #' @param parameters,jackknife_parameters Optional fitted parameter datasets.
@@ -160,6 +175,7 @@ ldgm_write_gene_score_hdf5 <- function(file,
                                        gradient,
                                        trait_name = "trait",
                                        jackknife_blocks = NULL,
+                                       row_data_cols = NULL,
                                        hessian = NULL,
                                        parameters = NULL,
                                        jackknife_parameters = NULL,
@@ -183,8 +199,12 @@ ldgm_write_gene_score_hdf5 <- function(file,
   if (!is.character(source) || length(source) != 1L || is.na(source)) {
     stop("`source` must be a single non-missing string", call. = FALSE)
   }
-  gene_required_cols <- if (is.null(jackknife_blocks)) "jackknife_blocks" else NULL
-  gene_data <- ldgm_score_test_gene_data_frame(gene_data, required_cols = gene_required_cols)
+  row_data_cols <- if (is.null(row_data_cols)) {
+    character()
+  } else {
+    validate_provider_column_names(row_data_cols, "row_data_cols")
+  }
+  gene_data <- ldgm_score_test_gene_data_frame(gene_data, required_cols = row_data_cols)
   n <- nrow(gene_data)
   gradient <- as.numeric(gradient)
   if (length(gradient) != n || anyNA(gradient)) {
@@ -226,7 +246,7 @@ ldgm_write_gene_score_hdf5 <- function(file,
 
   result <- RC_write_graphld_gene_score_hdf5(
     file,
-    gene_data[, c("CHR", "POS", "gene_id", "gene_name"), drop = FALSE],
+    gene_data,
     gradient,
     hessian,
     trait_name,

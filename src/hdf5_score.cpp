@@ -321,6 +321,54 @@ void write_dataset_strings(hid_t loc,
                "writing dataset '" + name + "'");
 }
 
+bool contains_name(const std::vector<std::string>& names, const std::string& target) {
+  return std::find(names.begin(), names.end(), target) != names.end();
+}
+
+void write_atomic_row_data_column(hid_t row_data,
+                                  const std::string& name,
+                                  SEXP values,
+                                  const std::string& compression,
+                                  int chunk_size,
+                                  R_xlen_t expected_size,
+                                  const std::string& label) {
+  if (Rf_xlength(values) != expected_size) {
+    Rcpp::stop("`%s` must contain one value per row", label);
+  }
+  switch (TYPEOF(values)) {
+    case STRSXP: {
+      write_dataset_strings(row_data, name, character_vector_to_strings(Rcpp::CharacterVector(values), label),
+                            compression, chunk_size);
+      return;
+    }
+    case REALSXP:
+    case INTSXP:
+    case LGLSXP: {
+      Rcpp::NumericVector numeric = Rcpp::as<Rcpp::NumericVector>(Rcpp::RObject(values));
+      write_dataset_double(row_data, name, numeric, compression, chunk_size);
+      return;
+    }
+    default:
+      Rcpp::stop("`%s` must be numeric, logical, integer, or character", label);
+  }
+}
+
+void write_extra_row_data_columns(hid_t row_data,
+                                  Rcpp::DataFrame data,
+                                  const std::vector<std::string>& skip_names,
+                                  const std::string& compression,
+                                  int chunk_size) {
+  Rcpp::CharacterVector col_names = data.names();
+  R_xlen_t n = static_cast<R_xlen_t>(data.nrows());
+  for (R_xlen_t i = 0; i < col_names.size(); ++i) {
+    std::string name = Rcpp::as<std::string>(col_names[i]);
+    if (contains_name(skip_names, name)) {
+      continue;
+    }
+    write_atomic_row_data_column(row_data, name, data[i], compression, chunk_size, n, "row_data column '" + name + "'");
+  }
+}
+
 H5Handle open_file_for_write(const std::string& filename, bool overwrite) {
   if (overwrite) {
     return H5Handle(check_id(H5Fcreate(filename.c_str(), H5F_ACC_TRUNC, H5P_DEFAULT, H5P_DEFAULT),
@@ -371,6 +419,9 @@ void create_variant_group_if_needed(hid_t file,
                         chunk_size);
   write_dataset_int64(row_data.get(), "jackknife_blocks", numeric_to_int64(jackknife_blocks, "jackknife_blocks"),
                       compression, chunk_size);
+  write_extra_row_data_columns(row_data.get(), variant_data,
+                               std::vector<std::string>{"CHR", "POS", "RSID", "SNP", "jackknife_blocks"},
+                               compression, chunk_size);
 }
 
 void create_gene_group_if_needed(hid_t file,
@@ -407,6 +458,9 @@ void create_gene_group_if_needed(hid_t file,
                         chunk_size);
   write_dataset_int64(row_data.get(), "jackknife_blocks", numeric_to_int64(jackknife_blocks, "jackknife_blocks"),
                       compression, chunk_size);
+  write_extra_row_data_columns(row_data.get(), gene_data,
+                               std::vector<std::string>{"CHR", "POS", "gene_id", "gene_name", "jackknife_blocks"},
+                               compression, chunk_size);
 }
 
 std::vector<hsize_t> dataset_dims(hid_t dataset) {
@@ -529,6 +583,51 @@ Rcpp::CharacterVector list_group_names(hid_t group) {
     out[static_cast<R_xlen_t>(i)] = std::string(buffer.data(), static_cast<size_t>(written));
   }
   return out;
+}
+
+SEXP read_row_data_dataset(hid_t row_data, const std::string& name) {
+  H5Handle dataset(check_id(H5Dopen2(row_data, name.c_str(), H5P_DEFAULT), "opening dataset '" + name + "'"),
+                   H5Dclose);
+  std::vector<hsize_t> dims = dataset_dims(dataset.get());
+  if (dims.size() > 1) {
+    Rcpp::stop("row_data dataset '%s' must be one-dimensional", name);
+  }
+  H5Handle type(check_id(H5Dget_type(dataset.get()), "opening datatype for dataset '" + name + "'"), H5Tclose);
+  H5T_class_t type_class = H5Tget_class(type.get());
+  if (type_class < 0) {
+    h5_fail("reading dataset class for '" + name + "'");
+  }
+  if (type_class == H5T_STRING) {
+    return read_dataset_strings(row_data, name);
+  }
+  if (type_class == H5T_INTEGER) {
+    return read_dataset_int64_as_numeric(row_data, name);
+  }
+  if (type_class == H5T_FLOAT) {
+    return read_dataset_double(row_data, name);
+  }
+  Rcpp::stop("row_data dataset '%s' must be string, integer, or floating-point", name);
+}
+
+Rcpp::DataFrame read_row_data_table(hid_t row_data) {
+  Rcpp::CharacterVector col_names = list_group_names(row_data);
+  Rcpp::List columns(col_names.size());
+  R_xlen_t nrows = -1;
+  for (R_xlen_t i = 0; i < col_names.size(); ++i) {
+    std::string name = Rcpp::as<std::string>(col_names[i]);
+    columns[i] = read_row_data_dataset(row_data, name);
+    R_xlen_t size = Rf_xlength(columns[i]);
+    if (nrows < 0) {
+      nrows = size;
+    } else if (size != nrows) {
+      Rcpp::stop("row_data datasets must all have the same length");
+    }
+  }
+  columns.attr("names") = col_names;
+  columns.attr("class") = "data.frame";
+  columns.attr("row.names") = Rcpp::IntegerVector::create(NA_INTEGER, -nrows);
+  columns.attr("stringsAsFactors") = false;
+  return columns;
 }
 
 Rcpp::List read_trait_groups_list(hid_t file) {
@@ -728,20 +827,7 @@ Rcpp::List read_graphld_score_hdf5_cpp(const std::string& filename, const std::s
   H5Handle traits = open_group(file.get(), "traits");
 
   bool is_gene = link_exists(row_data.get(), "gene_id");
-  Rcpp::DataFrame row_table = is_gene ?
-    Rcpp::DataFrame::create(
-      Rcpp::Named("CHR") = read_dataset_int64_as_numeric(row_data.get(), "CHR"),
-      Rcpp::Named("POS") = read_dataset_int64_as_numeric(row_data.get(), "POS"),
-      Rcpp::Named("gene_id") = read_dataset_strings(row_data.get(), "gene_id"),
-      Rcpp::Named("gene_name") = read_dataset_strings(row_data.get(), "gene_name"),
-      Rcpp::Named("jackknife_blocks") = read_dataset_int64_as_numeric(row_data.get(), "jackknife_blocks"),
-      Rcpp::_["stringsAsFactors"] = false) :
-    Rcpp::DataFrame::create(
-      Rcpp::Named("CHR") = read_dataset_int64_as_numeric(row_data.get(), "CHR"),
-      Rcpp::Named("POS") = read_dataset_int64_as_numeric(row_data.get(), "POS"),
-      Rcpp::Named("RSID") = read_dataset_strings(row_data.get(), "RSID"),
-      Rcpp::Named("jackknife_blocks") = read_dataset_int64_as_numeric(row_data.get(), "jackknife_blocks"),
-      Rcpp::_["stringsAsFactors"] = false);
+  Rcpp::DataFrame row_table = read_row_data_table(row_data.get());
 
   Rcpp::CharacterVector trait_names = list_group_names(traits.get());
   Rcpp::List out = Rcpp::List::create(Rcpp::Named("row_data") = row_table,

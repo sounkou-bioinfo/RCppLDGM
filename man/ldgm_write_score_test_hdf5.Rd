@@ -10,6 +10,7 @@ ldgm_write_score_test_hdf5(
   gradient,
   trait_name = "trait",
   jackknife_blocks = NULL,
+  row_data_cols = NULL,
   hessian = NULL,
   parameters = NULL,
   jackknife_parameters = NULL,
@@ -35,6 +36,12 @@ trait unless \code{overwrite = TRUE}.}
 omitted, \code{variant_data$jackknife_blocks} is used when present, otherwise all
 variants are assigned to block zero.}
 
+\item{row_data_cols}{Optional additional columns to carry through from
+\code{variant_data} into \verb{/row_data}. This is mainly useful for provider-backed
+inputs that should only project specific extra columns. Include
+\code{"jackknife_blocks"} here when provider-backed inputs should supply default
+jackknife assignments.}
+
 \item{hessian}{Optional numeric variant Hessian/correction vector, one value
 per row of \code{variant_data}, stored as \verb{/traits/<trait_name>/hessian}.}
 
@@ -59,7 +66,7 @@ Invisibly, a list describing the written file and trait.
 }
 \description{
 Writes the HDF5 layout used by GraphLD's graphREML score-test path: root
-metadata attributes, \verb{/row_data/\{CHR,POS,RSID,jackknife_blocks\}}, \verb{/groups},
+metadata attributes, \verb{/row_data/\{CHR,POS,RSID,jackknife_blocks,...\}}, \verb{/groups},
 \verb{/traits/<trait_name>/gradient}, and optionally
 \verb{/traits/<trait_name>/hessian} plus
 \verb{/traits/<trait_name>/parameters/\{parameters,jackknife_parameters\}}. Native

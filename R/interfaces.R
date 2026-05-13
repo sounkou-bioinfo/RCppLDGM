@@ -534,28 +534,40 @@ S7::method(ldgm_block_population, S7::class_character) <- function(x, ...) {
 }
 
 S7::method(ldgm_score_test_variant_data_frame, LdgmScoreTestVariantDataTable) <- function(x, ...) {
-  invisible(list(...))
-  x@data
+  args <- list(...)
+  out <- x@data
+  assert_score_test_required_cols(out, args$required_cols, "variant row-data")
+  out
 }
 
 S7::method(ldgm_score_test_variant_data_frame, S7::class_data.frame) <- function(x, ...) {
-  invisible(list(...))
-  normalize_score_hdf5_variant_data(x)
+  args <- list(...)
+  out <- normalize_score_hdf5_variant_data(x)
+  assert_score_test_required_cols(out, args$required_cols, "variant row-data")
+  out
 }
 
 S7::method(ldgm_score_test_gene_data_frame, LdgmScoreTestGeneDataTable) <- function(x, ...) {
-  invisible(list(...))
-  x@data
+  args <- list(...)
+  out <- x@data
+  assert_score_test_required_cols(out, args$required_cols, "gene row-data")
+  out
 }
 
 S7::method(ldgm_score_test_gene_data_frame, S7::class_data.frame) <- function(x, ...) {
-  invisible(list(...))
-  normalize_score_hdf5_gene_data(x)
+  args <- list(...)
+  out <- normalize_score_hdf5_gene_data(x)
+  assert_score_test_required_cols(out, args$required_cols, "gene row-data")
+  out
 }
 
 S7::method(ldgm_score_test_variant_data_frame, LdgmScoreTestVariantDataProvider) <- function(x, ...) {
   args <- list(...)
-  extra_required_cols <- if (is.null(args$required_cols)) character() else validate_provider_column_names(args$required_cols, "required_cols")
+  extra_required_cols <- if (is.null(args$required_cols) || length(args$required_cols) == 0L) {
+    character()
+  } else {
+    validate_provider_column_names(args$required_cols, "required_cols")
+  }
   required_cols <- unique(c(
     normalize_score_test_variant_required_cols(x@required_cols),
     extra_required_cols
@@ -570,7 +582,11 @@ S7::method(ldgm_score_test_variant_data_frame, LdgmScoreTestVariantDataProvider)
 
 S7::method(ldgm_score_test_gene_data_frame, LdgmScoreTestGeneDataProvider) <- function(x, ...) {
   args <- list(...)
-  extra_required_cols <- if (is.null(args$required_cols)) character() else validate_provider_column_names(args$required_cols, "required_cols")
+  extra_required_cols <- if (is.null(args$required_cols) || length(args$required_cols) == 0L) {
+    character()
+  } else {
+    validate_provider_column_names(args$required_cols, "required_cols")
+  }
   required_cols <- unique(c(
     normalize_score_test_gene_required_cols(x@required_cols),
     extra_required_cols
@@ -1222,6 +1238,18 @@ normalize_score_test_gene_required_cols <- function(required_cols) {
     stop("`required_cols` must include ", paste(sprintf("`%s`", missing), collapse = ", "), call. = FALSE)
   }
   required_cols
+}
+
+assert_score_test_required_cols <- function(data, required_cols, label) {
+  if (is.null(required_cols) || length(required_cols) == 0L) {
+    return(invisible(data))
+  }
+  required_cols <- validate_provider_column_names(required_cols, "required_cols")
+  missing <- setdiff(required_cols, names(data))
+  if (length(missing) > 0L) {
+    stop(label, " columns not found: ", paste(missing, collapse = ", "), call. = FALSE)
+  }
+  invisible(data)
 }
 
 validate_provider_column_names <- function(x, name) {

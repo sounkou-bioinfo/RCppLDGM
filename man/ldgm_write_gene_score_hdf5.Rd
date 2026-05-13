@@ -10,6 +10,7 @@ ldgm_write_gene_score_hdf5(
   gradient,
   trait_name = "trait",
   jackknife_blocks = NULL,
+  row_data_cols = NULL,
   hessian = NULL,
   parameters = NULL,
   jackknife_parameters = NULL,
@@ -33,6 +34,12 @@ with \code{CHR}, \code{POS}, \code{gene_id}, and \code{gene_name}.}
 \item{jackknife_blocks}{Optional integer jackknife block assignment vector. If
 omitted, \code{gene_data$jackknife_blocks} is used when present, otherwise all
 genes are assigned to block zero.}
+
+\item{row_data_cols}{Optional additional columns to carry through from
+\code{gene_data} into \verb{/row_data}. This is mainly useful for provider-backed
+inputs that should only project specific extra columns. Include
+\code{"jackknife_blocks"} here when provider-backed inputs should supply default
+jackknife assignments.}
 
 \item{hessian}{Optional numeric gene Hessian/correction vector, one value per
 row of \code{gene_data}.}

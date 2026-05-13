@@ -165,6 +165,7 @@ if (!requireNamespace("DBI", quietly = TRUE) || !requireNamespace("duckdb", quie
     score_variant_provider,
     gradient = c(0.25, -0.5, 0.75),
     trait_name = "duckdb_variant",
+    row_data_cols = "jackknife_blocks",
     overwrite = TRUE
   )
   score_variant_read <- ldgm_read_score_test_hdf5(score_variant_h5, "duckdb_variant")
@@ -197,6 +198,7 @@ if (!requireNamespace("DBI", quietly = TRUE) || !requireNamespace("duckdb", quie
     score_gene_provider,
     gradient = c(1.5, -0.5),
     trait_name = "duckdb_gene",
+    row_data_cols = "jackknife_blocks",
     overwrite = TRUE
   )
   score_gene_read <- ldgm_read_score_test_hdf5(score_gene_h5, "duckdb_gene")

@@ -96,7 +96,7 @@ def main(argv: list[str]) -> int:
     trait_name = argv[2]
 
     row_data = score_test_io.load_row_data(str(hdf5_path))
-    expected_columns = {"CHR", "POS", "RSID", "jackknife_blocks"}
+    expected_columns = {"CHR", "POS", "RSID", "AF", "jackknife_blocks"}
     if not expected_columns.issubset(set(row_data.columns)):
         raise AssertionError(f"row_data columns {row_data.columns} do not include {sorted(expected_columns)}")
 
@@ -106,6 +106,7 @@ def main(argv: list[str]) -> int:
         raise AssertionError(f"unexpected POS values: {_to_list(row_data['POS'])}")
     if _to_list(row_data["RSID"]) != ["rs1", "rs2", "rs3"]:
         raise AssertionError(f"unexpected RSID values: {_to_list(row_data['RSID'])}")
+    np.testing.assert_allclose(row_data["AF"].to_numpy(), np.array([0.1, 0.2, 0.3]), rtol=0, atol=1e-12)
     if _to_list(row_data["jackknife_blocks"]) != [0, 1, 1]:
         raise AssertionError(f"unexpected jackknife blocks: {_to_list(row_data['jackknife_blocks'])}")
 
