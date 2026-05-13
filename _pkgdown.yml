@@ -20,6 +20,8 @@ articles:
 reference:
 - title: LDGM construction
   contents:
+  - ldgm_tskit_treeseq
+  - ldgm_prune_sites
   - ldgm_tree_tables
   - ldgm_tree_tables_from_tskit
   - ldgm_brick_ts
