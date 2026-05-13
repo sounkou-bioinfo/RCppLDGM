@@ -30,7 +30,7 @@ but several declared compatibility surfaces remain incomplete or unverified.
 | GPL package with upstream attribution | `DESCRIPTION`, `LICENSE`, `LICENSE.upstream.md`, `inst/LICENSE.note`, `src/tskit/README.RcppLDGM` | Implemented |
 | Core LDGM graph primitive port | `R/graph.R`, `src/graph.cpp`, `inst/tinytest/test-graph.R` | Implemented and tested |
 | LDGM table/bricking/reduction pipeline | `R/bricks.R`, `R/tree-tables.R`, `R/snplist.R`, `tools/check-upstream-ldgm-goldens.R` | Implemented against pinned upstream goldens; larger workloads remain future work |
-| Native `.trees` adapter | `R/tskit-adapter.R`, `src/tskit_adapter.cpp`, `src/tskit/`, `src/tskit/README.RcppLDGM` | Implemented for file paths using vendored tskit C `C_1.3.1`; direct native in-memory object wiring remains future work |
+| Native `.trees` adapter | `R/tskit-adapter.R`, `R/tree-tables.R`, `src/tskit_adapter.cpp`, `src/tskit/`, `src/tskit/README.RcppLDGM`, `inst/tinytest/test-bricks.R` | Implemented for file paths plus reusable in-memory `ldgm_tskit_treeseq()` handles using vendored tskit C `C_1.3.1`; validated through `ldgm_tree_tables_from_tskit()`, `ldgm_brick_ts()`, and `ldgm_make_ldgm()` on the non-file-backed handle path |
 | GraphLD precision operators | `R/precision.R`, `src/precision_native.cpp`, `inst/tinytest/test-precision.R`, `tools/benchmark-precision.R`, `tools/check-upstream-graphld-inverse-diagonal.R` | Implemented; pinned upstream full/selected exact+hutchinson+xdiag inverse-diagonal conformance is in place on the current GraphLD test block, while upstream-scale SuiteSparse conformance/performance remains future work |
 | GraphLD BLUP/clumping | `R/blup.R`, `R/clump.R`, `inst/tinytest/test-blup.R`, `inst/tinytest/test-clump.R`, `tools/check-upstream-graphld-data.R`, `tools/check-upstream-graphld-blup-clump.R` | Serial scheduler implemented; pinned Python output conformance on upstream test blocks implemented; multiprocessing remains future work |
 | GraphREML | `R/reml.R`, `inst/tinytest/test-reml.R`, `tools/check-upstream-graphld-data.R`, `tools/check-upstream-graphld-reml.R` | Serial core, trust-region optimizer, pseudo-jackknife, surrogate/HDF5 slices, selected-view block support, and pinned upstream fixed-block plus multi-iteration optimizer-summary conformance implemented; full CLI/block-manager/upstream-scale jackknife parity remains future work |
@@ -97,12 +97,10 @@ scoped out with a compatibility rationale:
    conformance on the current test blocks.
 3. Larger LDGM/GraphLD performance and conformance workloads beyond the current
    tiny upstream fixtures and smoke data.
-4. Direct native in-memory tree-sequence object integration beyond the current
-   `.trees` file and reticulate object/table boundary.
-5. Full upstream-parity simulation conformance beyond the current pinned gate: `ldgm_simulate()` now passes the current pinned scenario matrix (`tools/generate-upstream-graphld-simulate.py` and `tools/check-upstream-graphld-simulate.R`) covering one-block, multi-block, and small mixture runs, but broader metadata slices and larger fixture coverage still remain to be verified.
-6. Explicit scope decisions for MATLAB-only workflows: DENTIST, imputation, PGS
+4. Full upstream-parity simulation conformance beyond the current pinned gate: `ldgm_simulate()` now passes the current pinned scenario matrix (`tools/generate-upstream-graphld-simulate.py` and `tools/check-upstream-graphld-simulate.R`) covering one-block, multi-block, and small mixture runs, but broader metadata slices and larger fixture coverage still remain to be verified.
+5. Explicit scope decisions for MATLAB-only workflows: DENTIST, imputation, PGS
    projection, and precision estimation.
-7. Python HDF5 interop in strict mode on systems with `h5py`/GraphLD dependencies
+6. Python HDF5 interop in strict mode on systems with `h5py`/GraphLD dependencies
    installed.
 
 ## Conclusion

@@ -13,8 +13,9 @@ ldgm_make_ldgm(
 )
 }
 \arguments{
-\item{x}{An \code{ldgm_tree_tables} object, a \code{.trees} file path, or a Python
-\code{tskit.TreeSequence} object from \code{reticulate}.}
+\item{x}{An \code{ldgm_tree_tables} object, a \code{.trees} file path, a native
+\code{ldgm_tskit_treeseq} handle, or a Python \code{tskit.TreeSequence} object from
+\code{reticulate}.}
 
 \item{path_threshold}{Maximum path weight retained by LDGM reduction.}
 
@@ -33,5 +34,6 @@ intermediates.
 \description{
 Upstream-name wrapper for \code{\link[=ldgm_make_ldgm_from_tree_tables]{ldgm_make_ldgm_from_tree_tables()}}. Accepts an
 \code{ldgm_tree_tables} bundle directly, or uses the tskit adapter for \code{.trees}
-paths and live reticulate tree-sequence objects.
+paths, native \code{ldgm_tskit_treeseq()} handles, and live reticulate
+tree-sequence objects.
 }

@@ -7,8 +7,9 @@
 ldgm_brick_ts(x, recombination_freq_threshold = NULL, ...)
 }
 \arguments{
-\item{x}{An \code{ldgm_tree_tables} object, a \code{.trees} file path, or a Python
-\code{tskit.TreeSequence} object from \code{reticulate}.}
+\item{x}{An \code{ldgm_tree_tables} object, a \code{.trees} file path, a native
+\code{ldgm_tskit_treeseq} handle, or a Python \code{tskit.TreeSequence} object from
+\code{reticulate}.}
 
 \item{recombination_freq_threshold}{Minimum frequency for recombination edge
 splitting; \code{NULL} follows upstream default behavior.}
@@ -22,5 +23,6 @@ A bricked edge table.
 \description{
 Upstream-name wrapper for the table-backed bricking kernel. Accepts an
 \code{ldgm_tree_tables} bundle directly, or uses the tskit adapter for \code{.trees}
-paths and live reticulate tree-sequence objects.
+paths, native \code{ldgm_tskit_treeseq()} handles, and live reticulate
+tree-sequence objects.
 }

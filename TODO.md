@@ -17,9 +17,9 @@ This tracks what is **still to implement** after the current conformance/porting
 ## Feature completeness / API surface
 
 - [ ] **Implement `prune_sites()` equivalent** (`ldgm.utility.prune_sites` in upstream GraphLD)
-- [ ] **Wire direct native in-memory `tskit` tree-sequence objects**
-  - [ ] Add native tree-sequence object pathway beyond `.trees` file adapter.
-  - [ ] Decompose/validate full `ldgm_make_ldgm()` path from native in-memory trees (non-file-backed).
+- [x] **Wire direct native in-memory `tskit` tree-sequence objects**
+  - [x] Add native tree-sequence object pathway beyond `.trees` file adapter.
+  - [x] Decompose/validate full `ldgm_make_ldgm()` path from native in-memory trees (non-file-backed).
 
 - [ ] **Expand GraphLD run-simulation parity**
   - [ ] Add richer upstream-runner style scheduling/metadata controls if/where supported by R path.

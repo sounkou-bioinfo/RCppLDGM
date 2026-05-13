@@ -3,9 +3,9 @@
 #' Creates a lightweight R object for the table-backed LDGM pipeline. The object
 #' stores the canonical tree-diff tables consumed by the native bricking and
 #' LDGM kernels. Use `ldgm_tree_tables_from_tskit()` to build this bundle from a
-#' `.trees` file via the vendored tskit C API, or from a Python
-#' `tskit.TreeSequence` object when `reticulate` and Python `tskit` are
-#' available.
+#' `.trees` file, a native `ldgm_tskit_treeseq()` handle via the vendored tskit
+#' C API, or from a Python `tskit.TreeSequence` object when `reticulate` and
+#' Python `tskit` are available.
 #'
 #' @param initial_edges,transitions,edges_out,edges_in,node_state See
 #'   [ldgm_brick_edges_from_tables()].
@@ -59,10 +59,12 @@ ldgm_tree_tables <- function(initial_edges,
 #'
 #' Upstream-name wrapper for the table-backed bricking kernel. Accepts an
 #' `ldgm_tree_tables` bundle directly, or uses the tskit adapter for `.trees`
-#' paths and live reticulate tree-sequence objects.
+#' paths, native `ldgm_tskit_treeseq()` handles, and live reticulate
+#' tree-sequence objects.
 #'
-#' @param x An `ldgm_tree_tables` object, a `.trees` file path, or a Python
-#'   `tskit.TreeSequence` object from `reticulate`.
+#' @param x An `ldgm_tree_tables` object, a `.trees` file path, a native
+#'   `ldgm_tskit_treeseq` handle, or a Python `tskit.TreeSequence` object from
+#'   `reticulate`.
 #' @param recombination_freq_threshold Minimum frequency for recombination edge
 #'   splitting; `NULL` follows upstream default behavior.
 #' @param ... Passed to `ldgm_tree_tables_from_tskit()` for `.trees` / Python
@@ -94,7 +96,7 @@ ldgm_brick_ts.default <- function(x, recombination_freq_threshold = NULL, ...) {
     return(ldgm_brick_ts(tables, recombination_freq_threshold = recombination_freq_threshold))
   }
   stop(
-    "`x` must be an `ldgm_tree_tables` object, a `.trees` path, or a Python tskit TreeSequence object",
+    "`x` must be an `ldgm_tree_tables` object, a `.trees` path, an `ldgm_tskit_treeseq` handle, or a Python tskit TreeSequence object",
     call. = FALSE
   )
 }
@@ -103,10 +105,12 @@ ldgm_brick_ts.default <- function(x, recombination_freq_threshold = NULL, ...) {
 #'
 #' Upstream-name wrapper for [ldgm_make_ldgm_from_tree_tables()]. Accepts an
 #' `ldgm_tree_tables` bundle directly, or uses the tskit adapter for `.trees`
-#' paths and live reticulate tree-sequence objects.
+#' paths, native `ldgm_tskit_treeseq()` handles, and live reticulate
+#' tree-sequence objects.
 #'
-#' @param x An `ldgm_tree_tables` object, a `.trees` file path, or a Python
-#'   `tskit.TreeSequence` object from `reticulate`.
+#' @param x An `ldgm_tree_tables` object, a `.trees` file path, a native
+#'   `ldgm_tskit_treeseq` handle, or a Python `tskit.TreeSequence` object from
+#'   `reticulate`.
 #' @param path_threshold Maximum path weight retained by LDGM reduction.
 #' @param recombination_freq_threshold Minimum frequency for recombination edge
 #'   splitting; `NULL` follows upstream default behavior.
@@ -161,7 +165,7 @@ ldgm_make_ldgm.default <- function(x,
     ))
   }
   stop(
-    "`x` must be an `ldgm_tree_tables` object, a `.trees` path, or a Python tskit TreeSequence object",
+    "`x` must be an `ldgm_tree_tables` object, a `.trees` path, an `ldgm_tskit_treeseq` handle, or a Python tskit TreeSequence object",
     call. = FALSE
   )
 }

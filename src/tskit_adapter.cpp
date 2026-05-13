@@ -352,7 +352,72 @@ List extract_metadata(const tsk_treeseq_t &ts) {
       _["num_samples"] = static_cast<double>(tsk_treeseq_get_num_samples(&ts)));
 }
 
+void finalize_treeseq_xptr(SEXP xptr) {
+  void *addr = R_ExternalPtrAddr(xptr);
+  tsk_treeseq_t *ts = static_cast<tsk_treeseq_t *>(addr);
+  if (ts == nullptr) {
+    return;
+  }
+  tsk_treeseq_free(ts);
+  delete ts;
+  R_ClearExternalPtr(xptr);
+}
+
+SEXP wrap_treeseq_xptr(tsk_treeseq_t *ts) {
+  SEXP xptr = PROTECT(R_MakeExternalPtr(ts, R_NilValue, R_NilValue));
+  R_RegisterCFinalizerEx(xptr, finalize_treeseq_xptr, TRUE);
+  UNPROTECT(1);
+  return xptr;
+}
+
+tsk_treeseq_t *borrow_treeseq_xptr(SEXP xptr) {
+  if (TYPEOF(xptr) != EXTPTRSXP) {
+    stop("native tskit tree-sequence handle must wrap an external pointer");
+  }
+  void *addr = R_ExternalPtrAddr(xptr);
+  tsk_treeseq_t *ts = static_cast<tsk_treeseq_t *>(addr);
+  if (ts == nullptr) {
+    stop("native tskit tree-sequence handle is null");
+  }
+  return ts;
+}
+
+List extract_tree_tables(const tsk_treeseq_t &ts) {
+  DataFrame transitions;
+  DataFrame edges_out;
+  DataFrame edges_in;
+  DataFrame initial_edges = extract_edge_diffs(ts, &transitions, &edges_out, &edges_in);
+
+  return List::create(
+      _["initial_edges"] = initial_edges,
+      _["transitions"] = transitions,
+      _["edges_out"] = edges_out,
+      _["edges_in"] = edges_in,
+      _["node_state"] = extract_node_state(ts),
+      _["sample_nodes"] = extract_sample_nodes(ts),
+      _["mutations"] = extract_mutations(ts),
+      _["sequence_length"] = tsk_treeseq_get_sequence_length(&ts),
+      _["metadata"] = extract_metadata(ts));
+}
+
 } // namespace
+
+// [[Rcpp::export(name = "RC_tskit_tree_sequence_load")]]
+SEXP tskit_tree_sequence_load_cpp(std::string path) {
+  if (path.empty()) {
+    stop("`.trees` path must be non-empty");
+  }
+  tsk_treeseq_t *ts = new tsk_treeseq_t();
+  std::memset(ts, 0, sizeof(*ts));
+  try {
+    const int ret = tsk_treeseq_load(ts, path.c_str(), 0);
+    check_tsk(ret, "failed to load .trees file with vendored tskit C API");
+  } catch (...) {
+    delete ts;
+    throw;
+  }
+  return wrap_treeseq_xptr(ts);
+}
 
 // [[Rcpp::export(name = "RC_tskit_tree_tables_from_file")]]
 List tskit_tree_tables_from_file_cpp(std::string path) {
@@ -362,20 +427,11 @@ List tskit_tree_tables_from_file_cpp(std::string path) {
 
   TreeSequenceHolder ts;
   ts.load(path);
+  return extract_tree_tables(ts.value);
+}
 
-  DataFrame transitions;
-  DataFrame edges_out;
-  DataFrame edges_in;
-  DataFrame initial_edges = extract_edge_diffs(ts.value, &transitions, &edges_out, &edges_in);
-
-  return List::create(
-      _["initial_edges"] = initial_edges,
-      _["transitions"] = transitions,
-      _["edges_out"] = edges_out,
-      _["edges_in"] = edges_in,
-      _["node_state"] = extract_node_state(ts.value),
-      _["sample_nodes"] = extract_sample_nodes(ts.value),
-      _["mutations"] = extract_mutations(ts.value),
-      _["sequence_length"] = tsk_treeseq_get_sequence_length(&ts.value),
-      _["metadata"] = extract_metadata(ts.value));
+// [[Rcpp::export(name = "RC_tskit_tree_tables_from_treeseq")]]
+List tskit_tree_tables_from_treeseq_cpp(SEXP xptr) {
+  tsk_treeseq_t *ts = borrow_treeseq_xptr(xptr);
+  return extract_tree_tables(*ts);
 }
