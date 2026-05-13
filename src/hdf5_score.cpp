@@ -325,31 +325,64 @@ bool contains_name(const std::vector<std::string>& names, const std::string& tar
   return std::find(names.begin(), names.end(), target) != names.end();
 }
 
-void write_atomic_row_data_column(hid_t row_data,
-                                  const std::string& name,
-                                  SEXP values,
-                                  const std::string& compression,
-                                  int chunk_size,
-                                  R_xlen_t expected_size,
-                                  const std::string& label) {
+void write_atomic_dataset(hid_t loc,
+                          const std::string& name,
+                          SEXP values,
+                          const std::string& compression,
+                          int chunk_size,
+                          R_xlen_t expected_size,
+                          const std::string& label) {
   if (Rf_xlength(values) != expected_size) {
     Rcpp::stop("`%s` must contain one value per row", label);
   }
   switch (TYPEOF(values)) {
-    case STRSXP: {
-      write_dataset_strings(row_data, name, character_vector_to_strings(Rcpp::CharacterVector(values), label),
-                            compression, chunk_size);
+    case STRSXP:
+      write_dataset_strings(loc, name, character_vector_to_strings(Rcpp::CharacterVector(values), label), compression,
+                            chunk_size);
       return;
-    }
     case REALSXP:
-    case INTSXP:
-    case LGLSXP: {
-      Rcpp::NumericVector numeric = Rcpp::as<Rcpp::NumericVector>(Rcpp::RObject(values));
-      write_dataset_double(row_data, name, numeric, compression, chunk_size);
+      write_dataset_double(loc, name, Rcpp::NumericVector(values), compression, chunk_size);
       return;
-    }
+    case INTSXP:
+    case LGLSXP:
+      write_dataset_int64(loc, name, numeric_to_int64(values, label), compression, chunk_size);
+      return;
     default:
       Rcpp::stop("`%s` must be numeric, logical, integer, or character", label);
+  }
+}
+
+void write_named_atomic_datasets(hid_t loc,
+                                 Rcpp::List datasets,
+                                 const std::vector<std::string>& skip_names,
+                                 const std::string& compression,
+                                 int chunk_size,
+                                 R_xlen_t expected_size,
+                                 const std::string& label_prefix) {
+  SEXP names_sexp = datasets.attr("names");
+  if (Rf_isNull(names_sexp)) {
+    if (datasets.size() == 0) {
+      return;
+    }
+    Rcpp::stop("`%s` must be a named list", label_prefix);
+  }
+  Rcpp::CharacterVector names(names_sexp);
+  if (datasets.size() > 0 && names.size() != datasets.size()) {
+    Rcpp::stop("`%s` must be a named list", label_prefix);
+  }
+  for (R_xlen_t i = 0; i < datasets.size(); ++i) {
+    std::string name = scalar_string(names[i], label_prefix + " names");
+    if (name.empty()) {
+      Rcpp::stop("`%s` names must not be empty", label_prefix);
+    }
+    if (name.find('/') != std::string::npos) {
+      Rcpp::stop("`%s` names must not contain '/'", label_prefix);
+    }
+    if (contains_name(skip_names, name)) {
+      Rcpp::stop("`%s` names must not use reserved dataset names", label_prefix);
+    }
+    write_atomic_dataset(loc, name, datasets[i], compression, chunk_size, expected_size,
+                         label_prefix + "[['" + name + "']]");
   }
 }
 
@@ -365,7 +398,7 @@ void write_extra_row_data_columns(hid_t row_data,
     if (contains_name(skip_names, name)) {
       continue;
     }
-    write_atomic_row_data_column(row_data, name, data[i], compression, chunk_size, n, "row_data column '" + name + "'");
+    write_atomic_dataset(row_data, name, data[i], compression, chunk_size, n, "row_data column '" + name + "'");
   }
 }
 
@@ -585,12 +618,12 @@ Rcpp::CharacterVector list_group_names(hid_t group) {
   return out;
 }
 
-SEXP read_row_data_dataset(hid_t row_data, const std::string& name) {
-  H5Handle dataset(check_id(H5Dopen2(row_data, name.c_str(), H5P_DEFAULT), "opening dataset '" + name + "'"),
+SEXP read_atomic_dataset(hid_t loc, const std::string& name, const std::string& label_prefix) {
+  H5Handle dataset(check_id(H5Dopen2(loc, name.c_str(), H5P_DEFAULT), "opening dataset '" + name + "'"),
                    H5Dclose);
   std::vector<hsize_t> dims = dataset_dims(dataset.get());
   if (dims.size() > 1) {
-    Rcpp::stop("row_data dataset '%s' must be one-dimensional", name);
+    Rcpp::stop("%s dataset '%s' must be one-dimensional", label_prefix, name);
   }
   H5Handle type(check_id(H5Dget_type(dataset.get()), "opening datatype for dataset '" + name + "'"), H5Tclose);
   H5T_class_t type_class = H5Tget_class(type.get());
@@ -598,15 +631,15 @@ SEXP read_row_data_dataset(hid_t row_data, const std::string& name) {
     h5_fail("reading dataset class for '" + name + "'");
   }
   if (type_class == H5T_STRING) {
-    return read_dataset_strings(row_data, name);
+    return read_dataset_strings(loc, name);
   }
   if (type_class == H5T_INTEGER) {
-    return read_dataset_int64_as_numeric(row_data, name);
+    return read_dataset_int64_as_numeric(loc, name);
   }
   if (type_class == H5T_FLOAT) {
-    return read_dataset_double(row_data, name);
+    return read_dataset_double(loc, name);
   }
-  Rcpp::stop("row_data dataset '%s' must be string, integer, or floating-point", name);
+  Rcpp::stop("%s dataset '%s' must be string, integer, or floating-point", label_prefix, name);
 }
 
 Rcpp::DataFrame read_row_data_table(hid_t row_data) {
@@ -615,7 +648,7 @@ Rcpp::DataFrame read_row_data_table(hid_t row_data) {
   R_xlen_t nrows = -1;
   for (R_xlen_t i = 0; i < col_names.size(); ++i) {
     std::string name = Rcpp::as<std::string>(col_names[i]);
-    columns[i] = read_row_data_dataset(row_data, name);
+    columns[i] = read_atomic_dataset(row_data, name, "row_data");
     R_xlen_t size = Rf_xlength(columns[i]);
     if (nrows < 0) {
       nrows = size;
@@ -628,6 +661,22 @@ Rcpp::DataFrame read_row_data_table(hid_t row_data) {
   columns.attr("row.names") = Rcpp::IntegerVector::create(NA_INTEGER, -nrows);
   columns.attr("stringsAsFactors") = false;
   return columns;
+}
+
+Rcpp::List read_extra_trait_datasets(hid_t trait_group) {
+  Rcpp::CharacterVector dataset_names = list_group_names(trait_group);
+  Rcpp::List out;
+  std::vector<std::string> names;
+  for (R_xlen_t i = 0; i < dataset_names.size(); ++i) {
+    std::string name = Rcpp::as<std::string>(dataset_names[i]);
+    if (name == "gradient" || name == "hessian" || name == "parameters") {
+      continue;
+    }
+    out.push_back(read_atomic_dataset(trait_group, name, "trait"));
+    names.push_back(name);
+  }
+  out.attr("names") = Rcpp::wrap(names);
+  return out;
 }
 
 Rcpp::List read_trait_groups_list(hid_t file) {
@@ -663,6 +712,7 @@ Rcpp::List write_graphld_score_hdf5_cpp(const std::string& filename,
                                         const std::string& trait_name,
                                         Rcpp::IntegerVector jackknife_blocks,
                                         bool overwrite,
+                                        Rcpp::List trait_datasets,
                                         const std::string& source,
                                         const std::string& compression,
                                         int chunk_size,
@@ -726,6 +776,9 @@ Rcpp::List write_graphld_score_hdf5_cpp(const std::string& filename,
     write_dataset_double_matrix(parameter_group.get(), "jackknife_parameters", jackknife_values, compression,
                                 chunk_size);
   }
+  write_named_atomic_datasets(trait_group.get(), trait_datasets,
+                              std::vector<std::string>{"gradient", "hessian", "parameters"},
+                              compression, chunk_size, static_cast<R_xlen_t>(gradient.size()), "trait_datasets");
   check_status(H5Fflush(file.get(), H5F_SCOPE_GLOBAL), "flushing HDF5 file");
 
   return Rcpp::List::create(Rcpp::Named("file") = filename,
@@ -744,6 +797,7 @@ Rcpp::List write_graphld_gene_score_hdf5_cpp(const std::string& filename,
                                              const std::string& trait_name,
                                              Rcpp::IntegerVector jackknife_blocks,
                                              bool overwrite,
+                                             Rcpp::List trait_datasets,
                                              const std::string& source,
                                              const std::string& compression,
                                              int chunk_size,
@@ -807,6 +861,9 @@ Rcpp::List write_graphld_gene_score_hdf5_cpp(const std::string& filename,
     write_dataset_double_matrix(parameter_group.get(), "jackknife_parameters", jackknife_values, compression,
                                 chunk_size);
   }
+  write_named_atomic_datasets(trait_group.get(), trait_datasets,
+                              std::vector<std::string>{"gradient", "hessian", "parameters"},
+                              compression, chunk_size, static_cast<R_xlen_t>(gradient.size()), "trait_datasets");
   check_status(H5Fflush(file.get(), H5F_SCOPE_GLOBAL), "flushing HDF5 file");
 
   return Rcpp::List::create(Rcpp::Named("file") = filename,
@@ -850,6 +907,7 @@ Rcpp::List read_graphld_score_hdf5_cpp(const std::string& filename, const std::s
       out["parameters"] = read_dataset_double(parameter_group.get(), "parameters");
       out["jackknife_parameters"] = read_dataset_double_matrix(parameter_group.get(), "jackknife_parameters");
     }
+    out["trait_datasets"] = read_extra_trait_datasets(trait_group.get());
   }
   return out;
 }

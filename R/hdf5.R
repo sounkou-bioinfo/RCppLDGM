@@ -15,9 +15,10 @@ ldgm_hdf5_filter_info <- function() {
 #' metadata attributes, `/row_data/{CHR,POS,RSID,jackknife_blocks,...}`, `/groups`,
 #' `/traits/<trait_name>/gradient`, and optionally
 #' `/traits/<trait_name>/hessian` plus
-#' `/traits/<trait_name>/parameters/{parameters,jackknife_parameters}`. Native
-#' HDF5 support is linked through the CRAN `hdf5lib` package, including its
-#' bundled LZF/gzip filters.
+#' `/traits/<trait_name>/parameters/{parameters,jackknife_parameters}`. Extra
+#' row-data columns and extra one-dimensional trait datasets can also be stored
+#' when requested. Native HDF5 support is linked through the CRAN `hdf5lib`
+#' package, including its bundled LZF/gzip filters.
 #'
 #' @param file Output HDF5 path. Existing files are updated by appending a new
 #'   trait unless `overwrite = TRUE`.
@@ -36,6 +37,9 @@ ldgm_hdf5_filter_info <- function() {
 #'   jackknife assignments.
 #' @param hessian Optional numeric variant Hessian/correction vector, one value
 #'   per row of `variant_data`, stored as `/traits/<trait_name>/hessian`.
+#' @param trait_datasets Optional named list of additional per-row trait datasets
+#'   to store under `/traits/<trait_name>`. Each element must be an atomic vector
+#'   with one value per variant.
 #' @param parameters Optional numeric fitted parameter vector stored under the
 #'   trait's `parameters` group for GraphLD score-test I/O compatibility.
 #' @param jackknife_parameters Optional numeric matrix with one row per
@@ -56,6 +60,7 @@ ldgm_write_score_test_hdf5 <- function(file,
                                        jackknife_blocks = NULL,
                                        row_data_cols = NULL,
                                        hessian = NULL,
+                                       trait_datasets = NULL,
                                        parameters = NULL,
                                        jackknife_parameters = NULL,
                                        overwrite = FALSE,
@@ -96,6 +101,12 @@ ldgm_write_score_test_hdf5 <- function(file,
       stop("`hessian` must contain one non-missing value per variant", call. = FALSE)
     }
   }
+  trait_datasets <- normalize_score_hdf5_trait_datasets(
+    trait_datasets,
+    n = n,
+    label = "trait_datasets",
+    reserved = c("gradient", "hessian", "parameters", "jackknife_parameters")
+  )
   if (is.null(jackknife_blocks)) {
     jackknife_blocks <- if ("jackknife_blocks" %in% names(variant_data)) {
       variant_data$jackknife_blocks
@@ -132,6 +143,7 @@ ldgm_write_score_test_hdf5 <- function(file,
     trait_name,
     jackknife_blocks,
     isTRUE(overwrite),
+    trait_datasets,
     as.character(source),
     compression,
     as.integer(chunk_size),
@@ -164,6 +176,9 @@ ldgm_write_score_test_hdf5 <- function(file,
 #'   jackknife assignments.
 #' @param hessian Optional numeric gene Hessian/correction vector, one value per
 #'   row of `gene_data`.
+#' @param trait_datasets Optional named list of additional per-row trait datasets
+#'   to store under `/traits/<trait_name>`. Each element must be an atomic vector
+#'   with one value per gene.
 #' @param parameters,jackknife_parameters Optional fitted parameter datasets.
 #' @param overwrite,compression,chunk_size,source Passed to the native HDF5
 #'   writer.
@@ -177,6 +192,7 @@ ldgm_write_gene_score_hdf5 <- function(file,
                                        jackknife_blocks = NULL,
                                        row_data_cols = NULL,
                                        hessian = NULL,
+                                       trait_datasets = NULL,
                                        parameters = NULL,
                                        jackknife_parameters = NULL,
                                        overwrite = FALSE,
@@ -216,6 +232,12 @@ ldgm_write_gene_score_hdf5 <- function(file,
       stop("`hessian` must contain one non-missing value per gene", call. = FALSE)
     }
   }
+  trait_datasets <- normalize_score_hdf5_trait_datasets(
+    trait_datasets,
+    n = n,
+    label = "trait_datasets",
+    reserved = c("gradient", "hessian", "parameters", "jackknife_parameters")
+  )
   if (is.null(jackknife_blocks)) {
     jackknife_blocks <- if ("jackknife_blocks" %in% names(gene_data)) {
       gene_data$jackknife_blocks
@@ -252,6 +274,7 @@ ldgm_write_gene_score_hdf5 <- function(file,
     trait_name,
     jackknife_blocks,
     isTRUE(overwrite),
+    trait_datasets,
     as.character(source),
     compression,
     as.integer(chunk_size),
@@ -359,7 +382,8 @@ ldgm_convert_variant_to_gene_scores <- function(variant_stats_hdf5,
 #'   available trait names are returned.
 #'
 #' @return A list with `variant_data`, `trait_names`, and, when requested,
-#'   `gradient`, optional `hessian`, and optional fitted parameter datasets.
+#'   `gradient`, optional `hessian`, optional fitted parameter datasets, and
+#'   `trait_datasets` for any additional one-dimensional trait-level datasets.
 #' @export
 ldgm_read_score_test_hdf5 <- function(file, trait_name = NULL) {
   if (!is.character(file) || length(file) != 1L || is.na(file) || !nzchar(file)) {
@@ -515,6 +539,55 @@ ldgm_read_surrogate_map_hdf5 <- function(file, block_name, file_index_base = c("
     out[missing] <- NA_integer_
   } else {
     out[out < 1L] <- NA_integer_
+  }
+  out
+}
+
+normalize_score_hdf5_trait_datasets <- function(x, n, label, reserved) {
+  if (is.null(x)) {
+    return(list())
+  }
+  if (!is.list(x) || is.data.frame(x)) {
+    stop("`", label, "` must be `NULL` or a named list", call. = FALSE)
+  }
+  names_x <- names(x)
+  if (length(x) > 0L && (is.null(names_x) || length(names_x) != length(x))) {
+    stop("`", label, "` must be a named list", call. = FALSE)
+  }
+  if (length(x) == 0L) {
+    return(list())
+  }
+  if (anyNA(names_x) || any(!nzchar(names_x))) {
+    stop("`", label, "` names must be non-empty", call. = FALSE)
+  }
+  if (any(grepl("/", names_x, fixed = TRUE))) {
+    stop("`", label, "` names must not contain '/'", call. = FALSE)
+  }
+  if (anyDuplicated(names_x)) {
+    stop("`", label, "` names must be unique", call. = FALSE)
+  }
+  if (any(names_x %in% reserved)) {
+    stop("`", label, "` names must not use reserved dataset names: ",
+      paste(intersect(names_x, reserved), collapse = ", "),
+      call. = FALSE
+    )
+  }
+  out <- setNames(vector("list", length(x)), names_x)
+  for (i in seq_along(x)) {
+    values <- x[[i]]
+    if (is.matrix(values) || is.array(values)) {
+      stop("each `", label, "` element must be an atomic vector", call. = FALSE)
+    }
+    if (is.factor(values)) {
+      values <- as.character(values)
+    }
+    if (!(is.numeric(values) || is.integer(values) || is.logical(values) || is.character(values))) {
+      stop("each `", label, "` element must be numeric, integer, logical, or character", call. = FALSE)
+    }
+    if (length(values) != n || anyNA(values)) {
+      stop("each `", label, "` element must contain one non-missing value per row", call. = FALSE)
+    }
+    out[[i]] <- values
   }
   out
 }

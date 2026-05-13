@@ -32,6 +32,7 @@ ldgm_write_score_test_hdf5(
   hessian = hessian,
   trait_name = trait_name,
   jackknife_blocks = jackknife_blocks,
+  trait_datasets = list(posterior_scale = c(1.5, 1.0, 0.5)),
   parameters = parameters,
   jackknife_parameters = jackknife_parameters,
   overwrite = TRUE,
@@ -97,6 +98,7 @@ stopifnot(
   isTRUE(all.equal(native$hessian, hessian, tolerance = 1e-12, check.attributes = FALSE)),
   isTRUE(all.equal(native$parameters, parameters, tolerance = 1e-12, check.attributes = FALSE)),
   isTRUE(all.equal(native$jackknife_parameters, jackknife_parameters, tolerance = 1e-12, check.attributes = FALSE)),
+  isTRUE(all.equal(native$trait_datasets$posterior_scale, c(1.5, 1.0, 0.5), tolerance = 1e-12, check.attributes = FALSE)),
   isTRUE(all.equal(score_result_b$results$score, c(0.1, 0.3), tolerance = 1e-12, check.attributes = FALSE)),
   identical(native_surrogate, c(1L, 3L, NA_integer_))
 )

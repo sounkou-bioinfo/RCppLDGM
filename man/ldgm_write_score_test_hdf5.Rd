@@ -12,6 +12,7 @@ ldgm_write_score_test_hdf5(
   jackknife_blocks = NULL,
   row_data_cols = NULL,
   hessian = NULL,
+  trait_datasets = NULL,
   parameters = NULL,
   jackknife_parameters = NULL,
   overwrite = FALSE,
@@ -45,6 +46,10 @@ jackknife assignments.}
 \item{hessian}{Optional numeric variant Hessian/correction vector, one value
 per row of \code{variant_data}, stored as \verb{/traits/<trait_name>/hessian}.}
 
+\item{trait_datasets}{Optional named list of additional per-row trait datasets
+to store under \verb{/traits/<trait_name>}. Each element must be an atomic vector
+with one value per variant.}
+
 \item{parameters}{Optional numeric fitted parameter vector stored under the
 trait's \code{parameters} group for GraphLD score-test I/O compatibility.}
 
@@ -69,7 +74,8 @@ Writes the HDF5 layout used by GraphLD's graphREML score-test path: root
 metadata attributes, \verb{/row_data/\{CHR,POS,RSID,jackknife_blocks,...\}}, \verb{/groups},
 \verb{/traits/<trait_name>/gradient}, and optionally
 \verb{/traits/<trait_name>/hessian} plus
-\verb{/traits/<trait_name>/parameters/\{parameters,jackknife_parameters\}}. Native
-HDF5 support is linked through the CRAN \code{hdf5lib} package, including its
-bundled LZF/gzip filters.
+\verb{/traits/<trait_name>/parameters/\{parameters,jackknife_parameters\}}. Extra
+row-data columns and extra one-dimensional trait datasets can also be stored
+when requested. Native HDF5 support is linked through the CRAN \code{hdf5lib}
+package, including its bundled LZF/gzip filters.
 }

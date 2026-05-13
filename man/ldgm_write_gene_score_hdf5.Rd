@@ -12,6 +12,7 @@ ldgm_write_gene_score_hdf5(
   jackknife_blocks = NULL,
   row_data_cols = NULL,
   hessian = NULL,
+  trait_datasets = NULL,
   parameters = NULL,
   jackknife_parameters = NULL,
   overwrite = FALSE,
@@ -43,6 +44,10 @@ jackknife assignments.}
 
 \item{hessian}{Optional numeric gene Hessian/correction vector, one value per
 row of \code{gene_data}.}
+
+\item{trait_datasets}{Optional named list of additional per-row trait datasets
+to store under \verb{/traits/<trait_name>}. Each element must be an atomic vector
+with one value per gene.}
 
 \item{parameters, jackknife_parameters}{Optional fitted parameter datasets.}
 
