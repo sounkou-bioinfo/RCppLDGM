@@ -209,6 +209,49 @@ block_dup <- ldgm_reml_block(
 expected_h2_dup <- ldgm_reml_link(annotations_dup, c(0, 0.2), denominator = 10)
 expect_equal(block_dup$diag_update, c(expected_h2_dup[[1]], sum(expected_h2_dup[2:3])), tolerance = 1e-12)
 
+P_select_full <- ldgm_precision(
+  Matrix::Diagonal(3, x = c(2, 3, 4)),
+  data.frame(
+    index = c(1L, 2L, 3L),
+    site_ids = c("rs1", "rs2", "rs3"),
+    position = c(10L, 20L, 30L),
+    anc_alleles = c("A", "C", "T"),
+    deriv_alleles = c("G", "T", "C"),
+    stringsAsFactors = FALSE
+  )
+)
+select_sumstats <- data.frame(
+  SNP = c("rs1", "rs2", "rs3"),
+  CHR = c(1L, 1L, 1L),
+  POS = c(10L, 20L, 30L),
+  A1 = c("G", "T", "C"),
+  A2 = c("A", "C", "T"),
+  Z = c(0.25, NA_real_, -0.15),
+  base = c(1, 1, 1),
+  stringsAsFactors = FALSE
+)
+merged_selected <- ldgm_merge_snplists(
+  P_select_full,
+  select_sumstats,
+  table_format = "ldsc",
+  add_allelic_cols = "Z",
+  add_cols = "base"
+)
+selected_surrogate <- ldgm_reml_surrogate_markers(merged_selected$ldgm, merged_selected$ldgm$variant_info$Z)
+selected_block <- ldgm_reml_block(
+  selected_surrogate$precision,
+  selected_surrogate$z,
+  as.matrix(data.frame(base = as.numeric(selected_surrogate$precision$variant_info$base))),
+  0,
+  sample_size = 100,
+  link_fn_denominator = 10,
+  diagonal_method = "exact"
+)
+expect_true(is.finite(selected_block$likelihood))
+expect_equal(length(selected_block$gradient), 1L)
+expect_equal(dim(selected_block$hessian), c(1L, 1L))
+expect_equal(length(selected_block$diag_update), nrow(ldgm_precision_matrix(selected_surrogate$precision)))
+
 reml_h5_file <- tempfile(fileext = ".h5")
 reml_variant_data <- data.frame(
   CHR = c(1L, 1L, 1L),

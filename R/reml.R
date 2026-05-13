@@ -489,9 +489,6 @@ ldgm_run_reml <- function(ldgms,
 }
 
 prepare_reml_block <- function(precision, z, annotations, params, sample_size, intercept, denominator) {
-  if (inherits(precision, "ldgm_precision") && !is.null(precision$which_indices)) {
-    stop("GraphREML block calculations require full, not selected, precision objects", call. = FALSE)
-  }
   if (!is.numeric(z) || length(dim(z)) > 1L) {
     stop("`z` must be a numeric vector", call. = FALSE)
   }
@@ -499,7 +496,7 @@ prepare_reml_block <- function(precision, z, annotations, params, sample_size, i
   if (length(intercept) != 1L || is.na(intercept) || intercept <= 0) {
     stop("`intercept` must be a single positive number", call. = FALSE)
   }
-  matrix <- if (inherits(precision, "ldgm_precision")) precision$precision else as_dgCMatrix(precision)
+  matrix <- if (inherits(precision, "ldgm_precision")) ldgm_precision_matrix(precision) else as_dgCMatrix(precision)
   n <- nrow(matrix)
   if (length(z) != n) {
     stop("`z` length must equal the precision matrix dimension", call. = FALSE)

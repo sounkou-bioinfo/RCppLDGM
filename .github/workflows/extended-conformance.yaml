@@ -72,6 +72,7 @@ jobs:
           make upstream-graphld-smoke
           make upstream-graphld-reader-conformance
           make upstream-graphld-blup-clump-conformance
+          make upstream-graphld-reml-conformance
           make upstream-graphld-simulate-conformance
 
       - name: Run GraphLD HDF5 interop gate
