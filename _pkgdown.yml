@@ -113,8 +113,12 @@ reference:
   - LdgmScoreTestVariantData
   - LdgmScoreTestGeneData
   - ldgm_score_test_variant_data
+  - ldgm_score_test_variant_data_provider
+  - ldgm_duckdb_score_test_variant_data
   - ldgm_score_test_variant_data_frame
   - ldgm_score_test_gene_data
+  - ldgm_score_test_gene_data_provider
+  - ldgm_duckdb_score_test_gene_data
   - ldgm_score_test_gene_data_frame
   - ldgm_assert_score_test_variant_data
   - ldgm_assert_score_test_gene_data

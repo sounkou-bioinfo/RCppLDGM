@@ -157,6 +157,46 @@ LdgmScoreTestGeneDataTable <- S7::new_class(
   }
 )
 
+# Callback-based score-test row-data provider for out-of-memory or query-backed
+# variant tables.
+LdgmScoreTestVariantDataProvider <- S7::new_class(
+  "LdgmScoreTestVariantDataProvider",
+  package = "RcppLDGM",
+  properties = list(
+    frame = S7::class_function,
+    required_cols = S7::class_character
+  ),
+  validator = function(self) {
+    tryCatch(
+      {
+        normalize_score_test_variant_required_cols(self@required_cols)
+        NULL
+      },
+      error = function(e) conditionMessage(e)
+    )
+  }
+)
+
+# Callback-based score-test row-data provider for out-of-memory or query-backed
+# gene tables.
+LdgmScoreTestGeneDataProvider <- S7::new_class(
+  "LdgmScoreTestGeneDataProvider",
+  package = "RcppLDGM",
+  properties = list(
+    frame = S7::class_function,
+    required_cols = S7::class_character
+  ),
+  validator = function(self) {
+    tryCatch(
+      {
+        normalize_score_test_gene_required_cols(self@required_cols)
+        NULL
+      },
+      error = function(e) conditionMessage(e)
+    )
+  }
+)
+
 # Callback-based summary-statistics provider. Suitable for table backends such
 # as DuckDB that should expose interface methods without forcing eager full-table
 # materialization at the API boundary.
@@ -302,7 +342,8 @@ ldgm_block_population <- S7::new_generic(
 #'
 #' @param x Object implementing [LdgmScoreTestVariantData], or an ordinary data
 #'   frame.
-#' @param ... Reserved for future implementations.
+#' @param ... Optional projection hints such as `required_cols` for provider-
+#'   backed implementations.
 #'
 #' @return A data frame with `CHR`, `POS`, and `RSID`/`SNP` columns.
 #' @export
@@ -318,7 +359,8 @@ ldgm_score_test_variant_data_frame <- S7::new_generic(
 #'
 #' @param x Object implementing [LdgmScoreTestGeneData], or an ordinary data
 #'   frame.
-#' @param ... Reserved for future implementations.
+#' @param ... Optional projection hints such as `required_cols` for provider-
+#'   backed implementations.
 #'
 #' @return A data frame with `CHR`, `POS`, `gene_id`, and `gene_name` columns.
 #' @export
@@ -509,6 +551,36 @@ S7::method(ldgm_score_test_gene_data_frame, LdgmScoreTestGeneDataTable) <- funct
 S7::method(ldgm_score_test_gene_data_frame, S7::class_data.frame) <- function(x, ...) {
   invisible(list(...))
   normalize_score_hdf5_gene_data(x)
+}
+
+S7::method(ldgm_score_test_variant_data_frame, LdgmScoreTestVariantDataProvider) <- function(x, ...) {
+  args <- list(...)
+  extra_required_cols <- if (is.null(args$required_cols)) character() else validate_provider_column_names(args$required_cols, "required_cols")
+  required_cols <- unique(c(
+    normalize_score_test_variant_required_cols(x@required_cols),
+    extra_required_cols
+  ))
+  out <- provider_data_frame_result(
+    x@frame,
+    list(required_cols = required_cols),
+    "score-test variant-data provider `frame` callback"
+  )
+  normalize_score_hdf5_variant_data(out)
+}
+
+S7::method(ldgm_score_test_gene_data_frame, LdgmScoreTestGeneDataProvider) <- function(x, ...) {
+  args <- list(...)
+  extra_required_cols <- if (is.null(args$required_cols)) character() else validate_provider_column_names(args$required_cols, "required_cols")
+  required_cols <- unique(c(
+    normalize_score_test_gene_required_cols(x@required_cols),
+    extra_required_cols
+  ))
+  out <- provider_data_frame_result(
+    x@frame,
+    list(required_cols = required_cols),
+    "score-test gene-data provider `frame` callback"
+  )
+  normalize_score_hdf5_gene_data(out)
 }
 
 S7::method(ldgm_summary_stats_frame, LdgmSummaryStatsProvider) <- function(x, ...) {
@@ -775,6 +847,61 @@ ldgm_score_test_gene_data <- function(x) {
     return(x)
   }
   LdgmScoreTestGeneDataTable(data = normalize_score_hdf5_gene_data(x))
+}
+
+#' Create a Callback-Based Variant Score-Test Row-Data Provider
+#'
+#' Builds an object implementing [LdgmScoreTestVariantData] from a callback
+#' rather than an eagerly materialized data frame. This is intended for query-
+#' backed or out-of-memory row tables, for example DuckDB relations. The
+#' callback is called as `frame(required_cols = <chr>)` and should return a data
+#' frame containing at least `CHR`, `POS`, and `RSID` or `SNP`; callers can ask
+#' for additional columns such as `jackknife_blocks`.
+#'
+#' @param frame Function expected to return a data frame.
+#' @param required_cols Default row-data columns returned when callers do not
+#'   request additional columns. Must include `CHR`, `POS`, and `RSID` or
+#'   `SNP`.
+#'
+#' @return An object implementing [LdgmScoreTestVariantData].
+#' @export
+ldgm_score_test_variant_data_provider <- function(frame,
+                                                  required_cols = c("CHR", "POS", "RSID")) {
+  if (!is.function(frame)) {
+    stop("`frame` must be a function", call. = FALSE)
+  }
+  required_cols <- normalize_score_test_variant_required_cols(required_cols)
+  LdgmScoreTestVariantDataProvider(
+    frame = frame,
+    required_cols = required_cols
+  )
+}
+
+#' Create a Callback-Based Gene Score-Test Row-Data Provider
+#'
+#' Builds an object implementing [LdgmScoreTestGeneData] from a callback rather
+#' than an eagerly materialized data frame. The callback is called as
+#' `frame(required_cols = <chr>)` and should return a data frame containing at
+#' least `CHR`, `POS`, `gene_id`, and `gene_name`; callers can ask for
+#' additional columns such as `jackknife_blocks`.
+#'
+#' @param frame Function expected to return a data frame.
+#' @param required_cols Default row-data columns returned when callers do not
+#'   request additional columns. Must include `CHR`, `POS`, `gene_id`, and
+#'   `gene_name`.
+#'
+#' @return An object implementing [LdgmScoreTestGeneData].
+#' @export
+ldgm_score_test_gene_data_provider <- function(frame,
+                                               required_cols = c("CHR", "POS", "gene_id", "gene_name")) {
+  if (!is.function(frame)) {
+    stop("`frame` must be a function", call. = FALSE)
+  }
+  required_cols <- normalize_score_test_gene_required_cols(required_cols)
+  LdgmScoreTestGeneDataProvider(
+    frame = frame,
+    required_cols = required_cols
+  )
 }
 
 #' Assert Variant Score-Test Row-Data Interface Support
@@ -1074,6 +1201,27 @@ normalize_ldgm_annotation_cols <- function(x, annotation_cols = NULL) {
     annotation_cols <- candidate_cols[numeric_cols]
   }
   validate_provider_column_names(annotation_cols, "annotation_cols")
+}
+
+normalize_score_test_variant_required_cols <- function(required_cols) {
+  required_cols <- validate_provider_column_names(required_cols, "required_cols")
+  missing <- setdiff(c("CHR", "POS"), required_cols)
+  if (length(missing) > 0L) {
+    stop("`required_cols` must include ", paste(sprintf("`%s`", missing), collapse = ", "), call. = FALSE)
+  }
+  if (!any(c("RSID", "SNP") %in% required_cols)) {
+    stop("`required_cols` must include `RSID` or `SNP`", call. = FALSE)
+  }
+  required_cols
+}
+
+normalize_score_test_gene_required_cols <- function(required_cols) {
+  required_cols <- validate_provider_column_names(required_cols, "required_cols")
+  missing <- setdiff(c("CHR", "POS", "gene_id", "gene_name"), required_cols)
+  if (length(missing) > 0L) {
+    stop("`required_cols` must include ", paste(sprintf("`%s`", missing), collapse = ", "), call. = FALSE)
+  }
+  required_cols
 }
 
 validate_provider_column_names <- function(x, name) {

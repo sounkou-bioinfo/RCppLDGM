@@ -73,7 +73,8 @@ ldgm_write_score_test_hdf5 <- function(file,
     stop("`source` must be a single non-missing string", call. = FALSE)
   }
 
-  variant_data <- ldgm_score_test_variant_data_frame(variant_data)
+  variant_required_cols <- if (is.null(jackknife_blocks)) "jackknife_blocks" else NULL
+  variant_data <- ldgm_score_test_variant_data_frame(variant_data, required_cols = variant_required_cols)
   n <- nrow(variant_data)
   gradient <- as.numeric(gradient)
   if (length(gradient) != n || anyNA(gradient)) {
@@ -86,7 +87,11 @@ ldgm_write_score_test_hdf5 <- function(file,
     }
   }
   if (is.null(jackknife_blocks)) {
-    jackknife_blocks <- variant_data$jackknife_blocks %||% rep.int(0L, n)
+    jackknife_blocks <- if ("jackknife_blocks" %in% names(variant_data)) {
+      variant_data$jackknife_blocks
+    } else {
+      rep.int(0L, n)
+    }
   }
   jackknife_blocks <- as.integer(jackknife_blocks)
   if (length(jackknife_blocks) != n || anyNA(jackknife_blocks)) {
@@ -178,7 +183,8 @@ ldgm_write_gene_score_hdf5 <- function(file,
   if (!is.character(source) || length(source) != 1L || is.na(source)) {
     stop("`source` must be a single non-missing string", call. = FALSE)
   }
-  gene_data <- ldgm_score_test_gene_data_frame(gene_data)
+  gene_required_cols <- if (is.null(jackknife_blocks)) "jackknife_blocks" else NULL
+  gene_data <- ldgm_score_test_gene_data_frame(gene_data, required_cols = gene_required_cols)
   n <- nrow(gene_data)
   gradient <- as.numeric(gradient)
   if (length(gradient) != n || anyNA(gradient)) {
@@ -191,7 +197,11 @@ ldgm_write_gene_score_hdf5 <- function(file,
     }
   }
   if (is.null(jackknife_blocks)) {
-    jackknife_blocks <- gene_data$jackknife_blocks %||% rep.int(0L, n)
+    jackknife_blocks <- if ("jackknife_blocks" %in% names(gene_data)) {
+      gene_data$jackknife_blocks
+    } else {
+      rep.int(0L, n)
+    }
   }
   jackknife_blocks <- as.integer(jackknife_blocks)
   if (length(jackknife_blocks) != n || anyNA(jackknife_blocks)) {

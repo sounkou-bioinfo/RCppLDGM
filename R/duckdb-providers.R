@@ -44,8 +44,8 @@ ldgm_duckdb_summary_stats <- function(con,
   .ldgm_validate_duckdb_connection(con, "ldgm_duckdb_summary_stats")
   from_sql <- .ldgm_duckdb_from_sql(con, from)
   required_cols <- normalize_ldgm_required_cols(required_cols)
-  chrom_col <- validate_provider_column_names(chrom_col, "chrom_col")
-  pos_col <- validate_provider_column_names(pos_col, "pos_col")
+  chrom_col <- .ldgm_duckdb_source_column(chrom_col, "chrom_col")
+  pos_col <- .ldgm_duckdb_source_column(pos_col, "pos_col")
   partition_chrom_col <- chrom_col
   partition_pos_col <- pos_col
 
@@ -115,8 +115,8 @@ ldgm_duckdb_annotation_data <- function(con,
   .ldgm_validate_duckdb_connection(con, "ldgm_duckdb_annotation_data")
   from_sql <- .ldgm_duckdb_from_sql(con, from)
   annotation_cols <- validate_provider_column_names(annotation_cols, "annotation_cols")
-  chrom_col <- validate_provider_column_names(chrom_col, "chrom_col")
-  pos_col <- validate_provider_column_names(pos_col, "pos_col")
+  chrom_col <- .ldgm_duckdb_source_column(chrom_col, "chrom_col")
+  pos_col <- .ldgm_duckdb_source_column(pos_col, "pos_col")
   partition_chrom_col <- chrom_col
   partition_pos_col <- pos_col
 
@@ -144,6 +144,154 @@ ldgm_duckdb_annotation_data <- function(con,
       )
     }
   )
+}
+
+#' Create a DuckDB-backed Variant Score-Test Row-Data Provider
+#'
+#' Builds a callback-based [LdgmScoreTestVariantData] implementation over a
+#' DuckDB table, view, or subquery. Requested columns are projected into R with
+#' canonical GraphLD HDF5 names, so backends can expose source-specific column
+#' names without leaking them into the writer API.
+#'
+#' @param con A live DuckDB connection created with [DBI::dbConnect()] and
+#'   [duckdb::duckdb()].
+#' @param from Variant row-data source. Supply a scalar table/view name, a
+#'   `DBI::Id()` for schema-qualified objects, or `DBI::SQL()` containing a
+#'   valid DuckDB `FROM` source such as `(SELECT ...)`.
+#' @param chrom_col Source chromosome column mapped to HDF5 `CHR`.
+#' @param pos_col Source position column mapped to HDF5 `POS`.
+#' @param rsid_col Source variant identifier column mapped to HDF5 `RSID`.
+#' @param jackknife_col Optional source column mapped to HDF5
+#'   `jackknife_blocks`.
+#'
+#' @return An object implementing [LdgmScoreTestVariantData].
+#' @examplesIf requireNamespace("DBI", quietly = TRUE) && requireNamespace("duckdb", quietly = TRUE)
+#' con <- DBI::dbConnect(duckdb::duckdb(), dbdir = ":memory:")
+#' on.exit(DBI::dbDisconnect(con, shutdown = TRUE), add = TRUE)
+#' DBI::dbWriteTable(
+#'   con,
+#'   "variant_rows",
+#'   data.frame(
+#'     chrom = 1L,
+#'     position = c(10L, 20L),
+#'     snp_id = c("rs1", "rs2"),
+#'     block_id = c(0L, 1L)
+#'   )
+#' )
+#' provider <- ldgm_duckdb_score_test_variant_data(
+#'   con,
+#'   "variant_rows",
+#'   chrom_col = "chrom",
+#'   pos_col = "position",
+#'   rsid_col = "snp_id",
+#'   jackknife_col = "block_id"
+#' )
+#' ldgm_score_test_variant_data_frame(provider, required_cols = "jackknife_blocks")
+#' @export
+ldgm_duckdb_score_test_variant_data <- function(con,
+                                                from,
+                                                chrom_col = "CHR",
+                                                pos_col = "POS",
+                                                rsid_col = "RSID",
+                                                jackknife_col = NULL) {
+  .ldgm_validate_duckdb_connection(con, "ldgm_duckdb_score_test_variant_data")
+  from_sql <- .ldgm_duckdb_from_sql(con, from)
+  column_map <- c(
+    CHR = .ldgm_duckdb_source_column(chrom_col, "chrom_col"),
+    POS = .ldgm_duckdb_source_column(pos_col, "pos_col"),
+    RSID = .ldgm_duckdb_source_column(rsid_col, "rsid_col")
+  )
+  if (!is.null(jackknife_col)) {
+    column_map <- c(
+      column_map,
+      jackknife_blocks = .ldgm_duckdb_source_column(jackknife_col, "jackknife_col")
+    )
+  }
+  ldgm_score_test_variant_data_provider(
+    frame = function(required_cols) {
+      .ldgm_duckdb_collect_named_projection(con, from_sql, required_cols, column_map)
+    },
+    required_cols = c("CHR", "POS", "RSID")
+  )
+}
+
+#' Create a DuckDB-backed Gene Score-Test Row-Data Provider
+#'
+#' Builds a callback-based [LdgmScoreTestGeneData] implementation over a DuckDB
+#' table, view, or subquery. Requested columns are projected into R with the
+#' canonical HDF5 names expected by the gene score writer.
+#'
+#' @param con A live DuckDB connection created with [DBI::dbConnect()] and
+#'   [duckdb::duckdb()].
+#' @param from Gene row-data source. Supply a scalar table/view name, a
+#'   `DBI::Id()` for schema-qualified objects, or `DBI::SQL()` containing a
+#'   valid DuckDB `FROM` source such as `(SELECT ...)`.
+#' @param chrom_col Source chromosome column mapped to HDF5 `CHR`.
+#' @param pos_col Source position column mapped to HDF5 `POS`.
+#' @param gene_id_col Source column mapped to HDF5 `gene_id`.
+#' @param gene_name_col Source column mapped to HDF5 `gene_name`.
+#' @param jackknife_col Optional source column mapped to HDF5
+#'   `jackknife_blocks`.
+#'
+#' @return An object implementing [LdgmScoreTestGeneData].
+#' @examplesIf requireNamespace("DBI", quietly = TRUE) && requireNamespace("duckdb", quietly = TRUE)
+#' con <- DBI::dbConnect(duckdb::duckdb(), dbdir = ":memory:")
+#' on.exit(DBI::dbDisconnect(con, shutdown = TRUE), add = TRUE)
+#' DBI::dbWriteTable(
+#'   con,
+#'   "gene_rows",
+#'   data.frame(
+#'     chrom = c(1L, 1L),
+#'     position = c(100L, 250L),
+#'     ensg = c("ENSG1", "ENSG2"),
+#'     symbol = c("GENE1", "GENE2")
+#'   )
+#' )
+#' provider <- ldgm_duckdb_score_test_gene_data(
+#'   con,
+#'   "gene_rows",
+#'   chrom_col = "chrom",
+#'   pos_col = "position",
+#'   gene_id_col = "ensg",
+#'   gene_name_col = "symbol"
+#' )
+#' ldgm_score_test_gene_data_frame(provider)
+#' @export
+ldgm_duckdb_score_test_gene_data <- function(con,
+                                             from,
+                                             chrom_col = "CHR",
+                                             pos_col = "POS",
+                                             gene_id_col = "gene_id",
+                                             gene_name_col = "gene_name",
+                                             jackknife_col = NULL) {
+  .ldgm_validate_duckdb_connection(con, "ldgm_duckdb_score_test_gene_data")
+  from_sql <- .ldgm_duckdb_from_sql(con, from)
+  column_map <- c(
+    CHR = .ldgm_duckdb_source_column(chrom_col, "chrom_col"),
+    POS = .ldgm_duckdb_source_column(pos_col, "pos_col"),
+    gene_id = .ldgm_duckdb_source_column(gene_id_col, "gene_id_col"),
+    gene_name = .ldgm_duckdb_source_column(gene_name_col, "gene_name_col")
+  )
+  if (!is.null(jackknife_col)) {
+    column_map <- c(
+      column_map,
+      jackknife_blocks = .ldgm_duckdb_source_column(jackknife_col, "jackknife_col")
+    )
+  }
+  ldgm_score_test_gene_data_provider(
+    frame = function(required_cols) {
+      .ldgm_duckdb_collect_named_projection(con, from_sql, required_cols, column_map)
+    },
+    required_cols = c("CHR", "POS", "gene_id", "gene_name")
+  )
+}
+
+.ldgm_duckdb_source_column <- function(x, name) {
+  cols <- validate_provider_column_names(x, name)
+  if (length(cols) != 1L) {
+    stop("`", name, "` must identify exactly one column", call. = FALSE)
+  }
+  cols
 }
 
 .ldgm_validate_duckdb_connection <- function(con, fun_name) {
@@ -202,6 +350,35 @@ ldgm_duckdb_annotation_data <- function(con,
   paste(parts, collapse = ", ")
 }
 
+.ldgm_duckdb_column_map <- function(column_map) {
+  if (is.null(column_map)) {
+    return(character())
+  }
+  if (is.null(names(column_map)) || anyNA(names(column_map)) || any(!nzchar(names(column_map)))) {
+    stop("`column_map` must be a named character vector", call. = FALSE)
+  }
+  stats::setNames(
+    vapply(names(column_map), function(name) {
+      .ldgm_duckdb_source_column(column_map[[name]], paste0("column_map$", name))
+    }, character(1)),
+    names(column_map)
+  )
+}
+
+.ldgm_duckdb_named_projection_sql <- function(con, cols, column_map, alias = NULL) {
+  cols <- validate_provider_column_names(cols, "cols")
+  column_map <- .ldgm_duckdb_column_map(column_map)
+  parts <- vapply(cols, function(col) {
+    source_col <- column_map[[col]] %||% col
+    paste(
+      .ldgm_duckdb_column_sql(con, source_col, alias = alias),
+      "AS",
+      .ldgm_duckdb_identifier_sql(con, col)
+    )
+  }, character(1))
+  paste(parts, collapse = ", ")
+}
+
 .ldgm_duckdb_normalized_chrom_sql <- function(con, col, alias = NULL) {
   paste0(
     "CAST(regexp_replace(CAST(",
@@ -219,6 +396,19 @@ ldgm_duckdb_annotation_data <- function(con,
   sql <- paste(
     "SELECT",
     .ldgm_duckdb_projection_sql(con, cols, alias = "v"),
+    "FROM",
+    from_sql,
+    "AS",
+    .ldgm_duckdb_identifier_sql(con, "v")
+  )
+  DBI::dbGetQuery(con, sql)
+}
+
+.ldgm_duckdb_collect_named_projection <- function(con, from_sql, cols, column_map) {
+  cols <- validate_provider_column_names(cols, "cols")
+  sql <- paste(
+    "SELECT",
+    .ldgm_duckdb_named_projection_sql(con, cols, column_map, alias = "v"),
     "FROM",
     from_sql,
     "AS",

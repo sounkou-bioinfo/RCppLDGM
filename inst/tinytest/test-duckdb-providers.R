@@ -138,6 +138,74 @@ if (!requireNamespace("DBI", quietly = TRUE) || !requireNamespace("duckdb", quie
   expect_equal(length(annotation_parts), 1L)
   expect_equal(annotation_parts[[1]]$af, c(0.4, 0.2))
 
+  score_variant_rows <- data.frame(
+    chrom = c(1L, 1L, 2L),
+    position = c(101L, 202L, 303L),
+    snp_id = c("rs1", "rs2", "rs3"),
+    block_id = c(0L, 0L, 1L),
+    stringsAsFactors = FALSE
+  )
+  DBI::dbWriteTable(con, "score_variant_rows", score_variant_rows, overwrite = TRUE)
+  score_variant_provider <- ldgm_duckdb_score_test_variant_data(
+    con,
+    "score_variant_rows",
+    chrom_col = "chrom",
+    pos_col = "position",
+    rsid_col = "snp_id",
+    jackknife_col = "block_id"
+  )
+  expect_true(s7contract::implements(score_variant_provider, LdgmScoreTestVariantData))
+  expect_equal(
+    ldgm_score_test_variant_data_frame(score_variant_provider, required_cols = "jackknife_blocks")$RSID,
+    score_variant_rows$snp_id
+  )
+  score_variant_h5 <- tempfile(fileext = ".h5")
+  ldgm_write_score_test_hdf5(
+    score_variant_h5,
+    score_variant_provider,
+    gradient = c(0.25, -0.5, 0.75),
+    trait_name = "duckdb_variant",
+    overwrite = TRUE
+  )
+  score_variant_read <- ldgm_read_score_test_hdf5(score_variant_h5, "duckdb_variant")
+  expect_equal(score_variant_read$variant_data$RSID, score_variant_rows$snp_id)
+  expect_equal(as.integer(score_variant_read$variant_data$jackknife_blocks), score_variant_rows$block_id)
+
+  score_gene_rows <- data.frame(
+    chromosome = c(1L, 1L),
+    gene_pos = c(100L, 250L),
+    ensg = c("ENSG1", "ENSG2"),
+    symbol = c("GENE1", "GENE2"),
+    block_id = c(0L, 1L),
+    stringsAsFactors = FALSE
+  )
+  DBI::dbWriteTable(con, "score_gene_rows", score_gene_rows, overwrite = TRUE)
+  score_gene_provider <- ldgm_duckdb_score_test_gene_data(
+    con,
+    DBI::SQL("(SELECT chromosome, gene_pos, ensg, symbol, block_id FROM score_gene_rows)"),
+    chrom_col = "chromosome",
+    pos_col = "gene_pos",
+    gene_id_col = "ensg",
+    gene_name_col = "symbol",
+    jackknife_col = "block_id"
+  )
+  expect_true(s7contract::implements(score_gene_provider, LdgmScoreTestGeneData))
+  expect_equal(ldgm_score_test_gene_data_frame(score_gene_provider)$gene_id, score_gene_rows$ensg)
+  score_gene_h5 <- tempfile(fileext = ".h5")
+  ldgm_write_gene_score_hdf5(
+    score_gene_h5,
+    score_gene_provider,
+    gradient = c(1.5, -0.5),
+    trait_name = "duckdb_gene",
+    overwrite = TRUE
+  )
+  score_gene_read <- ldgm_read_score_test_hdf5(score_gene_h5, "duckdb_gene")
+  expect_equal(score_gene_read$row_data$gene_id, score_gene_rows$ensg)
+  expect_equal(as.integer(score_gene_read$row_data$jackknife_blocks), score_gene_rows$block_id)
+
+  expect_error(ldgm_duckdb_score_test_variant_data(list(), "score_variant_rows"), "duckdb_connection")
+  expect_error(ldgm_duckdb_score_test_gene_data(con, character()), "`from`")
+
   toy_sim_dir <- tempfile("ldgm-duckdb-sim-")
   dir.create(toy_sim_dir)
   writeLines(

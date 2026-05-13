@@ -10,7 +10,8 @@ ldgm_score_test_variant_data_frame(x, ...)
 \item{x}{Object implementing \link{LdgmScoreTestVariantData}, or an ordinary data
 frame.}
 
-\item{...}{Reserved for future implementations.}
+\item{...}{Optional projection hints such as \code{required_cols} for provider-
+backed implementations.}
 }
 \value{
 A data frame with \code{CHR}, \code{POS}, and \code{RSID}/\code{SNP} columns.

@@ -168,6 +168,27 @@ mock_variant_hdf5 <- MockVariantHdf5Provider(data = transform(variant_hdf5_if, R
 expect_true(s7contract::implements(mock_variant_hdf5, LdgmScoreTestVariantData))
 expect_equal(ldgm_score_test_variant_data_frame(mock_variant_hdf5)$RSID, c("rs1", "rs2"))
 
+variant_hdf5_provider_calls <- new.env(parent = emptyenv())
+variant_hdf5_provider_calls$frame <- 0L
+variant_hdf5_provider_calls$required_cols <- character(0)
+variant_hdf5_provider <- ldgm_score_test_variant_data_provider(
+  frame = function(required_cols) {
+    variant_hdf5_provider_calls$frame <- variant_hdf5_provider_calls$frame + 1L
+    variant_hdf5_provider_calls$required_cols <- required_cols
+    transform(variant_hdf5_if, jackknife_blocks = c(0L, 1L))[, required_cols, drop = FALSE]
+  },
+  required_cols = c("CHR", "POS", "SNP")
+)
+expect_true(s7contract::implements(variant_hdf5_provider, LdgmScoreTestVariantData))
+expect_equal(
+  ldgm_score_test_variant_data_frame(variant_hdf5_provider, required_cols = "jackknife_blocks")$RSID,
+  c("rs1", "rs2")
+)
+expect_equal(variant_hdf5_provider_calls$frame, 1L)
+expect_equal(variant_hdf5_provider_calls$required_cols, c("CHR", "POS", "SNP", "jackknife_blocks"))
+expect_error(ldgm_score_test_variant_data_provider("not a function"), "`frame`")
+expect_error(ldgm_score_test_variant_data_provider(identity, required_cols = c("CHR", "POS")), "RSID|SNP")
+
 gene_hdf5_if <- data.frame(
   CHR = c(1L, 1L),
   POS = c(100L, 200L),
@@ -177,3 +198,23 @@ gene_hdf5_if <- data.frame(
 gene_hdf5_obj <- ldgm_score_test_gene_data(gene_hdf5_if)
 expect_true(s7contract::implements(gene_hdf5_obj, LdgmScoreTestGeneData))
 expect_equal(ldgm_score_test_gene_data_frame(gene_hdf5_obj)$gene_id, gene_hdf5_if$gene_id)
+
+gene_hdf5_provider_calls <- new.env(parent = emptyenv())
+gene_hdf5_provider_calls$frame <- 0L
+gene_hdf5_provider_calls$required_cols <- character(0)
+gene_hdf5_provider <- ldgm_score_test_gene_data_provider(
+  frame = function(required_cols) {
+    gene_hdf5_provider_calls$frame <- gene_hdf5_provider_calls$frame + 1L
+    gene_hdf5_provider_calls$required_cols <- required_cols
+    transform(gene_hdf5_if, jackknife_blocks = c(0L, 1L))[, required_cols, drop = FALSE]
+  }
+)
+expect_true(s7contract::implements(gene_hdf5_provider, LdgmScoreTestGeneData))
+expect_equal(
+  ldgm_score_test_gene_data_frame(gene_hdf5_provider, required_cols = "jackknife_blocks")$gene_name,
+  gene_hdf5_if$gene_name
+)
+expect_equal(gene_hdf5_provider_calls$frame, 1L)
+expect_equal(gene_hdf5_provider_calls$required_cols, c("CHR", "POS", "gene_id", "gene_name", "jackknife_blocks"))
+expect_error(ldgm_score_test_gene_data_provider("not a function"), "`frame`")
+expect_error(ldgm_score_test_gene_data_provider(identity, required_cols = c("CHR", "POS", "gene_id")), "gene_name")
