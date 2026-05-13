@@ -46,6 +46,10 @@ ldgm_write_score_test_hdf5(
   jackknife_blocks = jackknife_blocks,
   compression = compression
 )
+ldgm_write_score_test_trait_groups(
+  h5,
+  list(body = trait_name, combined = c(trait_name, trait_name_b))
+)
 
 surrogate_h5 <- tempfile("rcppldgm-surrogate-map-", fileext = ".h5")
 ldgm_write_surrogate_map_hdf5(
@@ -85,6 +89,8 @@ stopifnot(
   identical(as.integer(native$variant_data$POS), variant_data$POS),
   identical(as.character(native$variant_data$RSID), variant_data$RSID),
   identical(as.integer(native$variant_data$jackknife_blocks), jackknife_blocks),
+  identical(native$groups, list(body = trait_name, combined = c(trait_name, trait_name_b))),
+  identical(ldgm_read_score_test_trait_groups(h5), list(body = trait_name, combined = c(trait_name, trait_name_b))),
   isTRUE(all.equal(native$gradient, gradient, tolerance = 1e-12, check.attributes = FALSE)),
   isTRUE(all.equal(native$hessian, hessian, tolerance = 1e-12, check.attributes = FALSE)),
   isTRUE(all.equal(native$parameters, parameters, tolerance = 1e-12, check.attributes = FALSE)),

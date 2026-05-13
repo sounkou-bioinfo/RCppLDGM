@@ -345,6 +345,62 @@ ldgm_read_score_test_hdf5 <- function(file, trait_name = NULL) {
   RC_read_graphld_score_hdf5(file, trait_name)
 }
 
+#' Read GraphLD-Style Trait Groups from Score-Test HDF5
+#'
+#' Reads the optional `/groups` mapping used by GraphLD score-test CLI
+#' meta-analysis workflows. The return value is a named list mapping group names
+#' to trait-name character vectors. Files without a `/groups` group return an
+#' empty list.
+#'
+#' @param file HDF5 path.
+#'
+#' @return A named list of character vectors.
+#' @export
+ldgm_read_score_test_trait_groups <- function(file) {
+  check_hdf5_file_arg(file, must_exist = TRUE)
+  RC_read_graphld_trait_groups(file)
+}
+
+#' Write GraphLD-Style Trait Groups to Score-Test HDF5
+#'
+#' Creates or replaces the `/groups` mapping used by GraphLD score-test CLI
+#' meta-analysis workflows. Each list element names one meta-analysis group and
+#' contains the trait names that belong to it.
+#'
+#' @param file HDF5 path. The file is created if needed.
+#' @param groups Named list of non-empty character vectors.
+#'
+#' @return Invisibly, a list describing the write.
+#' @export
+ldgm_write_score_test_trait_groups <- function(file, groups) {
+  check_hdf5_file_arg(file, must_exist = FALSE)
+  if (!is.list(groups) || is.data.frame(groups)) {
+    stop("`groups` must be a named list", call. = FALSE)
+  }
+  group_names <- names(groups)
+  if (length(groups) > 0L && (is.null(group_names) || length(group_names) != length(groups))) {
+    stop("`groups` must be a named list", call. = FALSE)
+  }
+  if (length(groups) > 0L) {
+    if (anyNA(group_names) || any(!nzchar(group_names))) {
+      stop("`groups` names must be non-empty", call. = FALSE)
+    }
+    if (any(grepl("/", group_names, fixed = TRUE))) {
+      stop("`groups` names must not contain '/'", call. = FALSE)
+    }
+  }
+  normalized <- setNames(vector("list", length(groups)), group_names %||% character())
+  for (i in seq_along(groups)) {
+    values <- as.character(groups[[i]])
+    if (length(values) < 1L || anyNA(values) || any(!nzchar(values))) {
+      stop("each trait group must be a non-empty character vector", call. = FALSE)
+    }
+    normalized[[i]] <- values
+  }
+  result <- RC_write_graphld_trait_groups(file, normalized)
+  invisible(result)
+}
+
 #' Write a GraphLD-Style Surrogate-Marker HDF5 Map
 #'
 #' Writes one per-block surrogate-marker dataset at the HDF5 root, matching the

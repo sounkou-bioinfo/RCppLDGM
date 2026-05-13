@@ -91,6 +91,12 @@ bool link_exists(hid_t loc, const std::string& name) {
   return exists > 0;
 }
 
+void delete_link_if_exists(hid_t loc, const std::string& name) {
+  if (link_exists(loc, name)) {
+    check_status(H5Ldelete(loc, name.c_str(), H5P_DEFAULT), "deleting link '" + name + "'");
+  }
+}
+
 H5Handle create_group(hid_t loc, const std::string& name) {
   return H5Handle(check_id(H5Gcreate2(loc, name.c_str(), H5P_DEFAULT, H5P_DEFAULT, H5P_DEFAULT),
                            "creating group '" + name + "'"),
@@ -525,6 +531,21 @@ Rcpp::CharacterVector list_group_names(hid_t group) {
   return out;
 }
 
+Rcpp::List read_trait_groups_list(hid_t file) {
+  if (!link_exists(file, "groups")) {
+    return Rcpp::List::create();
+  }
+  H5Handle groups = open_group(file, "groups");
+  Rcpp::CharacterVector group_names = list_group_names(groups.get());
+  Rcpp::List out(group_names.size());
+  for (R_xlen_t i = 0; i < group_names.size(); ++i) {
+    std::string name = Rcpp::as<std::string>(group_names[i]);
+    out[i] = read_dataset_strings(groups.get(), name);
+  }
+  out.attr("names") = group_names;
+  return out;
+}
+
 }  // namespace
 
 // [[Rcpp::export(name = "RC_hdf5_filter_info")]]
@@ -726,7 +747,8 @@ Rcpp::List read_graphld_score_hdf5_cpp(const std::string& filename, const std::s
   Rcpp::List out = Rcpp::List::create(Rcpp::Named("row_data") = row_table,
                                       Rcpp::Named("variant_data") = row_table,
                                       Rcpp::Named("data_type") = is_gene ? "gene" : "variant",
-                                      Rcpp::Named("trait_names") = trait_names);
+                                      Rcpp::Named("trait_names") = trait_names,
+                                      Rcpp::Named("groups") = read_trait_groups_list(file.get()));
   if (!trait_name.empty()) {
     if (!link_exists(traits.get(), trait_name)) {
       Rcpp::stop("the HDF5 group 'traits/%s' does not exist", trait_name);
@@ -744,6 +766,44 @@ Rcpp::List read_graphld_score_hdf5_cpp(const std::string& filename, const std::s
     }
   }
   return out;
+}
+
+// [[Rcpp::export(name = "RC_write_graphld_trait_groups")]]
+Rcpp::List write_graphld_trait_groups_cpp(const std::string& filename, Rcpp::List groups) {
+  ensure_hdf5_ready();
+  Rcpp::CharacterVector group_names = groups.attr("names");
+  if (groups.size() > 0 && group_names.size() != groups.size()) {
+    Rcpp::stop("`groups` must be a named list");
+  }
+
+  H5Handle file = open_file_for_write(filename, false);
+  delete_link_if_exists(file.get(), "groups");
+  H5Handle group_root = create_group(file.get(), "groups");
+
+  for (R_xlen_t i = 0; i < groups.size(); ++i) {
+    Rcpp::String group_name = group_names[i];
+    std::string name = scalar_string(group_name, "groups names");
+    if (name.empty()) {
+      Rcpp::stop("`groups` names must not be empty");
+    }
+    if (name.find('/') != std::string::npos) {
+      Rcpp::stop("`groups` names must not contain '/'");
+    }
+    Rcpp::CharacterVector trait_names(groups[i]);
+    write_dataset_strings(group_root.get(), name, character_vector_to_strings(trait_names, "groups[[i]]"), "none", 1);
+  }
+  check_status(H5Fflush(file.get(), H5F_SCOPE_GLOBAL), "flushing HDF5 file");
+  return Rcpp::List::create(Rcpp::Named("file") = filename,
+                            Rcpp::Named("n_groups") = groups.size());
+}
+
+// [[Rcpp::export(name = "RC_read_graphld_trait_groups")]]
+Rcpp::List read_graphld_trait_groups_cpp(const std::string& filename) {
+  ensure_hdf5_ready();
+  H5Handle file(check_id(H5Fopen(filename.c_str(), H5F_ACC_RDONLY, H5P_DEFAULT),
+                         "opening HDF5 file '" + filename + "' for reading"),
+                H5Fclose);
+  return read_trait_groups_list(file.get());
 }
 
 // [[Rcpp::export(name = "RC_write_graphld_surrogate_hdf5")]]

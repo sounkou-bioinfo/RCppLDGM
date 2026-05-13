@@ -42,6 +42,7 @@ expect_equal(read_h5$hessian, hessian_h5, tolerance = 1e-12)
 expect_equal(read_h5$parameters, parameters_h5, tolerance = 1e-12)
 expect_equal(read_h5$jackknife_parameters, jackknife_parameters_h5, tolerance = 1e-12)
 expect_true("trait_a" %in% read_h5$trait_names)
+expect_equal(length(read_h5$groups), 0L)
 
 ldgm_write_score_test_hdf5(
   h5_file,
@@ -54,6 +55,17 @@ read_h5_b <- ldgm_read_score_test_hdf5(h5_file, "trait_b")
 expect_equal(read_h5_b$gradient, gradient_h5 + 1, tolerance = 1e-12)
 expect_true(is.null(read_h5_b$hessian))
 expect_true(all(c("trait_a", "trait_b") %in% read_h5_b$trait_names))
+
+trait_groups_h5 <- list(body = c("trait_a"), combined = c("trait_a", "trait_b"))
+ldgm_write_score_test_trait_groups(h5_file, trait_groups_h5)
+expect_equal(ldgm_read_score_test_trait_groups(h5_file), trait_groups_h5)
+expect_equal(ldgm_read_score_test_hdf5(h5_file, "trait_a")$groups, trait_groups_h5)
+
+ldgm_write_score_test_trait_groups(h5_file, list(replaced = c("trait_b")))
+expect_equal(ldgm_read_score_test_trait_groups(h5_file), list(replaced = c("trait_b")))
+expect_error(ldgm_write_score_test_trait_groups(h5_file, list("trait_a")), "named list")
+expect_error(ldgm_write_score_test_trait_groups(h5_file, list(`bad/name` = c("trait_a"))), "must not contain")
+expect_error(ldgm_write_score_test_trait_groups(h5_file, list(empty = character())), "non-empty character vector")
 
 h5_file_positional <- tempfile(fileext = ".h5")
 ldgm_write_score_test_hdf5(h5_file_positional, variant_data_h5, gradient_h5, "trait_positional", overwrite = TRUE)

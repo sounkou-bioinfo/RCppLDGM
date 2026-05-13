@@ -113,6 +113,14 @@ def main(argv: list[str]) -> int:
     if trait_name not in trait_names:
         raise AssertionError(f"trait {trait_name!r} not found in {trait_names}")
 
+    trait_groups = score_test_io.get_trait_groups(str(hdf5_path))
+    decoded_groups = {
+        key: [value.decode("utf-8") if isinstance(value, bytes) else value for value in values]
+        for key, values in trait_groups.items()
+    }
+    if decoded_groups != {"body": [trait_name], "combined": [trait_name, trait_name + "_b"]}:
+        raise AssertionError(f"unexpected trait groups: {trait_groups}")
+
     trait_data = score_test_io.load_trait_hdf5(str(hdf5_path), trait_name)
     if "gradient" not in trait_data:
         raise AssertionError("trait data does not contain gradient")

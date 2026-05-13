@@ -223,6 +223,29 @@ BEGIN_RCPP
     return rcpp_result_gen;
 END_RCPP
 }
+// write_graphld_trait_groups_cpp
+Rcpp::List write_graphld_trait_groups_cpp(const std::string& filename, Rcpp::List groups);
+RcppExport SEXP _RcppLDGM_write_graphld_trait_groups_cpp(SEXP filenameSEXP, SEXP groupsSEXP) {
+BEGIN_RCPP
+    Rcpp::RObject rcpp_result_gen;
+    Rcpp::RNGScope rcpp_rngScope_gen;
+    Rcpp::traits::input_parameter< const std::string& >::type filename(filenameSEXP);
+    Rcpp::traits::input_parameter< Rcpp::List >::type groups(groupsSEXP);
+    rcpp_result_gen = Rcpp::wrap(write_graphld_trait_groups_cpp(filename, groups));
+    return rcpp_result_gen;
+END_RCPP
+}
+// read_graphld_trait_groups_cpp
+Rcpp::List read_graphld_trait_groups_cpp(const std::string& filename);
+RcppExport SEXP _RcppLDGM_read_graphld_trait_groups_cpp(SEXP filenameSEXP) {
+BEGIN_RCPP
+    Rcpp::RObject rcpp_result_gen;
+    Rcpp::RNGScope rcpp_rngScope_gen;
+    Rcpp::traits::input_parameter< const std::string& >::type filename(filenameSEXP);
+    rcpp_result_gen = Rcpp::wrap(read_graphld_trait_groups_cpp(filename));
+    return rcpp_result_gen;
+END_RCPP
+}
 // write_graphld_surrogate_hdf5_cpp
 Rcpp::List write_graphld_surrogate_hdf5_cpp(const std::string& filename, const std::string& block_name, SEXP surrogate_map, bool overwrite, const std::string& compression, int chunk_size);
 RcppExport SEXP _RcppLDGM_write_graphld_surrogate_hdf5_cpp(SEXP filenameSEXP, SEXP block_nameSEXP, SEXP surrogate_mapSEXP, SEXP overwriteSEXP, SEXP compressionSEXP, SEXP chunk_sizeSEXP) {
@@ -309,6 +332,8 @@ static const R_CallMethodDef CallEntries[] = {
     {"_RcppLDGM_write_graphld_score_hdf5_cpp", (DL_FUNC) &_RcppLDGM_write_graphld_score_hdf5_cpp, 12},
     {"_RcppLDGM_write_graphld_gene_score_hdf5_cpp", (DL_FUNC) &_RcppLDGM_write_graphld_gene_score_hdf5_cpp, 12},
     {"_RcppLDGM_read_graphld_score_hdf5_cpp", (DL_FUNC) &_RcppLDGM_read_graphld_score_hdf5_cpp, 2},
+    {"_RcppLDGM_write_graphld_trait_groups_cpp", (DL_FUNC) &_RcppLDGM_write_graphld_trait_groups_cpp, 2},
+    {"_RcppLDGM_read_graphld_trait_groups_cpp", (DL_FUNC) &_RcppLDGM_read_graphld_trait_groups_cpp, 1},
     {"_RcppLDGM_write_graphld_surrogate_hdf5_cpp", (DL_FUNC) &_RcppLDGM_write_graphld_surrogate_hdf5_cpp, 6},
     {"_RcppLDGM_read_graphld_surrogate_hdf5_cpp", (DL_FUNC) &_RcppLDGM_read_graphld_surrogate_hdf5_cpp, 2},
     {"_RcppLDGM_openmp_info_cpp", (DL_FUNC) &_RcppLDGM_openmp_info_cpp, 0},
