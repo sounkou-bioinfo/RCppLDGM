@@ -31,8 +31,9 @@ ldgm_run_blup(
 \link{LdgmBlockCatalog} object, or a path to a GraphLD metadata CSV containing
 \code{name} and \code{snplistName} columns.}
 
-\item{sumstats}{Summary-statistics data frame, or a list of per-block data
-frames when \code{ldgms} is a list and \code{metadata} is not supplied.}
+\item{sumstats}{Summary-statistics data frame, object implementing
+\link{LdgmSummaryStats}, or a list of per-block data frames/providers when
+\code{ldgms} is a list and \code{metadata} is not supplied.}
 
 \item{sigmasq}{SNP-heritability variance component.}
 

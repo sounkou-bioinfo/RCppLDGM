@@ -14,7 +14,9 @@ ldgm_partition_variants(
 \arguments{
 \item{metadata}{Data frame with \code{chrom}, \code{chromStart}, and \code{chromEnd} columns.}
 
-\item{variant_data}{Data frame containing variants or summary statistics.}
+\item{variant_data}{Data frame or provider object. Custom table providers can
+implement an S7 method for \code{ldgm_partition_variant_data()} to avoid eager
+in-memory materialization.}
 
 \item{chrom_col}{Optional chromosome column in \code{variant_data}. If \code{NULL},
 common names \code{chrom}, \code{chromosome}, and \code{CHR} are tried.}

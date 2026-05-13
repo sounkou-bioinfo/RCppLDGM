@@ -33,6 +33,7 @@
 #' @param num_processes Accepted for API compatibility; ignored.
 #' @param annotations Optional user-provided variant annotations used for matching. If
 #'   omitted, metadata-linked \code{.snplist} files are converted to annotations.
+#'   May be a data frame or an object implementing [LdgmAnnotationData].
 #' @param verbose Print a short summary.
 #' @importFrom stats rnorm
 #'
@@ -81,8 +82,8 @@ ldgm_simulate <- function(sample_size,
   if (isTRUE(annotation_dependent_polygenicity)) {
     stop("`annotation_dependent_polygenicity = TRUE` is not implemented in this R port yet", call. = FALSE)
   }
-  if (!is.null(annotations) && !is.data.frame(annotations)) {
-    stop("`annotations`, when supplied, must be a data frame", call. = FALSE)
+  if (!is.null(annotations) && !is.data.frame(annotations) && !ldgm_implements(annotations, LdgmAnnotationData)) {
+    stop("`annotations`, when supplied, must be a data frame or implement `LdgmAnnotationData`", call. = FALSE)
   }
   if (!is.logical(run_in_serial) || length(run_in_serial) != 1L || is.na(run_in_serial)) {
     stop("`run_in_serial` must be a single logical value", call. = FALSE)

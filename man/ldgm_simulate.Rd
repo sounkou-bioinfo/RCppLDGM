@@ -7,8 +7,8 @@
 ldgm_simulate(
   sample_size,
   heritability = 0.5,
-  component_variance = c(1.0),
-  component_weight = c(1.0),
+  component_variance = c(1),
+  component_weight = c(1),
   alpha_param = -1,
   annotation_dependent_polygenicity = FALSE,
   link_fn = ldgm_default_simulation_link_fn,
@@ -26,30 +26,61 @@ ldgm_simulate(
 }
 \arguments{
 \item{sample_size}{Sample size used to scale Z-scores.}
-\item{heritability}{Total trait heritability (h2).}
-\item{component_variance}{Per-allele effect-size variance for each mixture component.}
-\item{component_weight}{Mixture weights for each component. The remaining weight is assigned to a null component with zero variance.}
+
+\item{heritability}{Total trait heritability (\eqn{h2}).}
+
+\item{component_variance}{Per-allele effect-size variance for each mixture
+component.}
+
+\item{component_weight}{Mixture weights for each component. The remaining weight
+is assigned to a null component with zero variance.}
+
 \item{alpha_param}{Allele-frequency-dependent architecture exponent.}
-\item{annotation_dependent_polygenicity}{If \code{TRUE}, causal-probability effects are driven by annotations. Not implemented in this R port yet.}
-\item{link_fn}{Mapping from annotation matrix rows to per-variant relative heritability.}
+
+\item{annotation_dependent_polygenicity}{If \\code{TRUE}, causal-probability
+effects are driven by annotations. Not implemented in this R port yet.}
+
+\item{link_fn}{Mapping from annotation matrix rows to per-variant relative
+heritability.}
+
 \item{random_seed}{RNG seed for reproducible simulation.}
-\item{annotation_columns}{Annotation columns used by \code{link_fn}. Defaults to \code{"af"}.}
-\item{ldgm_metadata_path}{Path to GraphLD metadata CSV, or object implementing \link{LdgmBlockCatalog}.}
-\item{population}{Fallback population label used when the metadata path does not include an explicit population column.}
+
+\item{annotation_columns}{Annotation columns used by \code{link_fn}. Defaults to
+\code{"af"}.}
+
+\item{ldgm_metadata_path}{Path to GraphLD metadata CSV, or object implementing
+\link{LdgmBlockCatalog}.}
+
+\item{population}{Fallback population label used when the metadata path does not
+include an explicit population column.}
+
 \item{populations}{Optional population filter for metadata blocks.}
+
 \item{chromosomes}{Optional chromosome filter for metadata blocks.}
-\item{run_in_serial}{Compatibility shim for GraphLD API parity. Serial execution is always used.}
+
+\item{run_in_serial}{Compatibility shim for GraphLD API parity. Serial execution
+is always used.}
+
 \item{num_processes}{Accepted for API compatibility; ignored.}
-\item{annotations}{Optional user-provided variant annotations used for matching. If omitted, metadata-linked \code{.snplist} files are converted to annotations.}
+
+\item{annotations}{Optional user-provided variant annotations used for matching. If
+omitted, metadata-linked \code{.snplist} files are converted to annotations.
+May be a data frame or an object implementing \link{LdgmAnnotationData}.}
+
 \item{verbose}{Print a short summary.}
 }
 \value{
-A data frame with columns \code{CHR}, \code{SNP}, \code{POS}, \code{A1},
-\code{A2}, \code{Z}, \code{beta}, \code{beta_marginal}, and \code{N}.
+A data frame with columns \code{CHR}, \code{SNP}, \code{POS},
+\code{A1}, \code{A2}, \code{Z}, \code{beta}, \code{beta_marginal}, and
+\code{N}.
 }
 \description{
-A native R implementation of GraphLD\'s \code{run_simulate()} workflow for block-wise
-simulation of summary statistics. It mirrors core upstream behavior where \code{beta}
-and \code{alpha} are generated from LDGM annotations, and noise is added through a
-triangular solve.
+This is a native R implementation of GraphLD's
+\\code{run_simulate()} workflow for block-wise simulation of summary statistics.
+It mirrors the core upstream behavior where \\code{beta} and \\code{alpha} are
+generated from LDGM annotations, and noise is added through a triangular solve.
+}
+\details{
+The function intentionally runs in serial for now; \\code{num_processes} and
+parallelism-related arguments are accepted for compatibility only.
 }

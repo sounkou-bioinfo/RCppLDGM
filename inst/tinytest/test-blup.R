@@ -106,4 +106,36 @@ catalog_result <- ldgm_run_blup(
   sample_size = 100
 )
 expect_equal(catalog_result$weight, expected1, tolerance = 1e-10)
+
+single_summary_provider <- ldgm_summary_stats(blocks[[1]], required_cols = c("SNP", "Z"))
+provider_single_result <- ldgm_run_blup(ldgm1, single_summary_provider, sigmasq = 0.01, sample_size = 100)
+expect_equal(provider_single_result$weight, expected1, tolerance = 1e-10)
+
+partition_calls_blup <- new.env(parent = emptyenv())
+partition_calls_blup$n <- 0L
+MockPartitionedSummaryStatsBlup <- S7::new_class(
+  "MockPartitionedSummaryStatsBlup",
+  properties = list(data = S7::class_data.frame)
+)
+S7::method(ldgm_partition_variant_data, MockPartitionedSummaryStatsBlup) <- function(variant_data,
+                                                                                       metadata,
+                                                                                       chrom_col = NULL,
+                                                                                       pos_col = NULL,
+                                                                                       ...) {
+  invisible(list(...))
+  partition_calls_blup$n <- partition_calls_blup$n + 1L
+  ldgm_partition_variants(metadata, variant_data@data, chrom_col = chrom_col, pos_col = pos_col)
+}
+mock_sumstats_provider <- MockPartitionedSummaryStatsBlup(data = sumstats)
+provider_result <- ldgm_run_blup(
+  list(ldgm1, ldgm2),
+  mock_sumstats_provider,
+  metadata = metadata,
+  sigmasq = 0.01,
+  sample_size = 100,
+  z_col = "Z"
+)
+expect_equal(provider_result$weight, result$weight, tolerance = 1e-10)
+expect_equal(partition_calls_blup$n, 1L)
+
 expect_error(ldgm_run_blup(list(ldgm1, ldgm2), sumstats, sigmasq = 0.01, sample_size = 100), "metadata")

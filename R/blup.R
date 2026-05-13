@@ -5,7 +5,9 @@
 #' `[chromStart, chromEnd)`.
 #'
 #' @param metadata Data frame with `chrom`, `chromStart`, and `chromEnd` columns.
-#' @param variant_data Data frame containing variants or summary statistics.
+#' @param variant_data Data frame or provider object. Custom table providers can
+#'   implement an S7 method for `ldgm_partition_variant_data()` to avoid eager
+#'   in-memory materialization.
 #' @param chrom_col Optional chromosome column in `variant_data`. If `NULL`,
 #'   common names `chrom`, `chromosome`, and `CHR` are tried.
 #' @param pos_col Optional position column in `variant_data`. If `NULL`, common
@@ -17,6 +19,80 @@ ldgm_partition_variants <- function(metadata,
                                     variant_data,
                                     chrom_col = NULL,
                                     pos_col = NULL) {
+  ldgm_partition_variant_data(
+    variant_data,
+    metadata,
+    chrom_col = chrom_col,
+    pos_col = pos_col
+  )
+}
+
+#' Partition Variant-Like Tables by LDGM Metadata Blocks
+#'
+#' Provider hook behind [ldgm_partition_variants()]. Custom summary-statistics,
+#' annotation, or row-data providers can implement an S7 method here to perform
+#' partitioning without eagerly materializing the entire table in memory.
+#'
+#' @param variant_data Data frame or provider object carrying variant rows.
+#' @param metadata Data frame with `chrom`, `chromStart`, and `chromEnd` columns.
+#' @param chrom_col Optional chromosome column override.
+#' @param pos_col Optional position column override.
+#' @param ... Reserved for future implementations.
+#'
+#' @return A list of data frames, one per metadata row.
+#' @export
+ldgm_partition_variant_data <- S7::new_generic(
+  "ldgm_partition_variant_data",
+  "variant_data",
+  function(variant_data, metadata, chrom_col = NULL, pos_col = NULL, ...) S7::S7_dispatch()
+)
+
+S7::method(ldgm_partition_variant_data, S7::class_data.frame) <- function(variant_data,
+                                                                           metadata,
+                                                                           chrom_col = NULL,
+                                                                           pos_col = NULL,
+                                                                           ...) {
+  invisible(list(...))
+  partition_variants_data_frame(metadata, variant_data, chrom_col = chrom_col, pos_col = pos_col)
+}
+
+S7::method(ldgm_partition_variant_data, S7::class_any) <- function(variant_data,
+                                                                    metadata,
+                                                                    chrom_col = NULL,
+                                                                    pos_col = NULL,
+                                                                    ...) {
+  invisible(list(...))
+  if (ldgm_implements(variant_data, LdgmSummaryStats)) {
+    return(partition_variants_data_frame(
+      metadata,
+      ldgm_summary_stats_frame(variant_data, required_cols = c("CHR", "POS")),
+      chrom_col = chrom_col,
+      pos_col = pos_col
+    ))
+  }
+  if (ldgm_implements(variant_data, LdgmAnnotationData)) {
+    return(partition_variants_data_frame(
+      metadata,
+      ldgm_annotation_data_frame(variant_data),
+      chrom_col = chrom_col,
+      pos_col = pos_col
+    ))
+  }
+  if (ldgm_implements(variant_data, LdgmScoreTestVariantData)) {
+    return(partition_variants_data_frame(
+      metadata,
+      ldgm_score_test_variant_data_frame(variant_data),
+      chrom_col = chrom_col,
+      pos_col = pos_col
+    ))
+  }
+  stop("`variant_data` must be a data frame or implement a supported partition interface", call. = FALSE)
+}
+
+partition_variants_data_frame <- function(metadata,
+                                          variant_data,
+                                          chrom_col = NULL,
+                                          pos_col = NULL) {
   if (!is.data.frame(metadata)) {
     stop("`metadata` must be a data frame", call. = FALSE)
   }
@@ -59,8 +135,9 @@ ldgm_partition_variants <- function(metadata,
 #' @param ldgms An `ldgm_precision` object, a list of such objects, a
 #'   [LdgmBlockCatalog] object, or a path to a GraphLD metadata CSV containing
 #'   `name` and `snplistName` columns.
-#' @param sumstats Summary-statistics data frame, or a list of per-block data
-#'   frames when `ldgms` is a list and `metadata` is not supplied.
+#' @param sumstats Summary-statistics data frame, object implementing
+#'   [LdgmSummaryStats], or a list of per-block data frames/providers when
+#'   `ldgms` is a list and `metadata` is not supplied.
 #' @param sigmasq SNP-heritability variance component.
 #' @param sample_size GWAS sample size.
 #' @param metadata Optional metadata data frame used to partition `sumstats` when
@@ -132,9 +209,20 @@ ldgm_run_blup <- function(ldgms,
   if (!is.null(metadata)) {
     sumstats_blocks <- ldgm_partition_variants(metadata, sumstats, chrom_col = chrom_col, pos_col = pos_col)
   } else if (is.list(sumstats) && !is.data.frame(sumstats)) {
-    sumstats_blocks <- sumstats
-  } else if (length(ldgms) == 1L && is.data.frame(sumstats)) {
-    sumstats_blocks <- list(sumstats)
+    sumstats_blocks <- lapply(sumstats, as_ldgm_sumstats_block,
+      match_by_position = match_by_position,
+      z_col = z_col,
+      variant_id_col = variant_id_col,
+      pos_col = pos_col
+    )
+  } else if (length(ldgms) == 1L && (is.data.frame(sumstats) || ldgm_implements(sumstats, LdgmSummaryStats))) {
+    sumstats_blocks <- list(as_ldgm_sumstats_block(
+      sumstats,
+      match_by_position = match_by_position,
+      z_col = z_col,
+      variant_id_col = variant_id_col,
+      pos_col = pos_col
+    ))
   } else {
     stop("provide `metadata` or a list of per-block `sumstats` when using multiple LDGMs", call. = FALSE)
   }
@@ -142,7 +230,7 @@ ldgm_run_blup <- function(ldgms,
     stop("number of summary-statistic blocks must match number of LDGMs", call. = FALSE)
   }
   if (!all(vapply(sumstats_blocks, is.data.frame, logical(1)))) {
-    stop("all summary-statistic blocks must be data frames", call. = FALSE)
+    stop("all summary-statistic blocks must resolve to data frames", call. = FALSE)
   }
 
   out <- vector("list", length(ldgms))
@@ -223,6 +311,24 @@ blup_one_block <- function(ldgm,
   beta <- ldgm_blup_block(merged$ldgm, z, sample_size = sample_size, sigmasq = sigmasq)
   block$weight[merged$sumstat_indices + 1L] <- as.numeric(beta)
   block
+}
+
+as_ldgm_sumstats_block <- function(x,
+                                  match_by_position,
+                                  z_col,
+                                  variant_id_col,
+                                  pos_col) {
+  if (ldgm_implements(x, LdgmSummaryStats)) {
+    required_cols <- unique(c(
+      z_col,
+      if (isTRUE(match_by_position)) pos_col else variant_id_col
+    ))
+    return(ldgm_summary_stats_frame(x, required_cols = required_cols))
+  }
+  if (is.data.frame(x)) {
+    return(x)
+  }
+  stop("summary-statistic blocks must be data frames or implement `LdgmSummaryStats`", call. = FALSE)
 }
 
 filter_ldgm_metadata <- function(metadata, populations = NULL, chromosomes = NULL) {

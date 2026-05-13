@@ -7,8 +7,9 @@
 #' @param ldgms An `ldgm_precision` object, a list of such objects, a
 #'   [LdgmBlockCatalog] object, or a path to a GraphLD metadata CSV containing
 #'   `name` and `snplistName` columns.
-#' @param sumstats Summary-statistics data frame, or a list of per-block data
-#'   frames when `ldgms` is a list and `metadata` is not supplied.
+#' @param sumstats Summary-statistics data frame, object implementing
+#'   [LdgmSummaryStats], or a list of per-block data frames/providers when
+#'   `ldgms` is a list and `metadata` is not supplied.
 #' @param rsq_threshold LD-squared pruning threshold.
 #' @param chisq_threshold Minimum chi-square statistic for lead variants.
 #' @param metadata Optional metadata data frame used to partition `sumstats` when
@@ -80,9 +81,20 @@ ldgm_run_clump <- function(ldgms,
   if (!is.null(metadata)) {
     sumstats_blocks <- ldgm_partition_variants(metadata, sumstats, chrom_col = chrom_col, pos_col = pos_col)
   } else if (is.list(sumstats) && !is.data.frame(sumstats)) {
-    sumstats_blocks <- sumstats
-  } else if (length(ldgms) == 1L && is.data.frame(sumstats)) {
-    sumstats_blocks <- list(sumstats)
+    sumstats_blocks <- lapply(sumstats, as_ldgm_sumstats_block,
+      match_by_position = match_by_position,
+      z_col = z_col,
+      variant_id_col = variant_id_col,
+      pos_col = pos_col
+    )
+  } else if (length(ldgms) == 1L && (is.data.frame(sumstats) || ldgm_implements(sumstats, LdgmSummaryStats))) {
+    sumstats_blocks <- list(as_ldgm_sumstats_block(
+      sumstats,
+      match_by_position = match_by_position,
+      z_col = z_col,
+      variant_id_col = variant_id_col,
+      pos_col = pos_col
+    ))
   } else {
     stop("provide `metadata` or a list of per-block `sumstats` when using multiple LDGMs", call. = FALSE)
   }
@@ -90,7 +102,7 @@ ldgm_run_clump <- function(ldgms,
     stop("number of summary-statistic blocks must match number of LDGMs", call. = FALSE)
   }
   if (!all(vapply(sumstats_blocks, is.data.frame, logical(1)))) {
-    stop("all summary-statistic blocks must be data frames", call. = FALSE)
+    stop("all summary-statistic blocks must resolve to data frames", call. = FALSE)
   }
 
   out <- vector("list", length(ldgms))

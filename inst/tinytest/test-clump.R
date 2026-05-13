@@ -108,6 +108,42 @@ catalog_result <- ldgm_run_clump(
 )
 expect_equal(catalog_result$is_index, c(TRUE, FALSE, TRUE))
 
+single_summary_provider_clump <- ldgm_summary_stats(sumstats, required_cols = c("SNP", "Z"))
+provider_single_clump <- ldgm_run_clump(
+  ldgm,
+  single_summary_provider_clump,
+  rsq_threshold = 0.5,
+  chisq_threshold = 10,
+  match_by_position = FALSE
+)
+expect_equal(provider_single_clump$is_index, clumped$is_index)
+
+partition_calls_clump <- new.env(parent = emptyenv())
+partition_calls_clump$n <- 0L
+MockPartitionedSummaryStatsClump <- S7::new_class(
+  "MockPartitionedSummaryStatsClump",
+  properties = list(data = S7::class_data.frame)
+)
+S7::method(ldgm_partition_variant_data, MockPartitionedSummaryStatsClump) <- function(variant_data,
+                                                                                        metadata,
+                                                                                        chrom_col = NULL,
+                                                                                        pos_col = NULL,
+                                                                                        ...) {
+  invisible(list(...))
+  partition_calls_clump$n <- partition_calls_clump$n + 1L
+  ldgm_partition_variants(metadata, variant_data@data, chrom_col = chrom_col, pos_col = pos_col)
+}
+provider_metadata_result <- ldgm_run_clump(
+  list(ldgm),
+  MockPartitionedSummaryStatsClump(data = sumstats),
+  metadata = metadata,
+  rsq_threshold = 0.5,
+  chisq_threshold = 10,
+  match_by_position = FALSE
+)
+expect_equal(provider_metadata_result$is_index, metadata_result$is_index)
+expect_equal(partition_calls_clump$n, 1L)
+
 expect_error(ldgm_run_clump(ldgm, sumstats, rsq_threshold = 2), "rsq_threshold")
 expect_error(ldgm_run_clump(ldgm, sumstats, chisq_threshold = -1), "chisq_threshold")
 expect_error(ldgm_run_clump(list(ldgm, ldgm), sumstats), "metadata")
