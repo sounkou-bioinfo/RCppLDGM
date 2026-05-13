@@ -9,7 +9,9 @@ ldgm_score_test_hdf5(
   trait_name,
   annotations,
   by = "RSID",
-  annotation_cols = NULL
+  annotation_cols = NULL,
+  gene_table = NULL,
+  nearest_weights = NULL
 )
 }
 \arguments{
@@ -23,10 +25,20 @@ frames can be matched to HDF5 row data by \code{by}; matrices are interpreted in
 HDF5 row order.}
 
 \item{by}{Optional key column used to match annotation data frames to HDF5 row
-data, usually \code{RSID}. Use \code{NULL} to require row-order alignment.}
+data, usually \code{RSID}. Use \code{NULL} to require row-order alignment. When
+\code{annotations} is a named gene-set list and the HDF5 file is gene-level,
+the default falls back to \code{gene_id} or \code{gene_name} as needed.}
 
-\item{annotation_cols}{Optional annotation columns to test when \code{annotations}
-is a data frame. Defaults to all columns except \code{by}.}
+\item{annotation_cols}{Optional annotation columns or gene-set names to test
+when \code{annotations} is a data frame or named gene-set list. Defaults to all
+annotation columns except \code{by}.}
+
+\item{gene_table}{Optional gene table used when \code{annotations} is a named
+gene-set list and the HDF5 file is variant-level. It is ignored for matrix
+and data-frame annotations.}
+
+\item{nearest_weights}{Optional nearest-gene weights used when \code{annotations}
+is a named gene-set list and the HDF5 file is variant-level.}
 }
 \value{
 A list like \code{ldgm_score_test()}, with an additional \code{variant_data}

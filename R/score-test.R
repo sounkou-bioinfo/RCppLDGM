@@ -185,9 +185,17 @@ ldgm_score_test_meta <- function(score_tests, trait_names = NULL) {
 #'   frames can be matched to HDF5 row data by `by`; matrices are interpreted in
 #'   HDF5 row order.
 #' @param by Optional key column used to match annotation data frames to HDF5 row
-#'   data, usually `RSID`. Use `NULL` to require row-order alignment.
-#' @param annotation_cols Optional annotation columns to test when `annotations`
-#'   is a data frame. Defaults to all columns except `by`.
+#'   data, usually `RSID`. Use `NULL` to require row-order alignment. When
+#'   `annotations` is a named gene-set list and the HDF5 file is gene-level,
+#'   the default falls back to `gene_id` or `gene_name` as needed.
+#' @param annotation_cols Optional annotation columns or gene-set names to test
+#'   when `annotations` is a data frame or named gene-set list. Defaults to all
+#'   annotation columns except `by`.
+#' @param gene_table Optional gene table used when `annotations` is a named
+#'   gene-set list and the HDF5 file is variant-level. It is ignored for matrix
+#'   and data-frame annotations.
+#' @param nearest_weights Optional nearest-gene weights used when `annotations`
+#'   is a named gene-set list and the HDF5 file is variant-level.
 #'
 #' @return A list like `ldgm_score_test()`, with an additional `variant_data`
 #'   component containing matched HDF5 rows.
@@ -196,30 +204,28 @@ ldgm_score_test_hdf5 <- function(file,
                                  trait_name,
                                  annotations,
                                  by = "RSID",
-                                 annotation_cols = NULL) {
+                                 annotation_cols = NULL,
+                                 gene_table = NULL,
+                                 nearest_weights = NULL) {
   h5 <- ldgm_read_score_test_hdf5(file, trait_name = trait_name)
   if (is.null(h5$gradient)) {
     stop("HDF5 trait does not contain `gradient`", call. = FALSE)
   }
   variant_data <- h5$variant_data
   jackknife_blocks <- variant_data$jackknife_blocks
-
-  if (is.data.frame(annotations)) {
-    aligned <- align_score_test_annotations(variant_data, annotations, by = by, annotation_cols = annotation_cols)
-    variant_data <- aligned$variant_data
-    annotations <- aligned$annotations
-    gradient <- h5$gradient[aligned$rows]
-    jackknife_blocks <- jackknife_blocks[aligned$rows]
-  } else {
-    if (!is.null(annotation_cols)) {
-      stop("`annotation_cols` can only be used when `annotations` is a data frame", call. = FALSE)
-    }
-    annotations <- score_test_annotation_matrix(annotations)
-    if (nrow(annotations) != nrow(variant_data)) {
-      stop("matrix `annotations` must have one row per HDF5 variant row", call. = FALSE)
-    }
-    gradient <- h5$gradient
-  }
+  prepared <- prepare_score_test_hdf5_annotations(
+    variant_data = variant_data,
+    data_type = h5$data_type,
+    annotations = annotations,
+    by = by,
+    annotation_cols = annotation_cols,
+    gene_table = gene_table,
+    nearest_weights = nearest_weights
+  )
+  variant_data <- prepared$variant_data
+  annotations <- prepared$annotations
+  gradient <- h5$gradient[prepared$rows]
+  jackknife_blocks <- jackknife_blocks[prepared$rows]
 
   out <- ldgm_score_test(gradient, annotations, jackknife_blocks = jackknife_blocks)
   out$variant_data <- variant_data
@@ -234,24 +240,30 @@ ldgm_score_test_hdf5 <- function(file,
 #'
 #' @param file HDF5 path written by [ldgm_write_score_test_hdf5()] or compatible
 #'   GraphLD tooling.
-#' @param trait_names Character vector of trait names under `/traits`.
-#' @param annotations Numeric matrix or data frame of annotations to test.
+#' @param trait_names Optional character vector of trait names or trait-group
+#'   names under `/traits` and `/groups`. `NULL` runs all traits in the file.
+#' @param annotations Numeric matrix, data frame, or named gene-set list of
+#'   annotations to test.
 #' @param by Optional key column used to match annotation data frames to HDF5 row
 #'   data, usually `RSID`. Use `NULL` to require row-order alignment.
-#' @param annotation_cols Optional annotation columns to test when `annotations`
-#'   is a data frame.
+#' @param annotation_cols Optional annotation columns or gene-set names to test
+#'   when `annotations` is a data frame or named gene-set list.
+#' @param gene_table Optional gene table used when `annotations` is a named
+#'   gene-set list and the HDF5 file is variant-level.
+#' @param nearest_weights Optional nearest-gene weights used when `annotations`
+#'   is a named gene-set list and the HDF5 file is variant-level.
 #'
 #' @return A list like [ldgm_score_test_meta()], with a `trait_results` element
 #'   containing the per-trait HDF5 score-test outputs.
 #' @export
 ldgm_score_test_hdf5_meta <- function(file,
-                                      trait_names,
+                                      trait_names = NULL,
                                       annotations,
                                       by = "RSID",
-                                      annotation_cols = NULL) {
-  if (!is.character(trait_names) || length(trait_names) < 1L || anyNA(trait_names) || any(!nzchar(trait_names))) {
-    stop("`trait_names` must be a non-empty character vector", call. = FALSE)
-  }
+                                      annotation_cols = NULL,
+                                      gene_table = NULL,
+                                      nearest_weights = NULL) {
+  trait_names <- resolve_score_test_hdf5_traits(file, trait_names)
   trait_results <- lapply(
     trait_names,
     function(trait_name) {
@@ -260,7 +272,9 @@ ldgm_score_test_hdf5_meta <- function(file,
         trait_name = trait_name,
         annotations = annotations,
         by = by,
-        annotation_cols = annotation_cols
+        annotation_cols = annotation_cols,
+        gene_table = gene_table,
+        nearest_weights = nearest_weights
       )
     }
   )
@@ -358,6 +372,145 @@ align_score_test_annotations <- function(variant_data, annotations, by, annotati
     variant_data = variant_data[keep, , drop = FALSE],
     annotations = score_test_annotation_matrix(annotations[matched[keep], , drop = FALSE], annotation_cols)
   )
+}
+
+prepare_score_test_hdf5_annotations <- function(variant_data,
+                                                data_type,
+                                                annotations,
+                                                by,
+                                                annotation_cols,
+                                                gene_table,
+                                                nearest_weights) {
+  if (is.data.frame(annotations)) {
+    by <- resolve_score_test_annotation_by(variant_data, annotations, by)
+    return(align_score_test_annotations(variant_data, annotations, by = by, annotation_cols = annotation_cols))
+  }
+  if (is.list(annotations)) {
+    return(prepare_score_test_hdf5_gene_sets(
+      variant_data = variant_data,
+      data_type = data_type,
+      gene_sets = annotations,
+      by = by,
+      annotation_cols = annotation_cols,
+      gene_table = gene_table,
+      nearest_weights = nearest_weights
+    ))
+  }
+  if (!is.null(annotation_cols)) {
+    stop("`annotation_cols` can only be used when `annotations` is a data frame or named gene-set list", call. = FALSE)
+  }
+  annotations <- score_test_annotation_matrix(annotations)
+  if (nrow(annotations) != nrow(variant_data)) {
+    stop("matrix `annotations` must have one row per HDF5 variant row", call. = FALSE)
+  }
+  list(rows = seq_len(nrow(variant_data)), variant_data = variant_data, annotations = annotations)
+}
+
+prepare_score_test_hdf5_gene_sets <- function(variant_data,
+                                              data_type,
+                                              gene_sets,
+                                              by,
+                                              annotation_cols,
+                                              gene_table,
+                                              nearest_weights) {
+  gene_sets <- normalize_gene_sets(gene_sets)
+  annotation_cols <- annotation_cols %||% names(gene_sets)
+  missing_cols <- setdiff(annotation_cols, names(gene_sets))
+  if (length(missing_cols) > 0L) {
+    stop("annotation columns not found: ", paste(missing_cols, collapse = ", "), call. = FALSE)
+  }
+  gene_sets <- gene_sets[annotation_cols]
+
+  if (identical(data_type, "gene")) {
+    gene_annotations <- ldgm_gene_set_annotations(gene_sets, variant_data)
+    by <- resolve_score_test_gene_set_by(variant_data, gene_annotations, gene_sets, by)
+    return(align_score_test_annotations(variant_data, gene_annotations, by = by, annotation_cols = annotation_cols))
+  }
+
+  if (is.null(gene_table)) {
+    stop("`gene_table` is required when testing gene sets on variant-level HDF5", call. = FALSE)
+  }
+  if (is.null(nearest_weights)) {
+    stop("`nearest_weights` is required when testing gene sets on variant-level HDF5", call. = FALSE)
+  }
+  if (is.character(gene_table) && length(gene_table) == 1L) {
+    gene_table <- ldgm_read_gene_table(gene_table, chromosomes = unique(variant_data$CHR))
+  } else {
+    gene_table <- normalize_gene_table_columns(gene_table)
+    validate_gene_table(gene_table)
+  }
+  keep <- normalize_chromosome(gene_table$CHR) %in% unique(normalize_chromosome(variant_data$CHR))
+  gene_table <- gene_table[keep, , drop = FALSE]
+  gene_annotations <- ldgm_gene_set_variant_annotations(gene_sets, variant_data, gene_table, nearest_weights)
+  list(
+    rows = seq_len(nrow(variant_data)),
+    variant_data = variant_data,
+    annotations = score_test_annotation_matrix(gene_annotations, annotation_cols = annotation_cols)
+  )
+}
+
+resolve_score_test_annotation_by <- function(variant_data, annotations, by) {
+  if (is.null(by)) {
+    return(NULL)
+  }
+  if (!is.character(by) || length(by) != 1L || is.na(by) || !nzchar(by)) {
+    stop("`by` must be `NULL` or a single non-empty column name", call. = FALSE)
+  }
+  if (by %in% names(variant_data) && by %in% names(annotations)) {
+    return(by)
+  }
+  if (!identical(by, "RSID")) {
+    stop("`by` must name a column in both HDF5 row data and `annotations`", call. = FALSE)
+  }
+  fallback <- c("gene_id", "gene_name")
+  fallback <- fallback[fallback %in% names(variant_data) & fallback %in% names(annotations)]
+  if (length(fallback) > 0L) {
+    return(fallback[[1L]])
+  }
+  stop("`by` must name a column in both HDF5 row data and `annotations`", call. = FALSE)
+}
+
+resolve_score_test_gene_set_by <- function(variant_data, annotations, gene_sets, by) {
+  if (is.null(by)) {
+    return(NULL)
+  }
+  if (identical(by, "RSID") && !"RSID" %in% names(variant_data)) {
+    return(gene_set_key(gene_sets, variant_data))
+  }
+  resolve_score_test_annotation_by(variant_data, annotations, by)
+}
+
+resolve_score_test_hdf5_traits <- function(file, trait_names) {
+  h5 <- ldgm_read_score_test_hdf5(file)
+  available_traits <- as.character(h5$trait_names)
+  groups <- h5$groups %||% list()
+  if (is.null(trait_names)) {
+    return(available_traits)
+  }
+  if (!is.character(trait_names) || length(trait_names) < 1L || anyNA(trait_names) || any(!nzchar(trait_names))) {
+    stop("`trait_names` must be `NULL` or a non-empty character vector", call. = FALSE)
+  }
+  resolved <- character()
+  for (name in trait_names) {
+    if (name %in% available_traits) {
+      resolved <- c(resolved, name)
+      next
+    }
+    if (!name %in% names(groups)) {
+      stop("trait or trait group not found in HDF5: ", name, call. = FALSE)
+    }
+    group_traits <- as.character(groups[[name]])
+    missing_traits <- setdiff(group_traits, available_traits)
+    if (length(missing_traits) > 0L) {
+      stop(
+        "trait group `", name, "` contains traits not found in HDF5: ",
+        paste(missing_traits, collapse = ", "),
+        call. = FALSE
+      )
+    }
+    resolved <- c(resolved, group_traits)
+  }
+  unique(resolved)
 }
 
 score_test_block_boundaries <- function(blocks) {

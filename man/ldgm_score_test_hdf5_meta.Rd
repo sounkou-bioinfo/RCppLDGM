@@ -6,25 +6,35 @@
 \usage{
 ldgm_score_test_hdf5_meta(
   file,
-  trait_names,
+  trait_names = NULL,
   annotations,
   by = "RSID",
-  annotation_cols = NULL
+  annotation_cols = NULL,
+  gene_table = NULL,
+  nearest_weights = NULL
 )
 }
 \arguments{
 \item{file}{HDF5 path written by \code{\link[=ldgm_write_score_test_hdf5]{ldgm_write_score_test_hdf5()}} or compatible
 GraphLD tooling.}
 
-\item{trait_names}{Character vector of trait names under \verb{/traits}.}
+\item{trait_names}{Optional character vector of trait names or trait-group
+names under \verb{/traits} and \verb{/groups}. \code{NULL} runs all traits in the file.}
 
-\item{annotations}{Numeric matrix or data frame of annotations to test.}
+\item{annotations}{Numeric matrix, data frame, or named gene-set list of
+annotations to test.}
 
 \item{by}{Optional key column used to match annotation data frames to HDF5 row
 data, usually \code{RSID}. Use \code{NULL} to require row-order alignment.}
 
-\item{annotation_cols}{Optional annotation columns to test when \code{annotations}
-is a data frame.}
+\item{annotation_cols}{Optional annotation columns or gene-set names to test
+when \code{annotations} is a data frame or named gene-set list.}
+
+\item{gene_table}{Optional gene table used when \code{annotations} is a named
+gene-set list and the HDF5 file is variant-level.}
+
+\item{nearest_weights}{Optional nearest-gene weights used when \code{annotations}
+is a named gene-set list and the HDF5 file is variant-level.}
 }
 \value{
 A list like \code{\link[=ldgm_score_test_meta]{ldgm_score_test_meta()}}, with a \code{trait_results} element
