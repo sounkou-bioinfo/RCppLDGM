@@ -24,6 +24,7 @@ hessian <- c(-0.01, -0.02, -0.03)
 jackknife_blocks <- c(0L, 1L, 1L)
 parameters <- c(0.4, -0.5)
 jackknife_parameters <- matrix(c(0.41, -0.49, 0.39, -0.51), nrow = 2, byrow = TRUE)
+source_tag <- "graphld-hdf5-interop"
 
 ldgm_write_score_test_hdf5(
   h5,
@@ -36,7 +37,8 @@ ldgm_write_score_test_hdf5(
   parameters = parameters,
   jackknife_parameters = jackknife_parameters,
   overwrite = TRUE,
-  compression = compression
+  compression = compression,
+  source = source_tag
 )
 trait_name_b <- paste0(trait_name, "_b")
 gradient_b <- c(0.2, 0.4, -0.1)
@@ -92,6 +94,9 @@ stopifnot(
   identical(as.character(native$variant_data$RSID), variant_data$RSID),
   isTRUE(all.equal(native$variant_data$AF, variant_data$AF, tolerance = 1e-12, check.attributes = FALSE)),
   identical(as.integer(native$variant_data$jackknife_blocks), jackknife_blocks),
+  identical(native$metadata, ""),
+  identical(as.character(native$keys), c("RSID", "POS")),
+  identical(native$source, source_tag),
   identical(native$groups, list(body = trait_name, combined = c(trait_name, trait_name_b))),
   identical(ldgm_read_score_test_trait_groups(h5), list(body = trait_name, combined = c(trait_name, trait_name_b))),
   isTRUE(all.equal(native$gradient, gradient, tolerance = 1e-12, check.attributes = FALSE)),

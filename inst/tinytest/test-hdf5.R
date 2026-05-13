@@ -14,6 +14,7 @@ jackknife_h5 <- c(0L, 0L, 1L)
 parameters_h5 <- c(0.1, -0.2)
 jackknife_parameters_h5 <- matrix(c(0.11, -0.19, 0.09, -0.21), nrow = 2, byrow = TRUE)
 h5_file <- tempfile(fileext = ".h5")
+source_h5 <- "tinytest-score-source"
 variant_provider_h5 <- ldgm_score_test_variant_data(variant_data_h5)
 
 write_info <- ldgm_write_score_test_hdf5(
@@ -26,7 +27,8 @@ write_info <- ldgm_write_score_test_hdf5(
   trait_datasets = list(posterior_scale = c(1.5, 1.0, 0.5)),
   parameters = parameters_h5,
   jackknife_parameters = jackknife_parameters_h5,
-  overwrite = TRUE
+  overwrite = TRUE,
+  source = source_h5
 )
 expect_true(file.exists(h5_file))
 expect_equal(write_info$file, h5_file)
@@ -36,6 +38,10 @@ expect_true(write_info$hessian)
 expect_true(write_info$parameters)
 
 read_h5 <- ldgm_read_score_test_hdf5(h5_file, "trait_a")
+expect_equal(read_h5$data_type, "variant")
+expect_equal(read_h5$metadata, "")
+expect_equal(read_h5$keys, c("RSID", "POS"))
+expect_equal(read_h5$source, source_h5)
 expect_equal(read_h5$variant_data$RSID, variant_data_h5$SNP)
 expect_equal(as.numeric(read_h5$variant_data$CHR), as.numeric(variant_data_h5$CHR))
 expect_equal(as.numeric(read_h5$variant_data$POS), as.numeric(variant_data_h5$POS))
@@ -154,6 +160,7 @@ gene_data_h5 <- data.frame(
   stringsAsFactors = FALSE
 )
 gene_h5 <- tempfile(fileext = ".h5")
+gene_source_h5 <- "tinytest-gene-source"
 gene_provider_h5 <- ldgm_score_test_gene_data(gene_data_h5)
 ldgm_write_gene_score_hdf5(
   gene_h5,
@@ -162,10 +169,14 @@ ldgm_write_gene_score_hdf5(
   trait_name = "gene_trait",
   jackknife_blocks = c(0L, 1L),
   trait_datasets = list(gene_rank = c(10L, 20L)),
-  overwrite = TRUE
+  overwrite = TRUE,
+  source = gene_source_h5
 )
 gene_read <- ldgm_read_score_test_hdf5(gene_h5, "gene_trait")
 expect_equal(gene_read$data_type, "gene")
+expect_equal(gene_read$metadata, "")
+expect_equal(gene_read$keys, c("gene_id", "gene_name"))
+expect_equal(gene_read$source, gene_source_h5)
 expect_equal(gene_read$row_data$gene_id, gene_data_h5$gene_id)
 expect_equal(gene_read$row_data$biotype, gene_data_h5$biotype)
 expect_equal(gene_read$gradient, c(1.5, -0.5), tolerance = 1e-12)

@@ -234,6 +234,83 @@ void write_attr_strings(hid_t loc, const std::string& name, const std::vector<st
   check_status(H5Awrite(attr.get(), type.get(), ptrs.data()), "writing attribute '" + name + "'");
 }
 
+bool attr_exists(hid_t loc, const std::string& name) {
+  htri_t exists = H5Aexists(loc, name.c_str());
+  if (exists < 0) {
+    h5_fail("checking attribute '" + name + "'");
+  }
+  return exists > 0;
+}
+
+H5Handle open_attribute(hid_t loc, const std::string& name) {
+  return H5Handle(check_id(H5Aopen(loc, name.c_str(), H5P_DEFAULT),
+                           "opening attribute '" + name + "'"),
+                  H5Aclose);
+}
+
+Rcpp::CharacterVector read_attribute_strings(hid_t loc, const std::string& name) {
+  H5Handle attr = open_attribute(loc, name);
+  H5Handle type(check_id(H5Aget_type(attr.get()), "opening datatype for attribute '" + name + "'"), H5Tclose);
+  H5Handle space(check_id(H5Aget_space(attr.get()), "opening dataspace for attribute '" + name + "'"), H5Sclose);
+  H5T_class_t type_class = H5Tget_class(type.get());
+  if (type_class < 0) {
+    h5_fail("reading attribute class for '" + name + "'");
+  }
+  if (type_class != H5T_STRING) {
+    Rcpp::stop("attribute '%s' must be a string or string vector", name);
+  }
+
+  int rank = H5Sget_simple_extent_ndims(space.get());
+  if (rank < 0) {
+    h5_fail("reading attribute rank for '" + name + "'");
+  }
+  hsize_t n = 1;
+  if (rank > 0) {
+    std::vector<hsize_t> dims(static_cast<size_t>(rank));
+    check_status(H5Sget_simple_extent_dims(space.get(), dims.data(), nullptr),
+                 "reading attribute dimensions for '" + name + "'");
+    for (hsize_t dim : dims) {
+      n *= dim;
+    }
+  }
+
+  Rcpp::CharacterVector out(static_cast<R_xlen_t>(n));
+  if (H5Tis_variable_str(type.get()) > 0) {
+    std::vector<char*> buffer(static_cast<size_t>(n), nullptr);
+    check_status(H5Aread(attr.get(), type.get(), buffer.data()), "reading attribute '" + name + "'");
+    for (hsize_t i = 0; i < n; ++i) {
+      char* ptr = buffer[static_cast<size_t>(i)];
+      out[static_cast<R_xlen_t>(i)] = ptr == nullptr ? "" : ptr;
+    }
+    check_status(H5Dvlen_reclaim(type.get(), space.get(), H5P_DEFAULT, buffer.data()),
+                 "reclaiming variable-length attribute memory for '" + name + "'");
+  } else {
+    size_t width = H5Tget_size(type.get());
+    if (width == 0) {
+      h5_fail("reading fixed-width string size for attribute '" + name + "'");
+    }
+    std::vector<char> buffer(static_cast<size_t>(n) * width, '\0');
+    check_status(H5Aread(attr.get(), type.get(), buffer.data()), "reading attribute '" + name + "'");
+    for (hsize_t i = 0; i < n; ++i) {
+      const char* start = buffer.data() + static_cast<size_t>(i) * width;
+      size_t len = 0;
+      while (len < width && start[len] != '\0') {
+        ++len;
+      }
+      out[static_cast<R_xlen_t>(i)] = std::string(start, len);
+    }
+  }
+  return out;
+}
+
+std::string read_attribute_string(hid_t loc, const std::string& name) {
+  Rcpp::CharacterVector values = read_attribute_strings(loc, name);
+  if (values.size() != 1) {
+    Rcpp::stop("attribute '%s' must be scalar", name);
+  }
+  return scalar_string(values[0], "attribute '" + name + "'");
+}
+
 void write_dataset_int64(hid_t loc,
                          const std::string& name,
                          const std::vector<long long>& values,
@@ -439,7 +516,7 @@ void create_variant_group_if_needed(hid_t file,
 
   write_attr_string(file, "metadata", "");
   write_attr_string(file, "data_type", "variant");
-  write_attr_strings(file, "keys", std::vector<std::string>{"RSID", "POS", "CHR"});
+  write_attr_strings(file, "keys", std::vector<std::string>{"RSID", "POS"});
   write_attr_string(file, "source", source);
 
   require_group(file, "traits");
@@ -886,12 +963,26 @@ Rcpp::List read_graphld_score_hdf5_cpp(const std::string& filename, const std::s
   bool is_gene = link_exists(row_data.get(), "gene_id");
   Rcpp::DataFrame row_table = read_row_data_table(row_data.get());
 
+  std::string data_type = is_gene ? "gene" : "variant";
+  if (attr_exists(file.get(), "data_type")) {
+    data_type = read_attribute_string(file.get(), "data_type");
+  }
+
   Rcpp::CharacterVector trait_names = list_group_names(traits.get());
   Rcpp::List out = Rcpp::List::create(Rcpp::Named("row_data") = row_table,
                                       Rcpp::Named("variant_data") = row_table,
-                                      Rcpp::Named("data_type") = is_gene ? "gene" : "variant",
+                                      Rcpp::Named("data_type") = data_type,
                                       Rcpp::Named("trait_names") = trait_names,
                                       Rcpp::Named("groups") = read_trait_groups_list(file.get()));
+  if (attr_exists(file.get(), "metadata")) {
+    out["metadata"] = read_attribute_string(file.get(), "metadata");
+  }
+  if (attr_exists(file.get(), "keys")) {
+    out["keys"] = read_attribute_strings(file.get(), "keys");
+  }
+  if (attr_exists(file.get(), "source")) {
+    out["source"] = read_attribute_string(file.get(), "source");
+  }
   if (!trait_name.empty()) {
     if (!link_exists(traits.get(), trait_name)) {
       Rcpp::stop("the HDF5 group 'traits/%s' does not exist", trait_name);

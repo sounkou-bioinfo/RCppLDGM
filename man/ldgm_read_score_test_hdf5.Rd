@@ -13,9 +13,11 @@ ldgm_read_score_test_hdf5(file, trait_name = NULL)
 available trait names are returned.}
 }
 \value{
-A list with \code{variant_data}, \code{trait_names}, and, when requested,
-\code{gradient}, optional \code{hessian}, optional fitted parameter datasets, and
-\code{trait_datasets} for any additional one-dimensional trait-level datasets.
+A list with \code{row_data}/\code{variant_data}, \code{data_type}, optional root
+header attributes (\code{metadata}, \code{keys}, \code{source}), \code{trait_names}, and, when
+requested, \code{gradient}, optional \code{hessian}, optional fitted parameter
+datasets, and \code{trait_datasets} for any additional one-dimensional
+trait-level datasets.
 }
 \description{
 Lightweight native reader for files produced by \code{\link[=ldgm_write_score_test_hdf5]{ldgm_write_score_test_hdf5()}}.

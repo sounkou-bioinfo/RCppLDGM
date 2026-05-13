@@ -381,9 +381,11 @@ ldgm_convert_variant_to_gene_scores <- function(variant_stats_hdf5,
 #' @param trait_name Optional trait group to read. If `NULL`, only row data and
 #'   available trait names are returned.
 #'
-#' @return A list with `variant_data`, `trait_names`, and, when requested,
-#'   `gradient`, optional `hessian`, optional fitted parameter datasets, and
-#'   `trait_datasets` for any additional one-dimensional trait-level datasets.
+#' @return A list with `row_data`/`variant_data`, `data_type`, optional root
+#'   header attributes (`metadata`, `keys`, `source`), `trait_names`, and, when
+#'   requested, `gradient`, optional `hessian`, optional fitted parameter
+#'   datasets, and `trait_datasets` for any additional one-dimensional
+#'   trait-level datasets.
 #' @export
 ldgm_read_score_test_hdf5 <- function(file, trait_name = NULL) {
   if (!is.character(file) || length(file) != 1L || is.na(file) || !nzchar(file)) {

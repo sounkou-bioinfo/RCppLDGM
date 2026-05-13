@@ -69,6 +69,12 @@ def _to_list(series_or_array):
     return decoded
 
 
+def _decode_attr_string(value):
+    if isinstance(value, bytes):
+        return value.decode("utf-8")
+    return str(value)
+
+
 def main(argv: list[str]) -> int:
     if len(argv) not in {3, 5, 7, 9}:
         print(
@@ -94,6 +100,17 @@ def main(argv: list[str]) -> int:
 
     hdf5_path = Path(argv[1])
     trait_name = argv[2]
+
+    with h5py.File(hdf5_path, "r") as handle:
+        if _decode_attr_string(handle.attrs["metadata"]) != "":
+            raise AssertionError(f"unexpected metadata attribute: {handle.attrs['metadata']!r}")
+        if _decode_attr_string(handle.attrs["data_type"]) != "variant":
+            raise AssertionError(f"unexpected data_type attribute: {handle.attrs['data_type']!r}")
+        keys = [_decode_attr_string(value) for value in handle.attrs["keys"]]
+        if keys != ["RSID", "POS"]:
+            raise AssertionError(f"unexpected keys attribute: {keys!r}")
+        if _decode_attr_string(handle.attrs["source"]) != "graphld-hdf5-interop":
+            raise AssertionError(f"unexpected source attribute: {handle.attrs['source']!r}")
 
     row_data = score_test_io.load_row_data(str(hdf5_path))
     expected_columns = {"CHR", "POS", "RSID", "AF", "jackknife_blocks"}
