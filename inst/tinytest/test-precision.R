@@ -162,6 +162,25 @@ expect_equal(
   tolerance = 1e-12
 )
 expect_equal(ldgm_inverse_diagonal(P, method = "xnys", probes = diag(nrow(P))), diag(P_inv), tolerance = 1e-10)
+selected_dense <- as.matrix(ldgm_precision_matrix(ldgm4_selected))
+selected_inv <- solve(selected_dense)
+selected_probes <- diag(nrow(selected_dense))
+selected_manual_hutchinson <- rowMeans(selected_probes * solve(selected_dense, selected_probes))
+expect_equal(ldgm_inverse_diagonal(ldgm4_selected, method = "exact"), diag(selected_inv), tolerance = 1e-10)
+expect_equal(
+  ldgm_inverse_diagonal(ldgm4_selected, method = "hutchinson", probes = selected_probes),
+  selected_manual_hutchinson,
+  tolerance = 1e-10
+)
+selected_xdiag <- ldgm_inverse_diagonal(ldgm4_selected, method = "xdiag", probes = selected_probes, return_initialization = TRUE)
+expect_true(is.list(selected_xdiag))
+expect_equal(selected_xdiag$diagonal, diag(selected_inv), tolerance = 1e-10)
+expect_equal(dim(selected_xdiag$solved_probes), dim(selected_probes))
+expect_equal(
+  ldgm_inverse_diagonal(ldgm4_selected, method = "xdiag", initialization = list(selected_probes, selected_xdiag$solved_probes))$diagonal,
+  diag(selected_inv),
+  tolerance = 1e-10
+)
 expected_grad <- -0.5 * (diag(P_inv) - P_solve_b^2)
 expect_equal(ldgm_gaussian_likelihood_gradient(b, P), expected_grad, tolerance = 1e-10)
 deriv <- cbind(c(1, 0, 1), c(0, 1, 1))

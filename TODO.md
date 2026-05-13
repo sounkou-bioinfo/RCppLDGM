@@ -50,6 +50,7 @@ This tracks what is **still to implement** after the current conformance/porting
 - [ ] Re-run full upstream conformance suites after each milestone item and keep TODO aligned.
   - [ ] `make upstream-ldgm-conformance`
   - [ ] `make upstream-graphld-reader-conformance`
+  - [ ] `make upstream-graphld-inverse-diagonal-conformance`
   - [ ] `make upstream-graphld-blup-clump-conformance`
   - [ ] `make upstream-graphld-reml-conformance`
   - [ ] `make upstream-graphld-hdf5-interop`

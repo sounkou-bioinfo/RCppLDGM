@@ -31,7 +31,7 @@ but several declared compatibility surfaces remain incomplete or unverified.
 | Core LDGM graph primitive port | `R/graph.R`, `src/graph.cpp`, `inst/tinytest/test-graph.R` | Implemented and tested |
 | LDGM table/bricking/reduction pipeline | `R/bricks.R`, `R/tree-tables.R`, `R/snplist.R`, `tools/check-upstream-ldgm-goldens.R` | Implemented against pinned upstream goldens; larger workloads remain future work |
 | Native `.trees` adapter | `R/tskit-adapter.R`, `src/tskit_adapter.cpp`, `src/tskit/`, `src/tskit/README.RcppLDGM` | Implemented for file paths using vendored tskit C `C_1.3.1`; direct native in-memory object wiring remains future work |
-| GraphLD precision operators | `R/precision.R`, `src/precision_native.cpp`, `inst/tinytest/test-precision.R`, `tools/benchmark-precision.R` | Implemented; upstream-scale SuiteSparse conformance/performance remains future work |
+| GraphLD precision operators | `R/precision.R`, `src/precision_native.cpp`, `inst/tinytest/test-precision.R`, `tools/benchmark-precision.R`, `tools/check-upstream-graphld-inverse-diagonal.R` | Implemented; pinned upstream full/selected exact+hutchinson+xdiag inverse-diagonal conformance is in place on the current GraphLD test block, while upstream-scale SuiteSparse conformance/performance remains future work |
 | GraphLD BLUP/clumping | `R/blup.R`, `R/clump.R`, `inst/tinytest/test-blup.R`, `inst/tinytest/test-clump.R`, `tools/check-upstream-graphld-data.R`, `tools/check-upstream-graphld-blup-clump.R` | Serial scheduler implemented; pinned Python output conformance on upstream test blocks implemented; multiprocessing remains future work |
 | GraphREML | `R/reml.R`, `inst/tinytest/test-reml.R`, `tools/check-upstream-graphld-data.R`, `tools/check-upstream-graphld-reml.R` | Serial core, trust-region optimizer, pseudo-jackknife, surrogate/HDF5 slices, selected-view block support, and pinned upstream fixed-block plus one-step optimizer-summary conformance implemented; full CLI/block-manager/upstream-scale jackknife parity remains future work |
 | Score-test and HDF5 | `R/score-test.R`, `R/hdf5.R`, `src/hdf5_score.cpp`, `inst/tinytest/test-score-test.R`, `inst/tinytest/test-hdf5.R`, `tools/check-graphld-hdf5-python-interop.R` | Variant/gene HDF5 and score/meta-analysis surfaces implemented; broader GraphLD CLI schema and h5py-required CI remain future work |
@@ -50,6 +50,7 @@ Rscript -e 'options(warn=2); tinytest::test_package("RcppLDGM", testdir = "inst/
 RCPP_LDGM_UPSTREAM_GOLDENS=.sync/ldgm-goldens Rscript tools/check-upstream-ldgm-goldens.R
 Rscript tools/check-upstream-graphld-data.R
 Rscript tools/check-upstream-graphld-readers.R
+Rscript tools/check-upstream-graphld-inverse-diagonal.R
 Rscript tools/check-upstream-graphld-blup-clump.R
 Rscript tools/check-upstream-graphld-reml.R
 Rscript tools/check-upstream-graphld-simulate.R
@@ -64,9 +65,10 @@ Extended conformance preset (new dedicated target/workflow):
 make upstream-conformance
 ```
 
-This runs upstream ldgm conformance, GraphLD smoke/readers, BLUP/clump,
-GraphREML, HDF5 interop, and the `upstream-graphld-simulate-conformance` gate
-in one sequence.
+This runs upstream ldgm conformance, GraphLD smoke/readers,
+inverse-diagonal/selected-view precision conformance, BLUP/clump, GraphREML,
+HDF5 interop, and the `upstream-graphld-simulate-conformance` gate in one
+sequence.
 
 Optional/strict gates:
 
@@ -88,10 +90,11 @@ scoped out with a compatibility rationale:
    richer score-test schema, optimizer/output parity beyond the current fixed-block and
    one-step optimizer-summary conformance gates, and upstream-scale jackknife conformance.
 2. Pinned Python output conformance for broader graphREML optimizer summaries,
-   score-test meta-analysis, selected precision views, and stochastic inverse
-   diagonal estimators on upstream GraphLD data. BLUP, clumping, and the current
-   fixed GraphREML block plus one-step optimizer summary now have pinned
-   upstream-output conformance on the current test blocks.
+   score-test meta-analysis, and larger inverse-diagonal/selected-view
+   workloads on upstream GraphLD data. BLUP, clumping, the current fixed
+   GraphREML block plus one-step optimizer summary, and selected/full
+   Hutchinson/xdiag inverse diagonals now have pinned upstream-output
+   conformance on the current test blocks.
 3. Larger LDGM/GraphLD performance and conformance workloads beyond the current
    tiny upstream fixtures and smoke data.
 4. Direct native in-memory tree-sequence object integration beyond the current

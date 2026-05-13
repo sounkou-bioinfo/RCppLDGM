@@ -63,6 +63,23 @@ Set `RCPP_LDGM_REQUIRE_GRAPHLD_BLUP_CLUMP=true` or
 `RCPP_LDGM_REQUIRE_GRAPHLD_REML=true` to make upstream-generation failures hard
 failures instead of skips.
 
+GraphLD `PrecisionOperator.inverse_diagonal()` conformance can also be checked
+against pinned upstream Python outputs on the first upstream EUR test block.
+The current gate covers both the full precision matrix and a selected
+Schur-complement view, comparing exact, Hutchinson, and xdiag diagonals plus the
+returned solved-probe matrices:
+
+```bash
+RCPP_LDGM_PYTHON=.sync/ldgm-python/bin/python \
+RCPP_LDGM_GRAPHLD_ROOT=.sync/graphld \
+RCPP_LDGM_GRAPHLD_DATA=.sync/graphld/data/test \
+RCPP_LDGM_GRAPHLD_POP=EUR \
+Rscript tools/check-upstream-graphld-inverse-diagonal.R
+```
+
+Set `RCPP_LDGM_REQUIRE_GRAPHLD_INVERSE_DIAGONAL=true` to make upstream-generation
+failures hard failures instead of skips.
+
 `ldgm_simulate()` conformance can be checked through a pinned generator/check
 pair that writes a small metadata-filtered fixture and compares against
 `ldgm_simulate()` with the same command context:

@@ -71,6 +71,7 @@ jobs:
         run: |
           make upstream-graphld-smoke
           make upstream-graphld-reader-conformance
+          make upstream-graphld-inverse-diagonal-conformance
           make upstream-graphld-blup-clump-conformance
           make upstream-graphld-reml-conformance
           make upstream-graphld-simulate-conformance

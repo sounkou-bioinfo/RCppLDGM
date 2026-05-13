@@ -26,7 +26,7 @@ kernels rather than the whole CLI:
 | `PrecisionOperator.__matmul__` / `_matvec()` | `ldgm_precision_multiply()` | implemented for full and selected views |
 | `PrecisionOperator.solve()` | `ldgm_precision_solve()` | implemented for full and selected views |
 | `PrecisionOperator.logdet()` | `ldgm_precision_logdet()` | implemented for full and selected views |
-| `PrecisionOperator.inverse_diagonal()` | `ldgm_inverse_diagonal()` | implemented for exact, Hutchinson, xdiag, and randomized Nyström (`xnys`) methods |
+| `PrecisionOperator.inverse_diagonal()` | `ldgm_inverse_diagonal()` | implemented for exact, Hutchinson, xdiag, and randomized Nyström (`xnys`) methods; pinned upstream full/selected exact+hutchinson+xdiag conformance is in place on the current test block |
 | `PrecisionOperator.update_matrix()` | `ldgm_precision_update()` | implemented as copy-return diagonal update for sparse matrices and selected precision views |
 | `PrecisionOperator.update_element()` | `ldgm_precision_update_element()` | implemented as copy-return single diagonal update with active-index semantics |
 | `PrecisionOperator.times_scalar()` / scalar multiplication | `ldgm_precision_scale()` | implemented as copy-return scaling for sparse matrices and selected precision views |
