@@ -64,8 +64,31 @@ ldgm_write_surrogate_map_hdf5(
   compression = compression
 )
 
+gene_table <- data.frame(
+  gene_id = c("ENSG1", "ENSG2"),
+  gene_id_version = c("ENSG1.1", "ENSG2.1"),
+  gene_name = c("GENE1", "GENE2"),
+  start = c(13L, 26L),
+  end = c(15L, 28L),
+  CHR = c("1", "2"),
+  stringsAsFactors = FALSE
+)
+gene_table_path <- tempfile("rcppldgm-gene-table-", fileext = ".tsv")
+utils::write.table(gene_table, gene_table_path, sep = "\t", row.names = FALSE, quote = FALSE)
+gene_h5 <- tempfile("rcppldgm-gene-score-", fileext = ".h5")
+ldgm_convert_variant_to_gene_scores(
+  h5,
+  gene_h5,
+  gene_table_path,
+  nearest_weights = 1,
+  overwrite = TRUE,
+  compression = compression,
+  source = source_tag
+)
+
 native <- ldgm_read_score_test_hdf5(h5, trait_name = trait_name)
 native_surrogate <- ldgm_read_surrogate_map_hdf5(surrogate_h5, "toy_block")
+native_gene <- ldgm_read_score_test_hdf5(gene_h5, trait_name = trait_name)
 score_annotations <- data.frame(
   RSID = c("rs1", "rs2", "rs3"),
   annot_a = c(1, 0, 1),
@@ -105,13 +128,37 @@ stopifnot(
   isTRUE(all.equal(native$jackknife_parameters, jackknife_parameters, tolerance = 1e-12, check.attributes = FALSE)),
   isTRUE(all.equal(native$trait_datasets$posterior_scale, c(1.5, 1.0, 0.5), tolerance = 1e-12, check.attributes = FALSE)),
   isTRUE(all.equal(score_result_b$results$score, c(0.1, 0.3), tolerance = 1e-12, check.attributes = FALSE)),
-  identical(native_surrogate, c(1L, 3L, NA_integer_))
+  identical(native_surrogate, c(1L, 3L, NA_integer_)),
+  identical(native_gene$data_type, "gene"),
+  identical(as.character(native_gene$keys), c("gene_id", "gene_name")),
+  identical(native_gene$source, source_tag),
+  identical(as.character(native_gene$row_data$gene_id), c("ENSG1", "ENSG2")),
+  identical(as.character(native_gene$row_data$gene_name), c("GENE1", "GENE2")),
+  identical(as.integer(native_gene$row_data$jackknife_blocks), c(1L, 1L)),
+  identical(native_gene$groups, list(body = trait_name, combined = c(trait_name, trait_name_b))),
+  isTRUE(all.equal(native_gene$gradient, c(-0.1, 0.3), tolerance = 1e-12, check.attributes = FALSE)),
+  isTRUE(all.equal(native_gene$hessian, c(-0.03, -0.03), tolerance = 1e-12, check.attributes = FALSE)),
+  isTRUE(all.equal(native_gene$parameters, parameters, tolerance = 1e-12, check.attributes = FALSE)),
+  isTRUE(all.equal(native_gene$jackknife_parameters, jackknife_parameters, tolerance = 1e-12, check.attributes = FALSE)),
+  isTRUE(all.equal(native_gene$trait_datasets$posterior_scale, c(2.5, 0.5), tolerance = 1e-12, check.attributes = FALSE))
 )
 
 script <- file.path("tools", "check-graphld-hdf5-python-interop.py")
 status <- system2(
   python,
-  c(script, h5, trait_name, score_result_path, score_jackknife_path, surrogate_h5, "toy_block", trait_name_b, score_meta_path)
+  c(
+    script,
+    h5,
+    trait_name,
+    score_result_path,
+    score_jackknife_path,
+    surrogate_h5,
+    "toy_block",
+    trait_name_b,
+    score_meta_path,
+    gene_table_path,
+    gene_h5
+  )
 )
 if (!identical(status, 0L)) {
   stop("GraphLD Python HDF5 interop check failed with status ", status, call. = FALSE)
