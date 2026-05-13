@@ -79,12 +79,28 @@ ldgm_run_clump <- function(ldgms,
   }
 
   if (!is.null(metadata)) {
-    sumstats_blocks <- ldgm_partition_variants(metadata, sumstats, chrom_col = chrom_col, pos_col = pos_col)
+    partition_required_cols <- unique(c(
+      chrom_col,
+      pos_col,
+      z_col,
+      if (isTRUE(match_by_position)) NULL else variant_id_col,
+      ref_allele_col,
+      alt_allele_col
+    ))
+    sumstats_blocks <- ldgm_partition_variants(
+      metadata,
+      sumstats,
+      chrom_col = chrom_col,
+      pos_col = pos_col,
+      required_cols = partition_required_cols
+    )
   } else if (is.list(sumstats) && !is.data.frame(sumstats)) {
     sumstats_blocks <- lapply(sumstats, as_ldgm_sumstats_block,
       match_by_position = match_by_position,
       z_col = z_col,
       variant_id_col = variant_id_col,
+      ref_allele_col = ref_allele_col,
+      alt_allele_col = alt_allele_col,
       pos_col = pos_col
     )
   } else if (length(ldgms) == 1L && (is.data.frame(sumstats) || ldgm_implements(sumstats, LdgmSummaryStats))) {
@@ -93,6 +109,8 @@ ldgm_run_clump <- function(ldgms,
       match_by_position = match_by_position,
       z_col = z_col,
       variant_id_col = variant_id_col,
+      ref_allele_col = ref_allele_col,
+      alt_allele_col = alt_allele_col,
       pos_col = pos_col
     ))
   } else {

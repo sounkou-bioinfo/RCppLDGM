@@ -57,3 +57,80 @@ if (file.exists(metadata_path)) {
 } else {
   message("SKIP: GraphLD test data not available")
 }
+
+toy_sim_dir <- tempfile("ldgm-sim-provider-")
+dir.create(toy_sim_dir)
+writeLines(
+  c("0,0,2", "1,1,3", "2,2,4", "0,1,0.1", "1,2,0.2"),
+  file.path(toy_sim_dir, "toy.EUR.edgelist")
+)
+utils::write.csv(
+  data.frame(
+    index = 0:2,
+    anc_alleles = c("A", "C", "T"),
+    deriv_alleles = c("G", "T", "C"),
+    af = c(0.40, 0.20, 0.30),
+    site_ids = c("rs1", "rs2", "rs3"),
+    position = c(10L, 20L, 30L),
+    swap = c("+", "+", "+"),
+    stringsAsFactors = FALSE
+  ),
+  file.path(toy_sim_dir, "toy.EUR.snplist"),
+  row.names = FALSE
+)
+
+toy_metadata <- data.frame(
+  chrom = 1L,
+  chromStart = 1L,
+  chromEnd = 100L,
+  population = "EUR",
+  name = "toy.EUR.edgelist",
+  snplistName = "toy.EUR.snplist",
+  stringsAsFactors = FALSE
+)
+toy_catalog <- ldgm_block_catalog(toy_metadata, ldgm_dir = toy_sim_dir)
+
+toy_annotations <- data.frame(
+  CHR = c(1L, 1L, 1L),
+  SNP = c("rs1", "rs2", "rs3"),
+  POS = c(10L, 20L, 30L),
+  A1 = c("G", "T", "C"),
+  A2 = c("A", "C", "T"),
+  REF = c("A", "C", "T"),
+  ALT = c("G", "T", "C"),
+  af = c(0.40, 0.20, 0.30),
+  stringsAsFactors = FALSE
+)
+annotation_provider_calls <- new.env(parent = emptyenv())
+annotation_provider_calls$partition <- 0L
+annotation_provider <- ldgm_annotation_data_provider(
+  frame = function(annotation_cols, required_cols) {
+    toy_annotations[, unique(c(required_cols, annotation_cols)), drop = FALSE]
+  },
+  annotation_cols = "af",
+  partition = function(metadata, chrom_col = NULL, pos_col = NULL, required_cols, annotation_cols) {
+    annotation_provider_calls$partition <- annotation_provider_calls$partition + 1L
+    ldgm_partition_variants(
+      metadata,
+      toy_annotations[, unique(c(required_cols, annotation_cols, chrom_col, pos_col)), drop = FALSE],
+      chrom_col = chrom_col,
+      pos_col = pos_col
+    )
+  }
+)
+old_upstream_rng <- Sys.getenv("RCPP_LDGM_USE_UPSTREAM_RNG", unset = "")
+Sys.setenv(RCPP_LDGM_USE_UPSTREAM_RNG = "0")
+on.exit(Sys.setenv(RCPP_LDGM_USE_UPSTREAM_RNG = old_upstream_rng), add = TRUE)
+provider_result <- ldgm_simulate(
+  sample_size = 1000,
+  heritability = 0.5,
+  component_variance = c(0.5),
+  component_weight = c(1),
+  random_seed = 7,
+  ldgm_metadata_path = toy_catalog,
+  annotations = annotation_provider,
+  verbose = FALSE
+)
+expect_equal(nrow(provider_result), 3L)
+expect_equal(annotation_provider_calls$partition, 1L)
+expect_true(all(is.finite(provider_result$Z)))

@@ -113,7 +113,23 @@ ldgm_simulate <- function(sample_size,
       MoreArgs = list(block_directory = block_directory, population = population)
     )
   } else {
-    block_annotations <- ldgm_partition_variants(metadata, annotations, chrom_col = NULL, pos_col = NULL)
+    partition_required_cols <- unique(c(
+      "CHR",
+      "SNP",
+      "POS",
+      "A1",
+      "A2",
+      "REF",
+      "ALT",
+      annotation_columns %||% "af"
+    ))
+    block_annotations <- ldgm_partition_variants(
+      metadata,
+      annotations,
+      chrom_col = NULL,
+      pos_col = NULL,
+      required_cols = partition_required_cols
+    )
   }
   if (length(block_annotations) != length(ldgms)) {
     stop("number of metadata blocks does not match annotation partitions", call. = FALSE)

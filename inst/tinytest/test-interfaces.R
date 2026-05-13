@@ -21,6 +21,48 @@ mock_summary <- MockSummaryStatsProvider(data = summary_stats_if)
 expect_true(s7contract::implements(mock_summary, LdgmSummaryStats))
 expect_equal(ldgm_summary_stats_frame(mock_summary), summary_stats_if)
 
+summary_provider_calls <- new.env(parent = emptyenv())
+summary_provider_calls$frame <- 0L
+summary_provider_calls$partition <- 0L
+summary_stats_partition_if <- data.frame(
+  CHR = c(1L, 1L, 1L),
+  POS = c(10L, 150L, 250L),
+  SNP = c("rs1", "rs2", "rs3"),
+  Z = c(1.25, -0.5, 0.75)
+)
+summary_provider <- ldgm_summary_stats_provider(
+  frame = function(required_cols) {
+    summary_provider_calls$frame <- summary_provider_calls$frame + 1L
+    summary_stats_partition_if[, unique(c(required_cols, "CHR", "POS")), drop = FALSE]
+  },
+  required_cols = c("SNP", "Z"),
+  partition = function(metadata, chrom_col = NULL, pos_col = NULL, required_cols) {
+    summary_provider_calls$partition <- summary_provider_calls$partition + 1L
+    ldgm_partition_variants(
+      metadata,
+      summary_stats_partition_if[, unique(c(required_cols, chrom_col, pos_col)), drop = FALSE],
+      chrom_col = chrom_col,
+      pos_col = pos_col
+    )
+  }
+)
+expect_true(s7contract::implements(summary_provider, LdgmSummaryStats))
+expect_equal(ldgm_summary_stats_frame(summary_provider)$SNP, c("rs1", "rs2", "rs3"))
+summary_partition_metadata <- data.frame(
+  chrom = c(1L, 1L),
+  chromStart = c(0L, 200L),
+  chromEnd = c(200L, 300L)
+)
+summary_parts <- ldgm_partition_variants(
+  summary_partition_metadata,
+  summary_provider,
+  required_cols = c("CHR", "POS", "SNP", "Z")
+)
+expect_equal(vapply(summary_parts, nrow, integer(1)), c(2L, 1L))
+expect_equal(summary_provider_calls$frame, 1L)
+expect_equal(summary_provider_calls$partition, 1L)
+expect_error(ldgm_summary_stats_provider("not a function"), "`frame`")
+
 annotation_if <- data.frame(
   SNP = c("rs1", "rs2"),
   CHR = c(1L, 1L),
@@ -51,6 +93,39 @@ S7::method(ldgm_annotation_columns, MockAnnotationProvider) <- function(x, ...) 
 mock_annotation <- MockAnnotationProvider(data = annotation_if, annotation_cols = c("base", "coding"))
 expect_true(s7contract::implements(mock_annotation, LdgmAnnotationData))
 expect_equal(ldgm_annotation_columns(mock_annotation), c("base", "coding"))
+
+annotation_provider_calls <- new.env(parent = emptyenv())
+annotation_provider_calls$frame <- 0L
+annotation_provider_calls$partition <- 0L
+annotation_provider <- ldgm_annotation_data_provider(
+  frame = function(annotation_cols, required_cols) {
+    annotation_provider_calls$frame <- annotation_provider_calls$frame + 1L
+    annotation_if[, unique(c(required_cols, annotation_cols)), drop = FALSE]
+  },
+  annotation_cols = c("base", "coding"),
+  partition = function(metadata, chrom_col = NULL, pos_col = NULL, required_cols, annotation_cols) {
+    annotation_provider_calls$partition <- annotation_provider_calls$partition + 1L
+    ldgm_partition_variants(
+      metadata,
+      annotation_if[, unique(c(required_cols, annotation_cols, chrom_col, pos_col)), drop = FALSE],
+      chrom_col = chrom_col,
+      pos_col = pos_col
+    )
+  }
+)
+expect_true(s7contract::implements(annotation_provider, LdgmAnnotationData))
+expect_equal(ldgm_annotation_columns(annotation_provider), c("base", "coding"))
+expect_equal(ldgm_annotation_data_frame(annotation_provider)$base, c(1, 1))
+annotation_parts <- ldgm_partition_variants(
+  data.frame(chrom = 1L, chromStart = 0L, chromEnd = 30L),
+  annotation_provider,
+  required_cols = c("CHR", "POS", "base", "coding")
+)
+expect_equal(length(annotation_parts), 1L)
+expect_equal(nrow(annotation_parts[[1]]), 2L)
+expect_equal(annotation_provider_calls$frame, 1L)
+expect_equal(annotation_provider_calls$partition, 1L)
+expect_error(ldgm_annotation_data_provider("not a function", annotation_cols = "base"), "`frame`")
 
 link_from_interface <- ldgm_reml_link(annotation_obj, c(0, 0.2), denominator = 10)
 expect_equal(length(link_from_interface), nrow(annotation_if))

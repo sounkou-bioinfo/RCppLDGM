@@ -8,7 +8,8 @@ ldgm_partition_variants(
   metadata,
   variant_data,
   chrom_col = NULL,
-  pos_col = NULL
+  pos_col = NULL,
+  ...
 )
 }
 \arguments{
@@ -23,6 +24,9 @@ common names \code{chrom}, \code{chromosome}, and \code{CHR} are tried.}
 
 \item{pos_col}{Optional position column in \code{variant_data}. If \code{NULL}, common
 names \code{position}, \code{POS}, and \code{BP} are tried.}
+
+\item{...}{Reserved for provider-specific projections such as required-column
+hints.}
 }
 \value{
 A list of data frames, one per metadata row.

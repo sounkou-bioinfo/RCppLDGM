@@ -12,18 +12,22 @@
 #'   common names `chrom`, `chromosome`, and `CHR` are tried.
 #' @param pos_col Optional position column in `variant_data`. If `NULL`, common
 #'   names `position`, `POS`, and `BP` are tried.
+#' @param ... Reserved for provider-specific projections such as required-column
+#'   hints.
 #'
 #' @return A list of data frames, one per metadata row.
 #' @export
 ldgm_partition_variants <- function(metadata,
                                     variant_data,
                                     chrom_col = NULL,
-                                    pos_col = NULL) {
+                                    pos_col = NULL,
+                                    ...) {
   ldgm_partition_variant_data(
     variant_data,
     metadata,
     chrom_col = chrom_col,
-    pos_col = pos_col
+    pos_col = pos_col,
+    ...
   )
 }
 
@@ -61,11 +65,12 @@ S7::method(ldgm_partition_variant_data, S7::class_any) <- function(variant_data,
                                                                     chrom_col = NULL,
                                                                     pos_col = NULL,
                                                                     ...) {
-  invisible(list(...))
+  args <- list(...)
+  required_cols <- args$required_cols %||% c("CHR", "POS")
   if (ldgm_implements(variant_data, LdgmSummaryStats)) {
     return(partition_variants_data_frame(
       metadata,
-      ldgm_summary_stats_frame(variant_data, required_cols = c("CHR", "POS")),
+      ldgm_summary_stats_frame(variant_data, required_cols = required_cols),
       chrom_col = chrom_col,
       pos_col = pos_col
     ))
@@ -73,7 +78,7 @@ S7::method(ldgm_partition_variant_data, S7::class_any) <- function(variant_data,
   if (ldgm_implements(variant_data, LdgmAnnotationData)) {
     return(partition_variants_data_frame(
       metadata,
-      ldgm_annotation_data_frame(variant_data),
+      ldgm_annotation_data_frame(variant_data, required_cols = required_cols),
       chrom_col = chrom_col,
       pos_col = pos_col
     ))
@@ -81,13 +86,14 @@ S7::method(ldgm_partition_variant_data, S7::class_any) <- function(variant_data,
   if (ldgm_implements(variant_data, LdgmScoreTestVariantData)) {
     return(partition_variants_data_frame(
       metadata,
-      ldgm_score_test_variant_data_frame(variant_data),
+      ldgm_score_test_variant_data_frame(variant_data, required_cols = required_cols),
       chrom_col = chrom_col,
       pos_col = pos_col
     ))
   }
   stop("`variant_data` must be a data frame or implement a supported partition interface", call. = FALSE)
 }
+
 
 partition_variants_data_frame <- function(metadata,
                                           variant_data,
@@ -207,12 +213,28 @@ ldgm_run_blup <- function(ldgms,
   }
 
   if (!is.null(metadata)) {
-    sumstats_blocks <- ldgm_partition_variants(metadata, sumstats, chrom_col = chrom_col, pos_col = pos_col)
+    partition_required_cols <- unique(c(
+      chrom_col,
+      pos_col,
+      z_col,
+      if (isTRUE(match_by_position)) NULL else variant_id_col,
+      ref_allele_col,
+      alt_allele_col
+    ))
+    sumstats_blocks <- ldgm_partition_variants(
+      metadata,
+      sumstats,
+      chrom_col = chrom_col,
+      pos_col = pos_col,
+      required_cols = partition_required_cols
+    )
   } else if (is.list(sumstats) && !is.data.frame(sumstats)) {
     sumstats_blocks <- lapply(sumstats, as_ldgm_sumstats_block,
       match_by_position = match_by_position,
       z_col = z_col,
       variant_id_col = variant_id_col,
+      ref_allele_col = ref_allele_col,
+      alt_allele_col = alt_allele_col,
       pos_col = pos_col
     )
   } else if (length(ldgms) == 1L && (is.data.frame(sumstats) || ldgm_implements(sumstats, LdgmSummaryStats))) {
@@ -221,6 +243,8 @@ ldgm_run_blup <- function(ldgms,
       match_by_position = match_by_position,
       z_col = z_col,
       variant_id_col = variant_id_col,
+      ref_allele_col = ref_allele_col,
+      alt_allele_col = alt_allele_col,
       pos_col = pos_col
     ))
   } else {
@@ -317,11 +341,16 @@ as_ldgm_sumstats_block <- function(x,
                                   match_by_position,
                                   z_col,
                                   variant_id_col,
+                                  ref_allele_col,
+                                  alt_allele_col,
                                   pos_col) {
   if (ldgm_implements(x, LdgmSummaryStats)) {
     required_cols <- unique(c(
       z_col,
-      if (isTRUE(match_by_position)) pos_col else variant_id_col
+      pos_col,
+      if (isTRUE(match_by_position)) NULL else variant_id_col,
+      ref_allele_col,
+      alt_allele_col
     ))
     return(ldgm_summary_stats_frame(x, required_cols = required_cols))
   }

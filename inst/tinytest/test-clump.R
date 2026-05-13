@@ -108,7 +108,10 @@ catalog_result <- ldgm_run_clump(
 )
 expect_equal(catalog_result$is_index, c(TRUE, FALSE, TRUE))
 
-single_summary_provider_clump <- ldgm_summary_stats(sumstats, required_cols = c("SNP", "Z"))
+single_summary_provider_clump <- ldgm_summary_stats_provider(
+  frame = function(required_cols) sumstats[, unique(c(required_cols, "REF", "ALT")), drop = FALSE],
+  required_cols = c("SNP", "Z")
+)
 provider_single_clump <- ldgm_run_clump(
   ldgm,
   single_summary_provider_clump,
@@ -120,22 +123,26 @@ expect_equal(provider_single_clump$is_index, clumped$is_index)
 
 partition_calls_clump <- new.env(parent = emptyenv())
 partition_calls_clump$n <- 0L
-MockPartitionedSummaryStatsClump <- S7::new_class(
-  "MockPartitionedSummaryStatsClump",
-  properties = list(data = S7::class_data.frame)
+sumstats_provider_clump <- ldgm_summary_stats_provider(
+  frame = function(required_cols) {
+    unique_cols <- unique(c(required_cols, "CHR", "POS"))
+    sumstats[, unique_cols, drop = FALSE]
+  },
+  required_cols = c("SNP", "Z"),
+  partition = function(metadata, chrom_col = NULL, pos_col = NULL, required_cols) {
+    partition_calls_clump$n <- partition_calls_clump$n + 1L
+    unique_cols <- unique(c(required_cols, chrom_col, pos_col))
+    ldgm_partition_variants(
+      metadata,
+      sumstats[, unique_cols, drop = FALSE],
+      chrom_col = chrom_col,
+      pos_col = pos_col
+    )
+  }
 )
-S7::method(ldgm_partition_variant_data, MockPartitionedSummaryStatsClump) <- function(variant_data,
-                                                                                        metadata,
-                                                                                        chrom_col = NULL,
-                                                                                        pos_col = NULL,
-                                                                                        ...) {
-  invisible(list(...))
-  partition_calls_clump$n <- partition_calls_clump$n + 1L
-  ldgm_partition_variants(metadata, variant_data@data, chrom_col = chrom_col, pos_col = pos_col)
-}
 provider_metadata_result <- ldgm_run_clump(
   list(ldgm),
-  MockPartitionedSummaryStatsClump(data = sumstats),
+  sumstats_provider_clump,
   metadata = metadata,
   rsq_threshold = 0.5,
   chisq_threshold = 10,

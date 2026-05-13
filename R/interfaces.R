@@ -157,6 +157,51 @@ LdgmScoreTestGeneDataTable <- S7::new_class(
   }
 )
 
+# Callback-based summary-statistics provider. Suitable for table backends such
+# as DuckDB that should expose interface methods without forcing eager full-table
+# materialization at the API boundary.
+LdgmSummaryStatsProvider <- S7::new_class(
+  "LdgmSummaryStatsProvider",
+  package = "RcppLDGM",
+  properties = list(
+    frame = S7::class_function,
+    partition = S7::class_any,
+    required_cols = S7::class_character
+  ),
+  validator = function(self) {
+    tryCatch(
+      {
+        normalize_ldgm_required_cols(self@required_cols)
+        validate_optional_provider_callback(self@partition, "partition")
+        NULL
+      },
+      error = function(e) conditionMessage(e)
+    )
+  }
+)
+
+# Callback-based annotation-data provider for out-of-memory or query-backed
+# tables.
+LdgmAnnotationDataProvider <- S7::new_class(
+  "LdgmAnnotationDataProvider",
+  package = "RcppLDGM",
+  properties = list(
+    frame = S7::class_function,
+    partition = S7::class_any,
+    annotation_cols = S7::class_character
+  ),
+  validator = function(self) {
+    tryCatch(
+      {
+        validate_provider_column_names(self@annotation_cols, "annotation_cols")
+        validate_optional_provider_callback(self@partition, "partition")
+        NULL
+      },
+      error = function(e) conditionMessage(e)
+    )
+  }
+)
+
 #' Extract a Summary-Statistics Data Frame
 #'
 #' S7 generic required by [LdgmSummaryStats].
@@ -466,6 +511,103 @@ S7::method(ldgm_score_test_gene_data_frame, S7::class_data.frame) <- function(x,
   normalize_score_hdf5_gene_data(x)
 }
 
+S7::method(ldgm_summary_stats_frame, LdgmSummaryStatsProvider) <- function(x, ...) {
+  args <- list(...)
+  required_cols <- normalize_ldgm_required_cols(args$required_cols %||% x@required_cols)
+  out <- provider_data_frame_result(
+    x@frame,
+    list(required_cols = required_cols),
+    "summary-statistics provider `frame` callback"
+  )
+  normalize_ldgm_summary_stats_frame(out, required_cols = required_cols)
+}
+
+S7::method(ldgm_annotation_data_frame, LdgmAnnotationDataProvider) <- function(x, ...) {
+  args <- list(...)
+  annotation_cols <- args$annotation_cols %||% x@annotation_cols
+  required_cols <- unique(args$required_cols %||% annotation_cols)
+  out <- provider_data_frame_result(
+    x@frame,
+    list(annotation_cols = annotation_cols, required_cols = required_cols),
+    "annotation provider `frame` callback"
+  )
+  normalize_ldgm_annotation_data_frame(out, annotation_cols = annotation_cols)$data
+}
+
+S7::method(ldgm_annotation_columns, LdgmAnnotationDataProvider) <- function(x, ...) {
+  invisible(list(...))
+  x@annotation_cols
+}
+
+S7::method(ldgm_partition_variant_data, LdgmSummaryStatsProvider) <- function(variant_data,
+                                                                               metadata,
+                                                                               chrom_col = NULL,
+                                                                               pos_col = NULL,
+                                                                               ...) {
+  args <- list(...)
+  required_cols <- unique(c("CHR", "POS", args$required_cols %||% variant_data@required_cols))
+  if (is.null(variant_data@partition)) {
+    return(partition_variants_data_frame(
+      metadata,
+      ldgm_summary_stats_frame(variant_data, required_cols = required_cols),
+      chrom_col = chrom_col,
+      pos_col = pos_col
+    ))
+  }
+  blocks <- tryCatch(
+    do.call(
+      variant_data@partition,
+      list(
+        metadata = metadata,
+        chrom_col = chrom_col,
+        pos_col = pos_col,
+        required_cols = required_cols
+      )
+    ),
+    error = function(e) {
+      stop("summary-statistics provider `partition` callback failed: ", conditionMessage(e), call. = FALSE)
+    }
+  )
+  normalize_partitioned_provider_blocks(blocks, nrow(metadata), "summary-statistics provider `partition` callback")
+}
+
+S7::method(ldgm_partition_variant_data, LdgmAnnotationDataProvider) <- function(variant_data,
+                                                                                 metadata,
+                                                                                 chrom_col = NULL,
+                                                                                 pos_col = NULL,
+                                                                                 ...) {
+  args <- list(...)
+  required_cols <- unique(c("CHR", "POS", args$required_cols %||% character(), variant_data@annotation_cols))
+  if (is.null(variant_data@partition)) {
+    return(partition_variants_data_frame(
+      metadata,
+      provider_data_frame_result(
+        variant_data@frame,
+        list(annotation_cols = variant_data@annotation_cols, required_cols = required_cols),
+        "annotation provider `frame` callback"
+      ),
+      chrom_col = chrom_col,
+      pos_col = pos_col
+    ))
+  }
+  blocks <- tryCatch(
+    do.call(
+      variant_data@partition,
+      list(
+        metadata = metadata,
+        chrom_col = chrom_col,
+        pos_col = pos_col,
+        required_cols = required_cols,
+        annotation_cols = variant_data@annotation_cols
+      )
+    ),
+    error = function(e) {
+      stop("annotation provider `partition` callback failed: ", conditionMessage(e), call. = FALSE)
+    }
+  )
+  normalize_partitioned_provider_blocks(blocks, nrow(metadata), "annotation provider `partition` callback")
+}
+
 #' Wrap Summary Statistics for GraphREML
 #'
 #' Converts an ordinary R data frame into the default S7 implementation of the
@@ -507,6 +649,73 @@ ldgm_annotation_data <- function(x, annotation_cols = NULL) {
   }
   normalized <- normalize_ldgm_annotation_data_frame(x, annotation_cols = annotation_cols)
   LdgmAnnotationDataTable(data = normalized$data, annotation_cols = normalized$annotation_cols)
+}
+
+#' Create a Callback-Based Summary-Statistics Provider
+#'
+#' Builds an object implementing [LdgmSummaryStats] from callback functions
+#' rather than an eagerly materialized data frame. This is intended for query-
+#' backed or out-of-memory tables, for example DuckDB relations. The `frame`
+#' callback should return a data frame when asked for projected columns; the
+#' optional `partition` callback can partition by LDGM metadata blocks without
+#' scanning the full table into R first.
+#'
+#' @param frame Function called as `frame(required_cols = <chr>)` and expected to
+#'   return a data frame.
+#' @param required_cols Default columns required when callers do not request a
+#'   narrower projection.
+#' @param partition Optional function called as
+#'   `partition(metadata, chrom_col = NULL, pos_col = NULL, required_cols = <chr>)`
+#'   and expected to return a list of data frames, one per metadata row.
+#'
+#' @return An object implementing [LdgmSummaryStats].
+#' @export
+ldgm_summary_stats_provider <- function(frame,
+                                        required_cols = c("SNP", "Z"),
+                                        partition = NULL) {
+  if (!is.function(frame)) {
+    stop("`frame` must be a function", call. = FALSE)
+  }
+  required_cols <- normalize_ldgm_required_cols(required_cols)
+  validate_optional_provider_callback(partition, "partition")
+  LdgmSummaryStatsProvider(
+    frame = frame,
+    partition = partition,
+    required_cols = required_cols
+  )
+}
+
+#' Create a Callback-Based Annotation Provider
+#'
+#' Builds an object implementing [LdgmAnnotationData] from callback functions
+#' rather than an eagerly materialized data frame. This lets database-backed or
+#' otherwise lazy annotation tables expose only the interface contract needed by
+#' the current workflow.
+#'
+#' @param frame Function called as
+#'   `frame(annotation_cols = <chr>, required_cols = <chr>)` and expected to
+#'   return a data frame.
+#' @param annotation_cols Annotation columns selected for GraphREML or score-test
+#'   work.
+#' @param partition Optional function called as
+#'   `partition(metadata, chrom_col = NULL, pos_col = NULL, required_cols = <chr>, annotation_cols = <chr>)`
+#'   and expected to return a list of data frames, one per metadata row.
+#'
+#' @return An object implementing [LdgmAnnotationData].
+#' @export
+ldgm_annotation_data_provider <- function(frame,
+                                          annotation_cols,
+                                          partition = NULL) {
+  if (!is.function(frame)) {
+    stop("`frame` must be a function", call. = FALSE)
+  }
+  annotation_cols <- validate_provider_column_names(annotation_cols, "annotation_cols")
+  validate_optional_provider_callback(partition, "partition")
+  LdgmAnnotationDataProvider(
+    frame = frame,
+    partition = partition,
+    annotation_cols = annotation_cols
+  )
 }
 
 #' Assert GraphREML Summary-Statistics Interface Support
@@ -864,11 +1073,41 @@ normalize_ldgm_annotation_cols <- function(x, annotation_cols = NULL) {
     numeric_cols <- vapply(x[candidate_cols], function(col) is.numeric(col) || is.logical(col), logical(1))
     annotation_cols <- candidate_cols[numeric_cols]
   }
-  annotation_cols <- as.character(annotation_cols)
-  if (length(annotation_cols) == 0L || anyNA(annotation_cols) || any(!nzchar(annotation_cols))) {
-    stop("`annotation_cols` must identify at least one annotation column", call. = FALSE)
+  validate_provider_column_names(annotation_cols, "annotation_cols")
+}
+
+validate_provider_column_names <- function(x, name) {
+  x <- as.character(x)
+  if (length(x) == 0L || anyNA(x) || any(!nzchar(x))) {
+    stop("`", name, "` must identify at least one non-empty column name", call. = FALSE)
   }
-  annotation_cols
+  unique(x)
+}
+
+validate_optional_provider_callback <- function(x, name) {
+  if (!is.null(x) && !is.function(x)) {
+    stop("`", name, "` must be `NULL` or a function", call. = FALSE)
+  }
+  invisible(x)
+}
+
+provider_data_frame_result <- function(fun, args, label) {
+  out <- tryCatch(
+    do.call(fun, args),
+    error = function(e) {
+      stop(label, " failed: ", conditionMessage(e), call. = FALSE)
+    }
+  )
+  as_ldgm_data_frame(out, label)
+}
+
+normalize_partitioned_provider_blocks <- function(blocks, n_blocks, label) {
+  if (!is.list(blocks) || length(blocks) != n_blocks) {
+    stop(label, " must return a list with one data frame per metadata row", call. = FALSE)
+  }
+  out <- lapply(blocks, function(block) as_ldgm_data_frame(block, label))
+  names(out) <- NULL
+  out
 }
 
 as_ldgm_data_frame <- function(x, arg) {

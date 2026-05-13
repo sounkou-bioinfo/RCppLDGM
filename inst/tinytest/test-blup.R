@@ -107,29 +107,35 @@ catalog_result <- ldgm_run_blup(
 )
 expect_equal(catalog_result$weight, expected1, tolerance = 1e-10)
 
-single_summary_provider <- ldgm_summary_stats(blocks[[1]], required_cols = c("SNP", "Z"))
+single_summary_provider <- ldgm_summary_stats_provider(
+  frame = function(required_cols) blocks[[1]][, unique(c(required_cols, "REF", "ALT")), drop = FALSE],
+  required_cols = c("SNP", "Z")
+)
 provider_single_result <- ldgm_run_blup(ldgm1, single_summary_provider, sigmasq = 0.01, sample_size = 100)
 expect_equal(provider_single_result$weight, expected1, tolerance = 1e-10)
 
 partition_calls_blup <- new.env(parent = emptyenv())
 partition_calls_blup$n <- 0L
-MockPartitionedSummaryStatsBlup <- S7::new_class(
-  "MockPartitionedSummaryStatsBlup",
-  properties = list(data = S7::class_data.frame)
+sumstats_provider <- ldgm_summary_stats_provider(
+  frame = function(required_cols) {
+    unique_cols <- unique(c(required_cols, "CHR", "POS"))
+    sumstats[, unique_cols, drop = FALSE]
+  },
+  required_cols = c("SNP", "Z"),
+  partition = function(metadata, chrom_col = NULL, pos_col = NULL, required_cols) {
+    partition_calls_blup$n <- partition_calls_blup$n + 1L
+    unique_cols <- unique(c(required_cols, chrom_col, pos_col))
+    ldgm_partition_variants(
+      metadata,
+      sumstats[, unique_cols, drop = FALSE],
+      chrom_col = chrom_col,
+      pos_col = pos_col
+    )
+  }
 )
-S7::method(ldgm_partition_variant_data, MockPartitionedSummaryStatsBlup) <- function(variant_data,
-                                                                                       metadata,
-                                                                                       chrom_col = NULL,
-                                                                                       pos_col = NULL,
-                                                                                       ...) {
-  invisible(list(...))
-  partition_calls_blup$n <- partition_calls_blup$n + 1L
-  ldgm_partition_variants(metadata, variant_data@data, chrom_col = chrom_col, pos_col = pos_col)
-}
-mock_sumstats_provider <- MockPartitionedSummaryStatsBlup(data = sumstats)
 provider_result <- ldgm_run_blup(
   list(ldgm1, ldgm2),
-  mock_sumstats_provider,
+  sumstats_provider,
   metadata = metadata,
   sigmasq = 0.01,
   sample_size = 100,
