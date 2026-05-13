@@ -80,6 +80,8 @@ expect_equal(length(fit$enrichment), ncol(annotations_reml))
 expect_equal(names(fit$parameters_se), colnames(annotations_reml))
 expect_equal(dim(fit$jackknife_params), c(1L, ncol(annotations_reml)))
 expect_true(all(is.na(fit$parameters_se)))
+expect_equal(length(fit$log$trust_region_lambdas), fit$num_iterations)
+expect_true(all(is.finite(fit$log$trust_region_lambdas)))
 
 fit_jk <- ldgm_run_reml(
   list(P_reml, P_reml),
@@ -100,6 +102,7 @@ expect_equal(dim(fit_jk$jackknife_enrichment), c(2L, ncol(annotations_reml)))
 expect_equal(length(fit_jk$variant_h2), 2L * nrow(annotations_reml))
 expect_true(all(is.finite(fit_jk$parameters_se)))
 expect_true(all(fit_jk$parameters_se >= 0))
+expect_equal(length(fit_jk$log$trust_region_lambdas), fit_jk$num_iterations)
 
 fit_threshold <- ldgm_run_reml(
   list(good = P_reml, high_chisq = P_reml),

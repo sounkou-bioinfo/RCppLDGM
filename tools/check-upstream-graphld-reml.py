@@ -114,6 +114,28 @@ def main() -> None:
     ).write_csv(out_dir / "reml_metrics.csv")
     pl.DataFrame({"per_variant_h2": np.asarray(per_variant_h2, dtype=float).reshape(-1)}).write_csv(out_dir / "per_variant_h2.csv")
 
+    model = gld.ModelOptions()
+    method = gld.MethodOptions(num_iterations=1, run_serial=True, verbose=False)
+    summary = gld.run_graphREML(
+        model_options=model,
+        method_options=method,
+        summary_stats=sumstats,
+        annotation_data=annotations,
+        ldgm_metadata_path=os.fspath(data_dir / "metadata.csv"),
+        populations=args.population,
+    )
+    pl.DataFrame(
+        {
+            "parameter": [float(np.asarray(summary["parameters"], dtype=float).reshape(-1)[0])],
+            "heritability": [float(np.asarray(summary["heritability"], dtype=float).reshape(-1)[0])],
+            "enrichment": [float(np.asarray(summary["enrichment"], dtype=float).reshape(-1)[0])],
+            "final_likelihood": [float(summary["log"]["final_likelihood"])],
+            "trust_region_lambda": [float(np.asarray(summary["log"]["trust_region_lambdas"], dtype=float).reshape(-1)[0])],
+            "converged": [bool(summary["log"]["converged"])],
+            "num_iterations": [int(summary["log"]["num_iterations"])],
+        }
+    ).write_csv(out_dir / "reml_summary.csv")
+
 
 if __name__ == "__main__":
     main()

@@ -13,13 +13,20 @@ ldgm_run_reml(
   annotation_names = NULL,
   num_iterations = 10L,
   convergence_tol = 0.001,
+  convergence_window = 3L,
+  trust_region_size = 0.1,
+  trust_region_rho_lb = 1e-04,
+  trust_region_rho_ub = 0.99,
+  trust_region_scalar = 5,
+  max_trust_iterations = 100L,
+  minimum_likelihood_increase = 1e-06,
+  reset_trust_region = FALSE,
   intercept = 1,
   link_fn_denominator = 6e+06,
   diagonal_method = "xdiag",
   n_samples = 100L,
   seed = NULL,
   num_jackknife_blocks = 100L,
-  max_step_halving = 12L,
   max_chisq_threshold = NULL,
   use_surrogate_markers = FALSE,
   surrogate_maps = NULL,
@@ -53,17 +60,37 @@ annotation matrix column names or \code{annot1}, \code{annot2}, ...}
 
 \item{num_iterations}{Maximum number of optimization iterations.}
 
-\item{convergence_tol}{Stop when the absolute likelihood change is below this
-threshold.}
+\item{convergence_tol}{Per-iteration convergence tolerance used with
+\code{convergence_window}, matching GraphLD's graphREML stopping rule.}
+
+\item{convergence_window}{Number of recent likelihood values used in the
+convergence check.}
+
+\item{trust_region_size}{Initial trust-region lambda.}
+
+\item{trust_region_rho_lb}{Lower acceptance bound for the actual-versus-
+predicted likelihood ratio.}
+
+\item{trust_region_rho_ub}{Upper bound above which the trust-region lambda is
+decreased for the next iteration.}
+
+\item{trust_region_scalar}{Multiplicative factor used when expanding or
+shrinking the trust region.}
+
+\item{max_trust_iterations}{Maximum number of trust-region retries per outer
+optimization step.}
+
+\item{minimum_likelihood_increase}{Minimum predicted increase below which a
+non-negative trust-region step is accepted without further lambda growth.}
+
+\item{reset_trust_region}{If \code{TRUE}, reset the trust-region lambda to
+\code{trust_region_size} at every outer iteration.}
 
 \item{intercept, link_fn_denominator, diagonal_method, n_samples, seed}{Passed to
 \code{ldgm_reml_block()}.}
 
 \item{num_jackknife_blocks}{Maximum number of grouped block jackknife
 replicates used for parameter, heritability, and enrichment standard errors.}
-
-\item{max_step_halving}{Maximum number of step halvings for a proposed Newton
-step.}
 
 \item{max_chisq_threshold}{Optional maximum block chi-square threshold. Blocks
 whose maximum \code{z^2} exceeds this value are excluded, matching GraphLD's

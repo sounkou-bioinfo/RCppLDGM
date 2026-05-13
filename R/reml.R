@@ -212,14 +212,27 @@ ldgm_reml_block <- function(precision,
 #' @param annotation_names Optional names for annotation parameters. Defaults to
 #'   annotation matrix column names or `annot1`, `annot2`, ...
 #' @param num_iterations Maximum number of optimization iterations.
-#' @param convergence_tol Stop when the absolute likelihood change is below this
-#'   threshold.
+#' @param convergence_tol Per-iteration convergence tolerance used with
+#'   `convergence_window`, matching GraphLD's graphREML stopping rule.
+#' @param convergence_window Number of recent likelihood values used in the
+#'   convergence check.
+#' @param trust_region_size Initial trust-region lambda.
+#' @param trust_region_rho_lb Lower acceptance bound for the actual-versus-
+#'   predicted likelihood ratio.
+#' @param trust_region_rho_ub Upper bound above which the trust-region lambda is
+#'   decreased for the next iteration.
+#' @param trust_region_scalar Multiplicative factor used when expanding or
+#'   shrinking the trust region.
+#' @param max_trust_iterations Maximum number of trust-region retries per outer
+#'   optimization step.
+#' @param minimum_likelihood_increase Minimum predicted increase below which a
+#'   non-negative trust-region step is accepted without further lambda growth.
+#' @param reset_trust_region If `TRUE`, reset the trust-region lambda to
+#'   `trust_region_size` at every outer iteration.
 #' @param intercept,link_fn_denominator,diagonal_method,n_samples,seed Passed to
 #'   `ldgm_reml_block()`.
 #' @param num_jackknife_blocks Maximum number of grouped block jackknife
 #'   replicates used for parameter, heritability, and enrichment standard errors.
-#' @param max_step_halving Maximum number of step halvings for a proposed Newton
-#'   step.
 #' @param max_chisq_threshold Optional maximum block chi-square threshold. Blocks
 #'   whose maximum `z^2` exceeds this value are excluded, matching GraphLD's
 #'   high-chi-square block guard.
@@ -264,13 +277,20 @@ ldgm_run_reml <- function(ldgms,
                           annotation_names = NULL,
                           num_iterations = 10L,
                           convergence_tol = 1e-3,
+                          convergence_window = 3L,
+                          trust_region_size = 1e-1,
+                          trust_region_rho_lb = 1e-4,
+                          trust_region_rho_ub = 0.99,
+                          trust_region_scalar = 5,
+                          max_trust_iterations = 100L,
+                          minimum_likelihood_increase = 1e-6,
+                          reset_trust_region = FALSE,
                           intercept = 1,
                           link_fn_denominator = 6e6,
                           diagonal_method = "xdiag",
                           n_samples = 100L,
                           seed = NULL,
                           num_jackknife_blocks = 100L,
-                          max_step_halving = 12L,
                           max_chisq_threshold = NULL,
                           use_surrogate_markers = FALSE,
                           surrogate_maps = NULL,
@@ -303,7 +323,7 @@ ldgm_run_reml <- function(ldgms,
   )
   p <- ncol(blocks$annotations[[1L]])
   params <- if (is.null(params)) rep(0, p) else as.numeric(params)
-  params <- as_reml_params(params, p)
+  params <- as.numeric(as_reml_params(params, p))
   if (is.null(annotation_names)) {
     annotation_names <- colnames(blocks$annotations[[1L]]) %||% paste0("annot", seq_len(p))
   }
@@ -316,11 +336,32 @@ ldgm_run_reml <- function(ldgms,
   if (length(convergence_tol) != 1L || is.na(convergence_tol) || convergence_tol < 0) {
     stop("`convergence_tol` must be a single non-negative number", call. = FALSE)
   }
+  if (length(convergence_window) != 1L || is.na(convergence_window) || convergence_window < 1L) {
+    stop("`convergence_window` must be a positive integer", call. = FALSE)
+  }
+  if (length(trust_region_size) != 1L || is.na(trust_region_size) || !is.finite(trust_region_size) || trust_region_size <= 0) {
+    stop("`trust_region_size` must be a single positive finite number", call. = FALSE)
+  }
+  if (length(trust_region_rho_lb) != 1L || is.na(trust_region_rho_lb) || !is.finite(trust_region_rho_lb) || trust_region_rho_lb < 0) {
+    stop("`trust_region_rho_lb` must be a single non-negative finite number", call. = FALSE)
+  }
+  if (length(trust_region_rho_ub) != 1L || is.na(trust_region_rho_ub) || !is.finite(trust_region_rho_ub) || trust_region_rho_ub < trust_region_rho_lb) {
+    stop("`trust_region_rho_ub` must be a single finite number greater than or equal to `trust_region_rho_lb`", call. = FALSE)
+  }
+  if (length(trust_region_scalar) != 1L || is.na(trust_region_scalar) || !is.finite(trust_region_scalar) || trust_region_scalar <= 1) {
+    stop("`trust_region_scalar` must be a single finite number greater than 1", call. = FALSE)
+  }
+  if (length(max_trust_iterations) != 1L || is.na(max_trust_iterations) || max_trust_iterations < 1L) {
+    stop("`max_trust_iterations` must be a positive integer", call. = FALSE)
+  }
+  if (length(minimum_likelihood_increase) != 1L || is.na(minimum_likelihood_increase) || minimum_likelihood_increase < 0) {
+    stop("`minimum_likelihood_increase` must be a single non-negative number", call. = FALSE)
+  }
+  if (!is.logical(reset_trust_region) || length(reset_trust_region) != 1L || is.na(reset_trust_region)) {
+    stop("`reset_trust_region` must be `TRUE` or `FALSE`", call. = FALSE)
+  }
   if (length(num_jackknife_blocks) != 1L || is.na(num_jackknife_blocks) || num_jackknife_blocks < 1L) {
     stop("`num_jackknife_blocks` must be a positive integer", call. = FALSE)
-  }
-  if (length(max_step_halving) != 1L || is.na(max_step_halving) || max_step_halving < 0) {
-    stop("`max_step_halving` must be a non-negative integer", call. = FALSE)
   }
   if (!is.logical(score_test_write_hessian) || length(score_test_write_hessian) != 1L || is.na(score_test_write_hessian)) {
     stop("`score_test_write_hessian` must be `TRUE` or `FALSE`", call. = FALSE)
@@ -355,38 +396,65 @@ ldgm_run_reml <- function(ldgms,
   }
 
   current <- evaluate(params)
-  likelihood_history <- current$likelihood
+  likelihood_history <- numeric()
+  trust_region_history <- numeric()
+  trust_region_lambda <- as.numeric(trust_region_size)
   converged <- FALSE
   iterations_run <- 0L
+  last_step_bad <- TRUE
   for (iteration in seq_len(as.integer(num_iterations))) {
     iterations_run <- iteration
-    step <- reml_newton_step(current$gradient, current$hessian)
-    if (all(!is.finite(step))) {
-      break
+    old_params <- params
+    old_likelihood <- current$likelihood
+    if (isTRUE(reset_trust_region) || isTRUE(last_step_bad)) {
+      trust_region_lambda <- as.numeric(trust_region_size)
     }
+    previous_lambda <- trust_region_lambda
     accepted <- FALSE
-    candidate <- current
-    step_scale <- 1
-    for (halving in seq_len(as.integer(max_step_halving) + 1L)) {
-      candidate_params <- params + step_scale * step
-      candidate <- evaluate(candidate_params)
-      if (is.finite(candidate$likelihood) && candidate$likelihood >= current$likelihood) {
-        params <- candidate_params
-        accepted <- TRUE
+    for (trust_iter in seq_len(as.integer(max_trust_iterations))) {
+      proposal <- reml_trust_region_step(current$gradient, current$hessian, trust_region_lambda)
+      if (all(!is.finite(proposal$step)) || !is.finite(proposal$predicted_increase)) {
         break
       }
-      step_scale <- step_scale / 2
+      candidate_params <- old_params + proposal$step
+      candidate <- evaluate(candidate_params)
+      actual_increase <- candidate$likelihood - old_likelihood
+      rho <- actual_increase / proposal$predicted_increase
+      if (!is.finite(rho)) {
+        rho <- if (proposal$predicted_increase == 0) Inf else -Inf
+      }
+      if (rho < trust_region_rho_lb) {
+        if (proposal$predicted_increase < minimum_likelihood_increase && rho >= 0) {
+          params <- candidate_params
+          current <- candidate
+          accepted <- TRUE
+          break
+        }
+        trust_region_lambda <- max(as.numeric(trust_region_size), trust_region_lambda * as.numeric(trust_region_scalar))
+        next
+      }
+      params <- candidate_params
+      current <- candidate
+      accepted <- TRUE
+      if (rho > trust_region_rho_ub) {
+        trust_region_lambda <- trust_region_lambda / as.numeric(trust_region_scalar)
+      }
+      break
     }
     if (!accepted) {
       break
     }
-    likelihood_history <- c(likelihood_history, candidate$likelihood)
-    if (abs(likelihood_history[[length(likelihood_history)]] - current$likelihood) < convergence_tol) {
-      current <- candidate
-      converged <- TRUE
-      break
+    last_step_bad <- trust_region_lambda > previous_lambda * as.numeric(trust_region_scalar)
+    likelihood_history <- c(likelihood_history, current$likelihood)
+    trust_region_history <- c(trust_region_history, trust_region_lambda)
+    if (length(likelihood_history) >= 1L + as.integer(convergence_window)) {
+      reference_idx <- length(likelihood_history) - as.integer(convergence_window) + 1L
+      if (abs(likelihood_history[[length(likelihood_history)]] - likelihood_history[[reference_idx]]) <
+          as.integer(convergence_window) * convergence_tol) {
+        converged <- TRUE
+        break
+      }
     }
-    current <- candidate
   }
 
   jackknife <- reml_jackknife_summary(
@@ -482,8 +550,9 @@ ldgm_run_reml <- function(ldgms,
     log = list(
       converged = converged,
       num_iterations = iterations_run,
-      final_likelihood = likelihood_history[[length(likelihood_history)]],
-      likelihood_changes = diff(likelihood_history)
+      final_likelihood = if (length(likelihood_history) > 0L) likelihood_history[[length(likelihood_history)]] else current$likelihood,
+      likelihood_changes = diff(likelihood_history),
+      trust_region_lambdas = trust_region_history
     )
   )
 }
@@ -1042,15 +1111,25 @@ normalize_reml_score_jackknife_blocks <- function(jackknife_blocks) {
   jackknife_blocks
 }
 
-reml_newton_step <- function(gradient, hessian) {
-  p <- length(gradient)
-  ridge <- sqrt(.Machine$double.eps)
+reml_trust_region_step <- function(gradient, hessian, trust_region_lambda) {
+  gradient <- as.numeric(gradient)
   hessian <- as.matrix(hessian)
+  p <- length(gradient)
+  diagonal <- diag(hessian) - .Machine$double.eps
+  hessian_modified <- hessian + trust_region_lambda * diag(diagonal, p)
   step <- tryCatch(
-    solve(hessian - ridge * diag(p), -gradient),
+    solve(hessian_modified, -gradient),
     error = function(e) rep(NA_real_, p)
   )
-  as.numeric(step)
+  step <- as.numeric(step)
+  if (all(!is.finite(step))) {
+    return(list(step = step, predicted_increase = NA_real_))
+  }
+  predicted_increase <- drop(crossprod(step, gradient) + 0.5 * crossprod(step, hessian %*% step))
+  if (!is.finite(predicted_increase) || predicted_increase < -1e-6) {
+    stop("trust-region predicted increase must be finite and greater than -1e-6", call. = FALSE)
+  }
+  list(step = step, predicted_increase = as.numeric(predicted_increase))
 }
 
 as_reml_params <- function(params, n_params) {

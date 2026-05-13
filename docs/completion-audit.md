@@ -33,7 +33,7 @@ but several declared compatibility surfaces remain incomplete or unverified.
 | Native `.trees` adapter | `R/tskit-adapter.R`, `src/tskit_adapter.cpp`, `src/tskit/`, `src/tskit/README.RcppLDGM` | Implemented for file paths using vendored tskit C `C_1.3.1`; direct native in-memory object wiring remains future work |
 | GraphLD precision operators | `R/precision.R`, `src/precision_native.cpp`, `inst/tinytest/test-precision.R`, `tools/benchmark-precision.R` | Implemented; upstream-scale SuiteSparse conformance/performance remains future work |
 | GraphLD BLUP/clumping | `R/blup.R`, `R/clump.R`, `inst/tinytest/test-blup.R`, `inst/tinytest/test-clump.R`, `tools/check-upstream-graphld-data.R`, `tools/check-upstream-graphld-blup-clump.R` | Serial scheduler implemented; pinned Python output conformance on upstream test blocks implemented; multiprocessing remains future work |
-| GraphREML | `R/reml.R`, `inst/tinytest/test-reml.R`, `tools/check-upstream-graphld-data.R`, `tools/check-upstream-graphld-reml.R` | Serial core, pseudo-jackknife, surrogate/HDF5 slices, selected-view block support, and pinned upstream fixed-block conformance implemented; full CLI/block-manager/upstream-scale jackknife parity remains future work |
+| GraphREML | `R/reml.R`, `inst/tinytest/test-reml.R`, `tools/check-upstream-graphld-data.R`, `tools/check-upstream-graphld-reml.R` | Serial core, trust-region optimizer, pseudo-jackknife, surrogate/HDF5 slices, selected-view block support, and pinned upstream fixed-block plus one-step optimizer-summary conformance implemented; full CLI/block-manager/upstream-scale jackknife parity remains future work |
 | Score-test and HDF5 | `R/score-test.R`, `R/hdf5.R`, `src/hdf5_score.cpp`, `inst/tinytest/test-score-test.R`, `inst/tinytest/test-hdf5.R`, `tools/check-graphld-hdf5-python-interop.R` | Variant/gene HDF5 and score/meta-analysis surfaces implemented; broader GraphLD CLI schema and h5py-required CI remain future work |
 | Formal interfaces | `R/interfaces.R`, `docs/interface-inventory.md`, man pages for `LdgmSummaryStats`, `LdgmAnnotationData`, `LdgmBlockCatalog` | Implemented for major current inputs |
 | Reader interfaces | `R/annotations.R`, `R/sumstats-readers.R`, `R/gene-sets.R`, `tools/check-upstream-graphld-readers.R` | Implemented for LDSC/BED/VCF/parquet/GMT/gene-table test-data contracts with pinned Python value conformance |
@@ -64,8 +64,9 @@ Extended conformance preset (new dedicated target/workflow):
 make upstream-conformance
 ```
 
-This runs upstream ldgm conformance, GraphLD smoke/readers, HDF5 interop, and the
-`upstream-graphld-simulate-conformance` gate in one sequence.
+This runs upstream ldgm conformance, GraphLD smoke/readers, BLUP/clump,
+GraphREML, HDF5 interop, and the `upstream-graphld-simulate-conformance` gate
+in one sequence.
 
 Optional/strict gates:
 
@@ -84,13 +85,13 @@ The goal should **not** be marked complete until these are resolved or explicitl
 scoped out with a compatibility rationale:
 
 1. Full GraphLD graphREML CLI parity: multiprocessing/block-manager behavior,
-   richer score-test schema, optimizer/output parity beyond the current fixed-block conformance gate,
-   and upstream-scale jackknife conformance.
-2. Pinned Python output conformance for graphREML optimizer summaries,
+   richer score-test schema, optimizer/output parity beyond the current fixed-block and
+   one-step optimizer-summary conformance gates, and upstream-scale jackknife conformance.
+2. Pinned Python output conformance for broader graphREML optimizer summaries,
    score-test meta-analysis, selected precision views, and stochastic inverse
-   diagonal estimators on upstream GraphLD data. BLUP, clumping, and a fixed
-   GraphREML block now have pinned upstream-output conformance on the current
-   test blocks.
+   diagonal estimators on upstream GraphLD data. BLUP, clumping, and the current
+   fixed GraphREML block plus one-step optimizer summary now have pinned
+   upstream-output conformance on the current test blocks.
 3. Larger LDGM/GraphLD performance and conformance workloads beyond the current
    tiny upstream fixtures and smoke data.
 4. Direct native in-memory tree-sequence object integration beyond the current

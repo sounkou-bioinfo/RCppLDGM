@@ -171,7 +171,8 @@ if (!identical(exit_status, 0L)) {
 
 metrics_path <- file.path(out_dir, "reml_metrics.csv")
 h2_path <- file.path(out_dir, "per_variant_h2.csv")
-if (!file.exists(metrics_path) || !file.exists(h2_path)) {
+summary_path <- file.path(out_dir, "reml_summary.csv")
+if (!file.exists(metrics_path) || !file.exists(h2_path) || !file.exists(summary_path)) {
   fail("GraphLD GraphREML outputs missing from generator: ", out_dir)
 }
 expected_metrics <- utils::read.csv(metrics_path, stringsAsFactors = FALSE, check.names = FALSE)
@@ -180,6 +181,11 @@ if (nrow(expected_metrics) != 1L) {
 }
 expected_metrics <- expected_metrics[1L, , drop = FALSE]
 expected_h2 <- utils::read.csv(h2_path, stringsAsFactors = FALSE, check.names = FALSE)
+expected_summary <- utils::read.csv(summary_path, stringsAsFactors = FALSE, check.names = FALSE)
+if (nrow(expected_summary) != 1L) {
+  fail("GraphLD GraphREML summary must contain exactly one row")
+}
+expected_summary <- expected_summary[1L, , drop = FALSE]
 
 inputs <- prepare_reml_block_inputs(data_dir, population)
 if (is.null(inputs)) {
@@ -210,9 +216,31 @@ compare_numeric(length(inputs$z), expected_metrics$n_active_indices[[1L]], toler
 compare_numeric(sum(block_fit$per_variant_h2), expected_metrics$per_variant_h2_sum[[1L]], tolerance = 1e-10, label = "GraphREML per-variant h2 sum")
 compare_df(actual_h2, expected_h2, columns = "per_variant_h2", tolerance = 1e-12, label = "GraphREML per-variant h2")
 
+fit <- ldgm_run_reml(
+  ldgms = list(inputs$precision),
+  z = list(inputs$z),
+  annotations = list(inputs$annotations),
+  params = 0,
+  sample_size = inputs$sample_size,
+  annotation_names = "base",
+  num_iterations = 1L,
+  num_jackknife_blocks = 1L,
+  seed = seed
+)
+compare_numeric(unname(fit$parameters[[1L]]), expected_summary$parameter[[1L]], tolerance = 1e-2, label = "GraphREML parameter")
+compare_numeric(unname(fit$heritability[[1L]]), expected_summary$heritability[[1L]], tolerance = 5e-7, label = "GraphREML heritability")
+compare_numeric(unname(fit$enrichment[[1L]]), expected_summary$enrichment[[1L]], tolerance = 1e-12, label = "GraphREML enrichment")
+compare_numeric(fit$log$final_likelihood, expected_summary$final_likelihood[[1L]], tolerance = 1e-3, label = "GraphREML final likelihood")
+compare_numeric(fit$log$trust_region_lambdas[[1L]], expected_summary$trust_region_lambda[[1L]], tolerance = 1e-12, label = "GraphREML trust-region lambda")
+if (!identical(isTRUE(fit$log$converged), as.logical(expected_summary$converged[[1L]]))) {
+  fail("GraphREML convergence flag differs")
+}
+compare_numeric(fit$log$num_iterations, expected_summary$num_iterations[[1L]], tolerance = 0, label = "GraphREML num_iterations")
+
 message(
   "GraphREML conformance: block=", inputs$block_name,
   ", active_indices=", length(inputs$z),
-  ", variant_rows=", length(block_fit$per_variant_h2)
+  ", variant_rows=", length(block_fit$per_variant_h2),
+  ", parameter=", format(unname(fit$parameters[[1L]]), scientific = TRUE)
 )
 message("Upstream GraphLD GraphREML conformance check passed.")

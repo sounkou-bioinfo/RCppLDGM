@@ -44,10 +44,12 @@ RCPP_LDGM_GRAPHLD_MAX_BLOCKS=2 \
 Rscript tools/check-upstream-graphld-blup-clump.R
 ```
 
-A pinned fixed-block GraphREML core check can be run on the same upstream test
-slice. This compares upstream GraphLD's initialized block likelihood, gradient,
-Hessian, and per-variant heritability vector against `ldgm_reml_block()` after
-selected-view merging and surrogate assignment on the R side:
+A pinned fixed-block GraphREML core and one-step optimizer-summary check can be
+run on the same upstream test slice. This compares upstream GraphLD's
+initialized block likelihood, gradient, Hessian, and per-variant heritability
+vector against `ldgm_reml_block()`, then compares a one-iteration
+`run_graphREML()` summary against `ldgm_run_reml()` after selected-view merging
+and surrogate assignment on the R side:
 
 ```bash
 RCPP_LDGM_PYTHON=.sync/ldgm-python/bin/python \
