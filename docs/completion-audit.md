@@ -97,7 +97,7 @@ scoped out with a compatibility rationale:
    conformance on the current test blocks.
 3. Larger LDGM/GraphLD performance and conformance workloads beyond the current
    tiny upstream fixtures and smoke data.
-4. Full upstream-parity simulation conformance beyond the current pinned gate: `ldgm_simulate()` now passes the current pinned scenario matrix (`tools/generate-upstream-graphld-simulate.py` and `tools/check-upstream-graphld-simulate.R`) covering one-block, multi-block, and small mixture runs, but broader metadata slices and larger fixture coverage still remain to be verified.
+4. Full upstream-parity simulation conformance beyond the current pinned gate: `ldgm_simulate()` now passes the current pinned scenario matrix (`tools/generate-upstream-graphld-simulate.py` and `tools/check-upstream-graphld-simulate.R`) covering one-block, multi-block, small mixture, and synthetic two-population metadata runs, but broader metadata slices and larger fixture coverage still remain to be verified.
 5. Explicit scope decisions for MATLAB-only workflows: DENTIST, imputation, PGS
    projection, and precision estimation.
 6. Python HDF5 interop in strict mode on systems with `h5py`/GraphLD dependencies

@@ -129,12 +129,18 @@ scenario_output_dir <- function(root, scenario) {
 }
 
 scenario_args <- function(graphld_root, metadata_path, population, chromosomes, random_seed, scenario, out_dir) {
+  scenario_population <- scenario$population %||% population
+  scenario_populations <- scenario$populations %||% scenario_population
+  scenario_chromosomes <- scenario$chromosomes %||% chromosomes
+  scenario_fixture <- scenario$fixture %||% "default"
+
   args <- c(
     "tools/generate-upstream-graphld-simulate.py",
     "--graphld-root", graphld_root,
     "--metadata", metadata_path,
     "--out", out_dir,
-    "--population", population,
+    "--population", scenario_population,
+    "--fixture", scenario_fixture,
     "--name", scenario$name,
     "--max-blocks", as.character(scenario$max_blocks),
     "--sample-size", format_cli_numeric(scenario$sample_size),
@@ -143,11 +149,14 @@ scenario_args <- function(graphld_root, metadata_path, population, chromosomes, 
     "--component-variance", vapply(scenario$component_variance, format_cli_numeric, character(1)),
     "--component-weight", vapply(scenario$component_weight, format_cli_numeric, character(1))
   )
+  if (!is.null(scenario_populations)) {
+    args <- c(args, "--populations", as.character(scenario_populations))
+  }
   if (!is.null(random_seed)) {
     args <- c(args, "--random-seed", as.character(random_seed))
   }
-  if (!is.null(chromosomes)) {
-    args <- c(args, "--chromosomes", as.character(chromosomes))
+  if (!is.null(scenario_chromosomes)) {
+    args <- c(args, "--chromosomes", as.character(scenario_chromosomes))
   }
   args
 }
@@ -175,6 +184,7 @@ base_scenarios <- function(max_blocks, sample_size, heritability) {
   scenarios <- list(
     list(
       name = "default_single_block",
+      fixture = "default",
       max_blocks = 1L,
       sample_size = sample_size,
       heritability = heritability,
@@ -186,6 +196,7 @@ base_scenarios <- function(max_blocks, sample_size, heritability) {
   if (multi_block_cap >= 2L) {
     scenarios[[length(scenarios) + 1L]] <- list(
       name = paste0("default_", multi_block_cap, "_blocks"),
+      fixture = "default",
       max_blocks = multi_block_cap,
       sample_size = sample_size,
       heritability = heritability,
@@ -195,6 +206,7 @@ base_scenarios <- function(max_blocks, sample_size, heritability) {
     )
     scenarios[[length(scenarios) + 1L]] <- list(
       name = paste0("mixture_", multi_block_cap, "_blocks"),
+      fixture = "default",
       max_blocks = multi_block_cap,
       sample_size = max(250, round(sample_size / 2)),
       heritability = min(heritability, 0.2),
@@ -203,6 +215,19 @@ base_scenarios <- function(max_blocks, sample_size, heritability) {
       alpha_param = -0.5
     )
   }
+  scenarios[[length(scenarios) + 1L]] <- list(
+    name = "toy_multi_population",
+    fixture = "toy_multi_population",
+    max_blocks = 2L,
+    sample_size = max(250, round(sample_size / 2)),
+    heritability = min(heritability, 0.2),
+    component_variance = c(0.5),
+    component_weight = c(1.0),
+    alpha_param = -1,
+    population = "EUR",
+    populations = c("EUR", "AFR"),
+    chromosomes = NULL
+  )
   scenarios
 }
 
@@ -248,6 +273,10 @@ run_scenario <- function(scenario,
   }
 
   expected <- utils::read.csv(output, stringsAsFactors = FALSE)
+  scenario_population <- scenario$population %||% population
+  scenario_populations <- scenario$populations %||% scenario_population
+  scenario_chromosomes <- scenario$chromosomes %||% chromosomes
+
   actual <- ldgm_simulate(
     sample_size = scenario$sample_size,
     heritability = scenario$heritability,
@@ -257,8 +286,9 @@ run_scenario <- function(scenario,
     random_seed = random_seed,
     annotation_columns = NULL,
     ldgm_metadata_path = meta_path,
-    population = population,
-    chromosomes = chromosomes,
+    population = scenario_population,
+    populations = scenario_populations,
+    chromosomes = scenario_chromosomes,
     run_in_serial = TRUE,
     num_processes = NULL,
     annotations = NULL,
@@ -326,6 +356,10 @@ for (i in seq_along(target_scenarios)) {
   }
   if (length(scenario$max_blocks) != 1L || is.na(scenario$max_blocks) || scenario$max_blocks < 1L) {
     fail("scenario ", scenario$name, " must define at least one block")
+  }
+  scenario_populations <- scenario$populations %||% scenario$population %||% population
+  if (!is.character(scenario_populations) || length(scenario_populations) < 1L || anyNA(scenario_populations) || any(!nzchar(scenario_populations))) {
+    fail("scenario ", scenario$name, " must define one or more non-empty population labels")
   }
   target_scenarios[[i]] <- scenario
 }
