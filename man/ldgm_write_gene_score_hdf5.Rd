@@ -22,7 +22,8 @@ ldgm_write_gene_score_hdf5(
 \arguments{
 \item{file}{Output HDF5 path.}
 
-\item{gene_data}{Data frame with \code{CHR}, \code{POS}, \code{gene_id}, and \code{gene_name}.}
+\item{gene_data}{Data frame or object implementing \link{LdgmScoreTestGeneData},
+with \code{CHR}, \code{POS}, \code{gene_id}, and \code{gene_name}.}
 
 \item{gradient}{Numeric gene score/gradient vector, one value per row of
 \code{gene_data}.}

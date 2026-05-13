@@ -41,7 +41,7 @@ arguments as stable interfaces unless they are deliberately exposed in R.
 | Clumping workflow inputs | GraphLD `clump` CLI and `clumping.py` | `ldgm_run_clump()` | tinytest clump; GraphLD data smoke | Python GraphLD output conformance and performance |
 | GraphREML model/method options | GraphLD `ModelOptions`, `MethodOptions`, `run_graphREML()` | `ldgm_reml_link()`, `ldgm_reml_block()`, `ldgm_run_reml()` | tinytest reml; pseudo-jackknife; HDF5/surrogate/max-chi-square slices | Full CLI parity, multiprocessing/block manager, upstream-scale jackknife conformance |
 | Surrogate marker maps | GraphLD surrogate-marker path and score/surrogate HDF5 files | `ldgm_reml_surrogate_markers()`, `ldgm_write_surrogate_map_hdf5()`, `ldgm_read_surrogate_map_hdf5()` | tinytest hdf5/reml; optional h5py interop tool | Larger upstream score/surrogate files |
-| GraphREML score-test HDF5 | GraphLD `_write_variant_data()`, `_write_trait_stats()`, `score_test_io.py` | `ldgm_write_score_test_hdf5()`, `ldgm_write_gene_score_hdf5()`, `ldgm_read_score_test_hdf5()`, `ldgm_convert_variant_to_gene_scores()` | tinytest HDF5/score-test; optional `tools/check-graphld-hdf5-python-interop.R` | Broader CLI schema and h5py-required CI on systems with Python deps |
+| GraphREML score-test HDF5 | GraphLD `_write_variant_data()`, `_write_trait_stats()`, `score_test_io.py` | `LdgmScoreTestVariantData`, `LdgmScoreTestGeneData`, `ldgm_score_test_variant_data()`, `ldgm_score_test_gene_data()`, `ldgm_write_score_test_hdf5()`, `ldgm_write_gene_score_hdf5()`, `ldgm_read_score_test_hdf5()`, `ldgm_convert_variant_to_gene_scores()`, trait-group helpers | tinytest HDF5/score-test/interfaces; optional `tools/check-graphld-hdf5-python-interop.R` | Broader CLI schema, h5py-required CI on systems with Python deps, and provider-backed/out-of-memory table implementations |
 | Variant-annotation score-test statistic | `.sync/graphld/src/score_test/score_test.py` | `ldgm_score_test()`, `ldgm_score_test_hdf5()`, `ldgm_score_test_meta()`, `ldgm_score_test_hdf5_meta()` | tinytest score-test; optional Python interop checks against pinned GraphLD | Gene-set/GMT conversion and full score-test CLI parity |
 | Parquet multi-trait summary stats | `.sync/graphld/src/graphld/parquet_io.py`, `.sync/graphld/data/test/example_multi_trait.parquet` | `ldgm_parquet_traits()`, `ldgm_read_parquet_sumstats()`, `ldgm_read_parquet_sumstats_multi()` using optional `nanoparquet` | tinytest sumstats readers; GraphLD data smoke; pinned Python value conformance via `tools/check-upstream-graphld-readers.R` | Expand conformance across more schemas and missingness edge cases |
 | GWAS VCF input | `.sync/graphld/src/graphld/vcf_io.py`, `.sync/graphld/data/test/example.gwas.vcf` | `ldgm_read_gwas_vcf()`, `ldgm_validate_gwas_vcf_format()` | tinytest sumstats readers; GraphLD data smoke; pinned Python value conformance via `tools/check-upstream-graphld-readers.R` | Add multi-sample/out-of-scope behavior notes and larger fixtures |
@@ -93,7 +93,8 @@ arguments as stable interfaces unless they are deliberately exposed in R.
    especially missingness, alternate schemas, BED overlap edge cases, and
    nearest-gene ties.
 3. Expand convert-scores coverage toward full GraphLD CLI parity, including
-   trait groups and non-gradient trait-specific datasets.
+   trait groups, non-gradient trait-specific datasets, and provider-backed row
+   tables that do not require eager in-memory materialization.
 4. Add upstream Python conformance for BLUP, clumping, graphREML summaries, and
    stochastic inverse diagonal estimators.
 5. Define and run a pinned GraphLD simulation conformance gate (`ldgm_simulate()`) using

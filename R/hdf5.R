@@ -21,7 +21,8 @@ ldgm_hdf5_filter_info <- function() {
 #'
 #' @param file Output HDF5 path. Existing files are updated by appending a new
 #'   trait unless `overwrite = TRUE`.
-#' @param variant_data Data frame with `CHR`, `POS`, and either `RSID` or `SNP`.
+#' @param variant_data Data frame or object implementing
+#'   [LdgmScoreTestVariantData], with `CHR`, `POS`, and either `RSID` or `SNP`.
 #' @param gradient Numeric variant score/gradient vector, one value per row of
 #'   `variant_data`.
 #' @param trait_name HDF5 trait group name under `/traits`. Must not contain `/`.
@@ -72,7 +73,7 @@ ldgm_write_score_test_hdf5 <- function(file,
     stop("`source` must be a single non-missing string", call. = FALSE)
   }
 
-  variant_data <- normalize_score_hdf5_variant_data(variant_data)
+  variant_data <- ldgm_score_test_variant_data_frame(variant_data)
   n <- nrow(variant_data)
   gradient <- as.numeric(gradient)
   if (length(gradient) != n || anyNA(gradient)) {
@@ -133,7 +134,8 @@ ldgm_write_score_test_hdf5 <- function(file,
 #' `/traits/<trait_name>/gradient` and optional parameter datasets.
 #'
 #' @param file Output HDF5 path.
-#' @param gene_data Data frame with `CHR`, `POS`, `gene_id`, and `gene_name`.
+#' @param gene_data Data frame or object implementing [LdgmScoreTestGeneData],
+#'   with `CHR`, `POS`, `gene_id`, and `gene_name`.
 #' @param gradient Numeric gene score/gradient vector, one value per row of
 #'   `gene_data`.
 #' @param trait_name HDF5 trait group name under `/traits`. Must not contain `/`.
@@ -176,7 +178,7 @@ ldgm_write_gene_score_hdf5 <- function(file,
   if (!is.character(source) || length(source) != 1L || is.na(source)) {
     stop("`source` must be a single non-missing string", call. = FALSE)
   }
-  gene_data <- normalize_score_hdf5_gene_data(gene_data)
+  gene_data <- ldgm_score_test_gene_data_frame(gene_data)
   n <- nrow(gene_data)
   gradient <- as.numeric(gradient)
   if (length(gradient) != n || anyNA(gradient)) {

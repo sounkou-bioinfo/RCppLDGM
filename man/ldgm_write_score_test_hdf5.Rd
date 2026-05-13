@@ -23,7 +23,8 @@ ldgm_write_score_test_hdf5(
 \item{file}{Output HDF5 path. Existing files are updated by appending a new
 trait unless \code{overwrite = TRUE}.}
 
-\item{variant_data}{Data frame with \code{CHR}, \code{POS}, and either \code{RSID} or \code{SNP}.}
+\item{variant_data}{Data frame or object implementing
+\link{LdgmScoreTestVariantData}, with \code{CHR}, \code{POS}, and either \code{RSID} or \code{SNP}.}
 
 \item{gradient}{Numeric variant score/gradient vector, one value per row of
 \code{variant_data}.}

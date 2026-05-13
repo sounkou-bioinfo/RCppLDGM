@@ -35,6 +35,29 @@ LdgmAnnotationData <- NULL
 #' @export
 LdgmBlockCatalog <- NULL
 
+#' GraphLD Variant Score-Test Row-Data Interface
+#'
+#' Structural interface for variant-level row-data inputs written to GraphLD
+#' score-test HDF5 files. In Python GraphLD this is a table-like object with at
+#' least `CHR`, `POS`, and `RSID`/`SNP`. In RcppLDGM it is any object that
+#' implements [ldgm_score_test_variant_data_frame()]. Use
+#' [ldgm_score_test_variant_data()] to wrap ordinary data frames.
+#'
+#' @return An `s7contract` interface object.
+#' @export
+LdgmScoreTestVariantData <- NULL
+
+#' GraphLD Gene Score-Test Row-Data Interface
+#'
+#' Structural interface for gene-level row-data inputs written to GraphLD
+#' score-test HDF5 files. In RcppLDGM it is any object that implements
+#' [ldgm_score_test_gene_data_frame()]. Use [ldgm_score_test_gene_data()] to
+#' wrap ordinary data frames.
+#'
+#' @return An `s7contract` interface object.
+#' @export
+LdgmScoreTestGeneData <- NULL
+
 # Default S7 implementation of LdgmSummaryStats backed by an R data frame.
 LdgmSummaryStatsTable <- S7::new_class(
   "LdgmSummaryStatsTable",
@@ -90,6 +113,43 @@ LdgmBlockCatalogTable <- S7::new_class(
         validate_ldgm_block_catalog_frame(self@metadata)
         validate_ldgm_block_directory(self@ldgm_dir, must_exist = FALSE)
         normalize_ldgm_block_population(self@population)
+        NULL
+      },
+      error = function(e) conditionMessage(e)
+    )
+  }
+)
+
+# Default S7 implementation of LdgmScoreTestVariantData backed by an R data
+# frame.
+LdgmScoreTestVariantDataTable <- S7::new_class(
+  "LdgmScoreTestVariantDataTable",
+  package = "RcppLDGM",
+  properties = list(
+    data = S7::class_data.frame
+  ),
+  validator = function(self) {
+    tryCatch(
+      {
+        normalize_score_hdf5_variant_data(self@data)
+        NULL
+      },
+      error = function(e) conditionMessage(e)
+    )
+  }
+)
+
+# Default S7 implementation of LdgmScoreTestGeneData backed by an R data frame.
+LdgmScoreTestGeneDataTable <- S7::new_class(
+  "LdgmScoreTestGeneDataTable",
+  package = "RcppLDGM",
+  properties = list(
+    data = S7::class_data.frame
+  ),
+  validator = function(self) {
+    tryCatch(
+      {
+        normalize_score_hdf5_gene_data(self@data)
         NULL
       },
       error = function(e) conditionMessage(e)
@@ -191,6 +251,38 @@ ldgm_block_population <- S7::new_generic(
   function(x, ...) S7::S7_dispatch()
 )
 
+#' Extract Variant Score-Test Row Data
+#'
+#' S7 generic required by [LdgmScoreTestVariantData].
+#'
+#' @param x Object implementing [LdgmScoreTestVariantData], or an ordinary data
+#'   frame.
+#' @param ... Reserved for future implementations.
+#'
+#' @return A data frame with `CHR`, `POS`, and `RSID`/`SNP` columns.
+#' @export
+ldgm_score_test_variant_data_frame <- S7::new_generic(
+  "ldgm_score_test_variant_data_frame",
+  "x",
+  function(x, ...) S7::S7_dispatch()
+)
+
+#' Extract Gene Score-Test Row Data
+#'
+#' S7 generic required by [LdgmScoreTestGeneData].
+#'
+#' @param x Object implementing [LdgmScoreTestGeneData], or an ordinary data
+#'   frame.
+#' @param ... Reserved for future implementations.
+#'
+#' @return A data frame with `CHR`, `POS`, `gene_id`, and `gene_name` columns.
+#' @export
+ldgm_score_test_gene_data_frame <- S7::new_generic(
+  "ldgm_score_test_gene_data_frame",
+  "x",
+  function(x, ...) S7::S7_dispatch()
+)
+
 LdgmSummaryStats <- s7contract::new_interface(
   "LdgmSummaryStats",
   package = "RcppLDGM",
@@ -232,6 +324,28 @@ LdgmBlockCatalog <- s7contract::new_interface(
     ldgm_block_population = s7contract::interface_requirement(
       ldgm_block_population,
       returns = S7::class_character
+    )
+  )
+)
+
+LdgmScoreTestVariantData <- s7contract::new_interface(
+  "LdgmScoreTestVariantData",
+  package = "RcppLDGM",
+  generics = list(
+    ldgm_score_test_variant_data_frame = s7contract::interface_requirement(
+      ldgm_score_test_variant_data_frame,
+      returns = S7::class_data.frame
+    )
+  )
+)
+
+LdgmScoreTestGeneData <- s7contract::new_interface(
+  "LdgmScoreTestGeneData",
+  package = "RcppLDGM",
+  generics = list(
+    ldgm_score_test_gene_data_frame = s7contract::interface_requirement(
+      ldgm_score_test_gene_data_frame,
+      returns = S7::class_data.frame
     )
   )
 )
@@ -332,6 +446,26 @@ S7::method(ldgm_block_population, S7::class_character) <- function(x, ...) {
   normalize_ldgm_block_population(args$population %||% "EUR")
 }
 
+S7::method(ldgm_score_test_variant_data_frame, LdgmScoreTestVariantDataTable) <- function(x, ...) {
+  invisible(list(...))
+  x@data
+}
+
+S7::method(ldgm_score_test_variant_data_frame, S7::class_data.frame) <- function(x, ...) {
+  invisible(list(...))
+  normalize_score_hdf5_variant_data(x)
+}
+
+S7::method(ldgm_score_test_gene_data_frame, LdgmScoreTestGeneDataTable) <- function(x, ...) {
+  invisible(list(...))
+  x@data
+}
+
+S7::method(ldgm_score_test_gene_data_frame, S7::class_data.frame) <- function(x, ...) {
+  invisible(list(...))
+  normalize_score_hdf5_gene_data(x)
+}
+
 #' Wrap Summary Statistics for GraphREML
 #'
 #' Converts an ordinary R data frame into the default S7 implementation of the
@@ -397,6 +531,64 @@ ldgm_assert_summary_stats <- function(x) {
 ldgm_assert_annotation_data <- function(x, annotation_cols = NULL) {
   out <- ldgm_annotation_data(x, annotation_cols = annotation_cols)
   s7contract::assert_implements(out, LdgmAnnotationData)
+  invisible(out)
+}
+
+#' Wrap Variant Score-Test Row Data
+#'
+#' Converts an ordinary R data frame into the default S7 implementation of the
+#' [LdgmScoreTestVariantData] interface.
+#'
+#' @param x Data frame, or an existing object implementing
+#'   [LdgmScoreTestVariantData].
+#'
+#' @return An object implementing [LdgmScoreTestVariantData].
+#' @export
+ldgm_score_test_variant_data <- function(x) {
+  if (ldgm_implements(x, LdgmScoreTestVariantData)) {
+    return(x)
+  }
+  LdgmScoreTestVariantDataTable(data = normalize_score_hdf5_variant_data(x))
+}
+
+#' Wrap Gene Score-Test Row Data
+#'
+#' Converts an ordinary R data frame into the default S7 implementation of the
+#' [LdgmScoreTestGeneData] interface.
+#'
+#' @param x Data frame, or an existing object implementing
+#'   [LdgmScoreTestGeneData].
+#'
+#' @return An object implementing [LdgmScoreTestGeneData].
+#' @export
+ldgm_score_test_gene_data <- function(x) {
+  if (ldgm_implements(x, LdgmScoreTestGeneData)) {
+    return(x)
+  }
+  LdgmScoreTestGeneDataTable(data = normalize_score_hdf5_gene_data(x))
+}
+
+#' Assert Variant Score-Test Row-Data Interface Support
+#'
+#' @param x Data frame or object implementing [LdgmScoreTestVariantData].
+#'
+#' @return `x`, wrapped if needed, invisibly.
+#' @export
+ldgm_assert_score_test_variant_data <- function(x) {
+  out <- ldgm_score_test_variant_data(x)
+  s7contract::assert_implements(out, LdgmScoreTestVariantData)
+  invisible(out)
+}
+
+#' Assert Gene Score-Test Row-Data Interface Support
+#'
+#' @param x Data frame or object implementing [LdgmScoreTestGeneData].
+#'
+#' @return `x`, wrapped if needed, invisibly.
+#' @export
+ldgm_assert_score_test_gene_data <- function(x) {
+  out <- ldgm_score_test_gene_data(x)
+  s7contract::assert_implements(out, LdgmScoreTestGeneData)
   invisible(out)
 }
 

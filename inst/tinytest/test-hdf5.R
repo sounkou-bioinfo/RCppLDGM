@@ -13,10 +13,11 @@ jackknife_h5 <- c(0L, 0L, 1L)
 parameters_h5 <- c(0.1, -0.2)
 jackknife_parameters_h5 <- matrix(c(0.11, -0.19, 0.09, -0.21), nrow = 2, byrow = TRUE)
 h5_file <- tempfile(fileext = ".h5")
+variant_provider_h5 <- ldgm_score_test_variant_data(variant_data_h5)
 
 write_info <- ldgm_write_score_test_hdf5(
   h5_file,
-  variant_data_h5,
+  variant_provider_h5,
   gradient_h5,
   hessian = hessian_h5,
   trait_name = "trait_a",
@@ -112,9 +113,10 @@ gene_data_h5 <- data.frame(
   stringsAsFactors = FALSE
 )
 gene_h5 <- tempfile(fileext = ".h5")
+gene_provider_h5 <- ldgm_score_test_gene_data(gene_data_h5)
 ldgm_write_gene_score_hdf5(
   gene_h5,
-  gene_data_h5,
+  gene_provider_h5,
   gradient = c(1.5, -0.5),
   trait_name = "gene_trait",
   jackknife_blocks = c(0L, 1L),
