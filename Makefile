@@ -74,7 +74,7 @@ upstream-graphld-simulate-conformance: dev-install upstream-python
 	RCPP_LDGM_GRAPHLD_ROOT=.sync/graphld \
 	RCPP_LDGM_GRAPHLD_SIM_METADATA=.sync/graphld/data/test/metadata.csv \
 	RCPP_LDGM_GRAPHLD_POP=EUR \
-	RCPP_LDGM_GRAPHLD_MAX_BLOCKS=1 \
+	RCPP_LDGM_GRAPHLD_MAX_BLOCKS=2 \
 	RCPP_LDGM_SIM_RANDOM_SEED=42 \
 	Rscript tools/check-upstream-graphld-simulate.R
 

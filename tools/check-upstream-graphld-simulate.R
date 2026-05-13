@@ -112,79 +112,148 @@ compare_df <- function(actual, expected, columns, tolerance = 1e-6, label = "dat
   invisible(TRUE)
 }
 
-python <- arg("RCPP_LDGM_PYTHON", default_python())
-ensure_sksparse_compat(python, "GraphLD upstream simulation")
-graphld_root <- arg("RCPP_LDGM_GRAPHLD_ROOT", ".sync/graphld")
-metadata_path <- arg("RCPP_LDGM_GRAPHLD_SIM_METADATA", file.path(graphld_root, "data/test/metadata.csv"))
-population <- arg("RCPP_LDGM_GRAPHLD_POP", "EUR")
-chromosomes <- arg("RCPP_LDGM_GRAPHLD_CHROMOSOMES", "")
-chromosomes <- if (identical(chromosomes, "")) NULL else as.integer(strsplit(chromosomes, ",")[[1L]])
-max_blocks <- as.integer(arg("RCPP_LDGM_GRAPHLD_MAX_BLOCKS", "1"))
-sample_size <- as.numeric(arg("RCPP_LDGM_SIM_SAMPLE_SIZE", "1000"))
-heritability <- as.numeric(arg("RCPP_LDGM_SIM_HERITABILITY", "0.5"))
-random_seed <- arg("RCPP_LDGM_SIM_RANDOM_SEED", "42")
-random_seed <- if (nzchar(random_seed)) as.integer(random_seed) else NULL
-strict <- as_bool(arg("RCPP_LDGM_REQUIRE_GRAPHLD_SIMULATE", "false"))
-out_dir <- tempfile("graphld-simulate-goldens-")
-
-a <- c(
-  "tools/generate-upstream-graphld-simulate.py",
-  "--graphld-root", graphld_root,
-  "--metadata", metadata_path,
-  "--out", out_dir,
-  "--population", population,
-  "--max-blocks", as.character(max_blocks),
-  "--sample-size", as.character(sample_size),
-  "--heritability", as.character(heritability)
-)
-if (!is.null(random_seed)) {
-  a <- c(a, "--random-seed", as.character(random_seed))
-}
-if (!is.null(chromosomes)) {
-  a <- c(a, "--chromosomes", as.character(chromosomes))
+normalize_component_values <- function(x, name) {
+  x <- as.numeric(x)
+  if (length(x) < 1L || anyNA(x) || any(!is.finite(x)) || any(x < 0)) {
+    fail("`", name, "` must contain one or more finite non-negative numbers")
+  }
+  x
 }
 
-status <- system2(python, a, stdout = TRUE, stderr = TRUE)
-exit_status <- attr(status, "status")
-if (is.null(exit_status)) {
-  exit_status <- 0L
+format_cli_numeric <- function(x) {
+  format(as.numeric(x), trim = TRUE, scientific = FALSE)
 }
-if (!identical(exit_status, 0L)) {
+
+scenario_output_dir <- function(root, scenario) {
+  file.path(root, paste0("scenario-", scenario$name))
+}
+
+scenario_args <- function(graphld_root, metadata_path, population, chromosomes, random_seed, scenario, out_dir) {
+  args <- c(
+    "tools/generate-upstream-graphld-simulate.py",
+    "--graphld-root", graphld_root,
+    "--metadata", metadata_path,
+    "--out", out_dir,
+    "--population", population,
+    "--name", scenario$name,
+    "--max-blocks", as.character(scenario$max_blocks),
+    "--sample-size", format_cli_numeric(scenario$sample_size),
+    "--heritability", format_cli_numeric(scenario$heritability),
+    "--alpha-param", format_cli_numeric(scenario$alpha_param),
+    "--component-variance", vapply(scenario$component_variance, format_cli_numeric, character(1)),
+    "--component-weight", vapply(scenario$component_weight, format_cli_numeric, character(1))
+  )
+  if (!is.null(random_seed)) {
+    args <- c(args, "--random-seed", as.character(random_seed))
+  }
+  if (!is.null(chromosomes)) {
+    args <- c(args, "--chromosomes", as.character(chromosomes))
+  }
+  args
+}
+
+run_generator <- function(python, args, strict) {
+  status <- system2(python, args, stdout = TRUE, stderr = TRUE)
+  exit_status <- attr(status, "status")
+  if (is.null(exit_status)) {
+    exit_status <- 0L
+  }
+  if (identical(exit_status, 0L)) {
+    return(invisible(TRUE))
+  }
+
   msg <- paste(status, collapse = "\n")
   if (isTRUE(strict)) {
     fail("GraphLD upstream simulation generation failed: ", msg)
   }
-  message("SKIP: GraphLD upstream simulation generation failed (known blocker):\n", msg)
+  message("SKIP: GraphLD upstream simulation generation failed:\n", msg)
   quit(save = "no", status = 0L)
 }
 
-manifest_path <- file.path(out_dir, "manifest.csv")
-if (!file.exists(manifest_path)) {
-  fail("Simulation manifest missing after generation: ", manifest_path)
+base_scenarios <- function(max_blocks, sample_size, heritability) {
+  multi_block_cap <- max(1L, as.integer(max_blocks))
+  scenarios <- list(
+    list(
+      name = "default_single_block",
+      max_blocks = 1L,
+      sample_size = sample_size,
+      heritability = heritability,
+      component_variance = c(1.0),
+      component_weight = c(1.0),
+      alpha_param = -1
+    )
+  )
+  if (multi_block_cap >= 2L) {
+    scenarios[[length(scenarios) + 1L]] <- list(
+      name = paste0("default_", multi_block_cap, "_blocks"),
+      max_blocks = multi_block_cap,
+      sample_size = sample_size,
+      heritability = heritability,
+      component_variance = c(1.0),
+      component_weight = c(1.0),
+      alpha_param = -1
+    )
+    scenarios[[length(scenarios) + 1L]] <- list(
+      name = paste0("mixture_", multi_block_cap, "_blocks"),
+      max_blocks = multi_block_cap,
+      sample_size = max(250, round(sample_size / 2)),
+      heritability = min(heritability, 0.2),
+      component_variance = c(1.0, 0.25),
+      component_weight = c(0.20, 0.35),
+      alpha_param = -0.5
+    )
+  }
+  scenarios
 }
 
-manifest <- utils::read.csv(manifest_path, stringsAsFactors = FALSE)
-if (nrow(manifest) == 0L) {
-  fail("Simulation manifest is empty")
+load_manifest_row <- function(out_dir) {
+  manifest_path <- file.path(out_dir, "manifest.csv")
+  if (!file.exists(manifest_path)) {
+    fail("Simulation manifest missing after generation: ", manifest_path)
+  }
+  manifest <- utils::read.csv(manifest_path, stringsAsFactors = FALSE)
+  if (nrow(manifest) != 1L) {
+    fail("Simulation manifest must contain exactly one scenario: ", manifest_path)
+  }
+  manifest[1L, , drop = FALSE]
 }
 
-for (row_idx in seq_len(nrow(manifest))) {
-  row <- manifest[row_idx, , drop = FALSE]
-  scenario <- row$scenario[[1L]]
+run_scenario <- function(scenario,
+                         python,
+                         graphld_root,
+                         metadata_path,
+                         population,
+                         chromosomes,
+                         random_seed,
+                         strict,
+                         root_out_dir) {
+  out_dir <- scenario_output_dir(root_out_dir, scenario)
+  dir.create(out_dir, recursive = TRUE, showWarnings = FALSE)
+  args <- scenario_args(
+    graphld_root = graphld_root,
+    metadata_path = metadata_path,
+    population = population,
+    chromosomes = chromosomes,
+    random_seed = random_seed,
+    scenario = scenario,
+    out_dir = out_dir
+  )
+  run_generator(python, args, strict)
+
+  row <- load_manifest_row(out_dir)
   output <- file.path(out_dir, row$output[[1L]])
   meta_path <- file.path(out_dir, row$meta[[1L]])
-  expected <- utils::read.csv(output, stringsAsFactors = FALSE)
-
   if (!file.exists(meta_path)) {
-    fail("Missing metadata for simulation scenario ", scenario)
+    fail("Missing metadata for simulation scenario ", scenario$name)
   }
 
+  expected <- utils::read.csv(output, stringsAsFactors = FALSE)
   actual <- ldgm_simulate(
-    sample_size = sample_size,
-    heritability = heritability,
-    component_variance = c(1.0),
-    component_weight = c(1.0),
-    alpha_param = -1,
+    sample_size = scenario$sample_size,
+    heritability = scenario$heritability,
+    component_variance = scenario$component_variance,
+    component_weight = scenario$component_weight,
+    alpha_param = scenario$alpha_param,
     random_seed = random_seed,
     annotation_columns = NULL,
     ldgm_metadata_path = meta_path,
@@ -202,8 +271,9 @@ for (row_idx in seq_len(nrow(manifest))) {
   expected$POS <- as.integer(expected$POS)
   expected$N <- as.integer(expected$N)
 
-  if (!identical(as.integer(actual$N), rep(as.integer(sample_size), nrow(actual)))) {
-    fail("Simulation sample-size column mismatch for scenario ", scenario)
+  expected_n <- rep(as.integer(scenario$sample_size), nrow(actual))
+  if (!identical(as.integer(actual$N), expected_n)) {
+    fail("Simulation sample-size column mismatch for scenario ", scenario$name)
   }
 
   compare_df(
@@ -211,9 +281,67 @@ for (row_idx in seq_len(nrow(manifest))) {
     expected,
     columns = c("CHR", "SNP", "POS", "A1", "A2", "Z", "beta", "beta_marginal", "N"),
     tolerance = 1e-6,
-    label = paste0("scenario=", scenario)
+    label = paste0("scenario=", scenario$name)
   )
-  message("Simulation conformance passed for scenario: ", scenario)
+  message("Simulation conformance passed for scenario: ", scenario$name)
 }
 
-message("Upstream GraphLD simulation conformance check passed for ", nrow(manifest), " scenario(s).")
+python <- arg("RCPP_LDGM_PYTHON", default_python())
+ensure_sksparse_compat(python, "GraphLD upstream simulation")
+graphld_root <- arg("RCPP_LDGM_GRAPHLD_ROOT", ".sync/graphld")
+metadata_path <- arg("RCPP_LDGM_GRAPHLD_SIM_METADATA", file.path(graphld_root, "data/test/metadata.csv"))
+population <- arg("RCPP_LDGM_GRAPHLD_POP", "EUR")
+chromosomes <- arg("RCPP_LDGM_GRAPHLD_CHROMOSOMES", "")
+chromosomes <- if (identical(chromosomes, "")) NULL else as.integer(strsplit(chromosomes, ",")[[1L]])
+max_blocks <- as.integer(arg("RCPP_LDGM_GRAPHLD_MAX_BLOCKS", "1"))
+sample_size <- as.numeric(arg("RCPP_LDGM_SIM_SAMPLE_SIZE", "1000"))
+heritability <- as.numeric(arg("RCPP_LDGM_SIM_HERITABILITY", "0.5"))
+random_seed <- arg("RCPP_LDGM_SIM_RANDOM_SEED", "42")
+random_seed <- if (nzchar(random_seed)) as.integer(random_seed) else NULL
+strict <- as_bool(arg("RCPP_LDGM_REQUIRE_GRAPHLD_SIMULATE", "false"))
+root_out_dir <- tempfile("graphld-simulate-goldens-")
+
+target_scenarios <- base_scenarios(max_blocks, sample_size, heritability)
+for (i in seq_along(target_scenarios)) {
+  scenario <- target_scenarios[[i]]
+  scenario$component_variance <- normalize_component_values(
+    scenario$component_variance,
+    paste0(scenario$name, "$component_variance")
+  )
+  scenario$component_weight <- normalize_component_values(
+    scenario$component_weight,
+    paste0(scenario$name, "$component_weight")
+  )
+  if (length(scenario$component_variance) != length(scenario$component_weight)) {
+    fail("scenario ", scenario$name, " has mismatched component variance/weight lengths")
+  }
+  if (sum(scenario$component_weight) > 1) {
+    fail("scenario ", scenario$name, " has component weights summing above 1")
+  }
+  if (length(scenario$sample_size) != 1L || is.na(scenario$sample_size) || scenario$sample_size <= 0) {
+    fail("scenario ", scenario$name, " must define a single positive sample size")
+  }
+  if (length(scenario$heritability) != 1L || is.na(scenario$heritability) || scenario$heritability < 0) {
+    fail("scenario ", scenario$name, " must define a single non-negative heritability")
+  }
+  if (length(scenario$max_blocks) != 1L || is.na(scenario$max_blocks) || scenario$max_blocks < 1L) {
+    fail("scenario ", scenario$name, " must define at least one block")
+  }
+  target_scenarios[[i]] <- scenario
+}
+
+for (scenario in target_scenarios) {
+  run_scenario(
+    scenario = scenario,
+    python = python,
+    graphld_root = graphld_root,
+    metadata_path = metadata_path,
+    population = population,
+    chromosomes = chromosomes,
+    random_seed = random_seed,
+    strict = strict,
+    root_out_dir = root_out_dir
+  )
+}
+
+message("Upstream GraphLD simulation conformance check passed for ", length(target_scenarios), " scenario(s).")

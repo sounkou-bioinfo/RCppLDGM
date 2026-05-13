@@ -90,7 +90,7 @@ scoped out with a compatibility rationale:
    tiny upstream fixtures and smoke data.
 4. Direct native in-memory tree-sequence object integration beyond the current
    `.trees` file and reticulate object/table boundary.
-5. Full upstream-parity simulation conformance beyond the current pinned gate: `ldgm_simulate()` now passes the current one-scenario conformance gate (`tools/generate-upstream-graphld-simulate.py` and `tools/check-upstream-graphld-simulate.R`), but broader metadata/block scenarios and larger fixture coverage still remain to be verified.
+5. Full upstream-parity simulation conformance beyond the current pinned gate: `ldgm_simulate()` now passes the current pinned scenario matrix (`tools/generate-upstream-graphld-simulate.py` and `tools/check-upstream-graphld-simulate.R`) covering one-block, multi-block, and small mixture runs, but broader metadata slices and larger fixture coverage still remain to be verified.
 6. Explicit scope decisions for MATLAB-only workflows: DENTIST, imputation, PGS
    projection, and precision estimation.
 7. Python HDF5 interop in strict mode on systems with `h5py`/GraphLD dependencies

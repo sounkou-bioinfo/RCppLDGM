@@ -40,10 +40,15 @@ pair that writes a small metadata-filtered fixture and compares against
 RCPP_LDGM_GRAPHLD_ROOT=.sync/graphld \
 RCPP_LDGM_GRAPHLD_SIM_METADATA=.sync/graphld/data/test/metadata.csv \
 RCPP_LDGM_GRAPHLD_POP=EUR \
-RCPP_LDGM_GRAPHLD_MAX_BLOCKS=1 \
+RCPP_LDGM_GRAPHLD_MAX_BLOCKS=2 \
 RCPP_LDGM_SIM_RANDOM_SEED=42 \
 Rscript tools/check-upstream-graphld-simulate.R
 ```
+
+The checker now runs a small pinned scenario matrix rather than only a single
+fixture: a one-block default run, a multi-block default run (up to the configured
+`RCPP_LDGM_GRAPHLD_MAX_BLOCKS` cap), and a small multi-component mixture run on
+that same metadata slice.
 
 Set `RCPP_LDGM_REQUIRE_GRAPHLD_SIMULATE=true` to make upstream-generation failures
 hard failures instead of skips.
