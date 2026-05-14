@@ -33,6 +33,7 @@ def main() -> None:
     sys.path.insert(0, os.fspath(graphld_src))
 
     import graphld as gld  # type: ignore
+    from graphld.cli import write_convergence_results, write_results, write_tall_results  # type: ignore
     from graphld.heritability import GraphREML  # type: ignore
     from graphld.io import load_ldgm, partition_variants, read_ldgm_metadata  # type: ignore
 
@@ -143,6 +144,17 @@ def main() -> None:
             "trust_region_lambda": np.asarray(summary["log"]["trust_region_lambdas"], dtype=float).reshape(-1),
         }
     ).write_csv(out_dir / "reml_history.csv")
+
+    write_results(
+        os.fspath(out_dir / "reml_wide.csv"),
+        np.asarray(summary["parameters"], dtype=float).reshape(-1),
+        np.asarray(summary["parameters_se"], dtype=float).reshape(-1),
+        np.asarray(summary["parameters_log10pval"], dtype=float).reshape(-1),
+        model.annotation_columns,
+        "trait",
+    )
+    write_tall_results(os.fspath(out_dir / "reml_tall.csv"), model, summary)
+    write_convergence_results(os.fspath(out_dir / "reml_convergence.csv"), summary)
 
 
 if __name__ == "__main__":

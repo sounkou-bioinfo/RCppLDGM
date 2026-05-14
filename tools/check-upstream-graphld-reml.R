@@ -21,8 +21,20 @@ compare_numeric <- function(actual, expected, tolerance, label) {
   if (length(actual) != length(expected)) {
     fail(label, " length differs: ", length(actual), " vs ", length(expected))
   }
-  diff <- abs(actual - expected)
-  if (any(is.na(diff)) || any(diff > tolerance)) {
+  actual_missing <- is.na(actual) | is.nan(actual)
+  expected_missing <- is.na(expected) | is.nan(expected)
+  if (!identical(actual_missing, expected_missing)) {
+    fail(
+      label,
+      " missingness differs. actual=", paste(format(actual), collapse = ","),
+      "; expected=", paste(format(expected), collapse = ",")
+    )
+  }
+  if (all(actual_missing)) {
+    return(invisible(TRUE))
+  }
+  diff <- abs(actual[!actual_missing] - expected[!expected_missing])
+  if (any(diff > tolerance)) {
     fail(
       label,
       " differs. actual=", paste(format(actual, scientific = TRUE), collapse = ","),
@@ -47,11 +59,33 @@ compare_df <- function(actual, expected, columns, tolerance = 1e-6, label = "dat
     fail(label, " row count differs: ", nrow(actual), " vs ", nrow(expected))
   }
   for (col in columns) {
-    if (!isTRUE(all.equal(as.numeric(actual[[col]]), as.numeric(expected[[col]]), tolerance = tolerance, check.attributes = FALSE))) {
-      fail(label, " column differs: ", col)
-    }
+    compare_numeric(actual[[col]], expected[[col]], tolerance = tolerance, label = paste0(label, "$", col))
   }
   invisible(TRUE)
+}
+
+compare_character <- function(actual, expected, label) {
+  actual <- as.character(actual)
+  expected <- as.character(expected)
+  if (!identical(actual, expected)) {
+    fail(
+      label,
+      " differs. actual=", paste(actual, collapse = ","),
+      "; expected=", paste(expected, collapse = ",")
+    )
+  }
+  invisible(TRUE)
+}
+
+read_convergence_csv <- function(path) {
+  lines <- readLines(path, warn = FALSE)
+  blank <- which(lines == "")
+  if (length(blank) != 1L) {
+    fail("GraphREML convergence CSV must contain one blank separator line: ", path)
+  }
+  summary <- utils::read.csv(text = paste(lines[seq_len(blank[[1L]] - 1L)], collapse = "\n"), stringsAsFactors = FALSE, check.names = FALSE)
+  iterations <- utils::read.csv(text = paste(lines[-seq_len(blank[[1L]])], collapse = "\n"), stringsAsFactors = FALSE, check.names = FALSE)
+  list(summary = summary, iterations = iterations)
 }
 
 default_python <- function() {
@@ -175,7 +209,11 @@ metrics_path <- file.path(out_dir, "reml_metrics.csv")
 h2_path <- file.path(out_dir, "per_variant_h2.csv")
 summary_path <- file.path(out_dir, "reml_summary.csv")
 history_path <- file.path(out_dir, "reml_history.csv")
-if (!file.exists(metrics_path) || !file.exists(h2_path) || !file.exists(summary_path) || !file.exists(history_path)) {
+wide_path <- file.path(out_dir, "reml_wide.csv")
+tall_path <- file.path(out_dir, "reml_tall.csv")
+convergence_path <- file.path(out_dir, "reml_convergence.csv")
+required_paths <- c(metrics_path, h2_path, summary_path, history_path, wide_path, tall_path, convergence_path)
+if (!all(file.exists(required_paths))) {
   fail("GraphLD GraphREML outputs missing from generator: ", out_dir)
 }
 expected_metrics <- utils::read.csv(metrics_path, stringsAsFactors = FALSE, check.names = FALSE)
@@ -240,9 +278,29 @@ if (!identical(isTRUE(fit$log$converged), as.logical(expected_summary$converged[
 }
 compare_numeric(fit$log$num_iterations, expected_summary$num_iterations[[1L]], tolerance = 0, label = "GraphREML num_iterations")
 expected_history <- utils::read.csv(history_path, stringsAsFactors = FALSE, check.names = FALSE)
+expected_wide <- utils::read.csv(wide_path, stringsAsFactors = FALSE, check.names = FALSE)
+expected_tall <- utils::read.csv(tall_path, stringsAsFactors = FALSE, check.names = FALSE)
+expected_convergence <- read_convergence_csv(convergence_path)
+actual_wide <- ldgm_reml_results(fit, format = "wide", name = "trait")
+actual_tall <- ldgm_reml_results(fit, format = "tall")
+actual_convergence <- ldgm_reml_convergence_results(fit)
 compare_numeric(fit$likelihood_history, expected_history$likelihood, tolerance = 1e-3, label = "GraphREML likelihood history")
 compare_numeric(fit$log$trust_region_lambdas, expected_history$trust_region_lambda, tolerance = 1e-12, label = "GraphREML trust-region history")
 compare_numeric(seq_along(fit$likelihood_history), expected_history$iteration, tolerance = 0, label = "GraphREML iteration history")
+compare_character(names(actual_wide), names(expected_wide), label = "GraphREML wide columns")
+compare_character(actual_wide$name, expected_wide$name, label = "GraphREML wide$name")
+compare_numeric(actual_wide$base, expected_wide$base, tolerance = 1e-2, label = "GraphREML wide parameter")
+compare_character(names(actual_tall), names(expected_tall), label = "GraphREML tall columns")
+compare_character(actual_tall$name, expected_tall$name, label = "GraphREML tall$name")
+compare_numeric(actual_tall$parameter, expected_tall$parameter, tolerance = 1e-2, label = "GraphREML tall parameter")
+compare_numeric(actual_tall$heritability, expected_tall$heritability, tolerance = 5e-7, label = "GraphREML tall heritability")
+compare_numeric(actual_tall$enrichment, expected_tall$enrichment, tolerance = 1e-12, label = "GraphREML tall enrichment")
+compare_character(tolower(as.character(actual_convergence$summary$converged)), tolower(as.character(expected_convergence$summary$converged)), label = "GraphREML convergence flag")
+compare_numeric(actual_convergence$summary$num_iterations, expected_convergence$summary$num_iterations, tolerance = 0, label = "GraphREML convergence num_iterations")
+compare_numeric(actual_convergence$summary$final_likelihood, expected_convergence$summary$final_likelihood, tolerance = 1e-3, label = "GraphREML convergence final likelihood")
+compare_numeric(actual_convergence$iterations$iteration, expected_convergence$iterations$iteration, tolerance = 0, label = "GraphREML convergence iteration ids")
+compare_numeric(actual_convergence$iterations$likelihood_change, expected_convergence$iterations$likelihood_change, tolerance = 1e-3, label = "GraphREML convergence likelihood changes")
+compare_numeric(actual_convergence$iterations$trust_region_lambda, expected_convergence$iterations$trust_region_lambda, tolerance = 1e-12, label = "GraphREML convergence trust-region lambdas")
 
 message(
   "GraphREML conformance: block=", inputs$block_name,
