@@ -101,6 +101,32 @@ by_position <- ldgm_merge_snplists(
 expect_equal(ldgm_variant_info(by_position$ldgm)$site_ids, c("rs0", "rs1", "rs3"))
 expect_equal(by_position$sumstat_indices, c(0L, 1L, 3L))
 
+P_na <- Matrix::Diagonal(3, x = c(2, 3, 4))
+ldgm_na <- ldgm_precision(
+  P_na,
+  data.frame(
+    site_ids = c("rs0", NA, NA),
+    position = c(10L, 20L, 30L),
+    index = 1:3,
+    anc_alleles = c("A", "C", "G"),
+    deriv_alleles = c("G", "T", "A"),
+    af = c(0.1, 0.2, 0.3),
+    stringsAsFactors = FALSE
+  )
+)
+sumstats_na <- data.frame(
+  SNP = c("rs0", NA),
+  POS = c(10L, 20L),
+  REF = c("A", "C"),
+  ALT = c("G", "T"),
+  Z = c(1, 2),
+  stringsAsFactors = FALSE
+)
+merged_na <- ldgm_merge_snplists(ldgm_na, sumstats_na, add_allelic_cols = "Z")
+expect_equal(merged_na$sumstat_indices, c(0L, 1L, 1L))
+expect_equal(sum(is.na(ldgm_variant_info(merged_na$ldgm)$site_ids)), 2L)
+expect_equal(ldgm_variant_info(merged_na$ldgm)$Z, c(1, 2, 2), tolerance = 1e-12)
+
 expect_error(ldgm_merge_snplists(ldgm, sumstats[, c("SNP", "REF", "ALT", "Z")]), "position")
 expect_error(ldgm_merge_snplists(ldgm, transform(sumstats, REF = "N", ALT = "N")), "matching alleles")
 expect_error(ldgm_precision_select(ldgm, 5L), "one-based")

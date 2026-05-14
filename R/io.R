@@ -307,15 +307,59 @@ ldgm_merge_snplists <- function(precision,
 
   sumstats_with_rows <- sumstats
   sumstats_with_rows$row_nr <- seq_len(nrow(sumstats_with_rows)) - 1L
-  merged <- merge(
-    precision$variant_info,
-    sumstats_with_rows,
-    by.x = left_by,
-    by.y = right_by,
-    all = FALSE,
-    sort = FALSE,
-    suffixes = c("", "_sumstats")
+
+  merge_variant_rows <- function(left, right) {
+    merge(
+      left,
+      right,
+      by.x = left_by,
+      by.y = right_by,
+      all = FALSE,
+      sort = FALSE,
+      suffixes = c("", "_sumstats")
+    )
+  }
+
+  left_missing <- is.na(precision$variant_info[[left_by]])
+  right_missing <- is.na(sumstats_with_rows[[right_by]])
+  merged <- merge_variant_rows(
+    precision$variant_info[!left_missing, , drop = FALSE],
+    sumstats_with_rows[!right_missing, , drop = FALSE]
   )
+
+  if (any(left_missing) && any(right_missing)) {
+    missing_left <- precision$variant_info[left_missing, , drop = FALSE]
+    missing_right <- sumstats_with_rows[right_missing, , drop = FALSE]
+    missing_left$.ldgm_na_join_key <- 1L
+    missing_right$.ldgm_na_join_key <- 1L
+    merged_missing <- merge(
+      missing_left,
+      missing_right,
+      by = ".ldgm_na_join_key",
+      all = FALSE,
+      sort = FALSE,
+      suffixes = c("", "_sumstats")
+    )
+    merged_missing$.ldgm_na_join_key <- NULL
+    merged_missing[[left_by]] <- NA
+    if (!identical(left_by, right_by) && right_by %in% names(merged_missing)) {
+      merged_missing[[right_by]] <- NULL
+    }
+    if (nrow(merged) == 0L) {
+      merged <- merged_missing
+    } else {
+      missing_cols <- setdiff(names(merged), names(merged_missing))
+      for (col in missing_cols) {
+        merged_missing[[col]] <- NA
+      }
+      extra_cols <- setdiff(names(merged_missing), names(merged))
+      for (col in extra_cols) {
+        merged[[col]] <- NA
+      }
+      merged_missing <- merged_missing[, names(merged), drop = FALSE]
+      merged <- rbind(merged, merged_missing)
+    }
+  }
   if (nrow(merged) == 0L) {
     stop("no variants matched between LDGM and summary statistics", call. = FALSE)
   }
