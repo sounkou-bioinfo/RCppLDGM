@@ -217,11 +217,13 @@ heritability_multi_path <- file.path(out_dir, "reml_heritability_multi.csv")
 enrichment_multi_path <- file.path(out_dir, "reml_enrichment_multi.csv")
 tall_path <- file.path(out_dir, "reml_tall.csv")
 convergence_path <- file.path(out_dir, "reml_convergence.csv")
+convergence_multi_path <- file.path(out_dir, "reml_convergence_multi.csv")
+tall_multi_error_path <- file.path(out_dir, "reml_tall_multi_error.txt")
 required_paths <- c(
   metrics_path, h2_path, summary_path, history_path,
   parameters_path, heritability_path, enrichment_path,
   parameters_multi_path, heritability_multi_path, enrichment_multi_path,
-  tall_path, convergence_path
+  tall_path, convergence_path, convergence_multi_path, tall_multi_error_path
 )
 if (!all(file.exists(required_paths))) {
   fail("GraphLD GraphREML outputs missing from generator: ", out_dir)
@@ -296,6 +298,8 @@ expected_heritability_multi <- utils::read.csv(heritability_multi_path, stringsA
 expected_enrichment_multi <- utils::read.csv(enrichment_multi_path, stringsAsFactors = FALSE, check.names = FALSE)
 expected_tall <- utils::read.csv(tall_path, stringsAsFactors = FALSE, check.names = FALSE)
 expected_convergence <- read_convergence_csv(convergence_path)
+expected_convergence_multi <- read_convergence_csv(convergence_multi_path)
+expected_tall_multi_error <- readLines(tall_multi_error_path, warn = FALSE)
 actual_dir <- tempfile("graphld-reml-r-")
 dir.create(actual_dir)
 alt_paths <- ldgm_write_reml_outputs(
@@ -317,6 +321,18 @@ tall_paths <- ldgm_write_reml_outputs(
   fit,
   overwrite = TRUE
 )
+actual_tall_multi_error <- tryCatch(
+  {
+    ldgm_write_reml_outputs(
+      file.path(actual_dir, "reml_tall_multi"),
+      list(fit, fit),
+      name = c("trait1", "trait2"),
+      overwrite = TRUE
+    )
+    NA_character_
+  },
+  error = function(e) conditionMessage(e)
+)
 actual_parameters <- utils::read.csv(alt_paths[["parameters"]], stringsAsFactors = FALSE, check.names = FALSE)
 actual_heritability <- utils::read.csv(alt_paths[["heritability"]], stringsAsFactors = FALSE, check.names = FALSE)
 actual_enrichment <- utils::read.csv(alt_paths[["enrichment"]], stringsAsFactors = FALSE, check.names = FALSE)
@@ -325,6 +341,7 @@ actual_heritability_multi <- utils::read.csv(alt_multi_paths[["heritability"]], 
 actual_enrichment_multi <- utils::read.csv(alt_multi_paths[["enrichment"]], stringsAsFactors = FALSE, check.names = FALSE)
 actual_tall <- utils::read.csv(tall_paths[["tall"]], stringsAsFactors = FALSE, check.names = FALSE)
 actual_convergence <- read_convergence_csv(alt_paths[["convergence"]])
+actual_convergence_multi <- read_convergence_csv(alt_multi_paths[["convergence"]])
 compare_numeric(fit$likelihood_history, expected_history$likelihood, tolerance = 1e-3, label = "GraphREML likelihood history")
 compare_numeric(fit$log$trust_region_lambdas, expected_history$trust_region_lambda, tolerance = 1e-12, label = "GraphREML trust-region history")
 compare_numeric(seq_along(fit$likelihood_history), expected_history$iteration, tolerance = 0, label = "GraphREML iteration history")
@@ -357,6 +374,22 @@ compare_numeric(actual_convergence$summary$final_likelihood, expected_convergenc
 compare_numeric(actual_convergence$iterations$iteration, expected_convergence$iterations$iteration, tolerance = 0, label = "GraphREML convergence iteration ids")
 compare_numeric(actual_convergence$iterations$likelihood_change, expected_convergence$iterations$likelihood_change, tolerance = 1e-3, label = "GraphREML convergence likelihood changes")
 compare_numeric(actual_convergence$iterations$trust_region_lambda, expected_convergence$iterations$trust_region_lambda, tolerance = 1e-12, label = "GraphREML convergence trust-region lambdas")
+compare_character(tolower(as.character(actual_convergence_multi$summary$converged)), tolower(as.character(expected_convergence_multi$summary$converged)), label = "GraphREML convergence multi flag")
+compare_numeric(actual_convergence_multi$summary$num_iterations, expected_convergence_multi$summary$num_iterations, tolerance = 0, label = "GraphREML convergence multi num_iterations")
+compare_numeric(actual_convergence_multi$summary$final_likelihood, expected_convergence_multi$summary$final_likelihood, tolerance = 1e-3, label = "GraphREML convergence multi final likelihood")
+compare_numeric(actual_convergence_multi$iterations$iteration, expected_convergence_multi$iterations$iteration, tolerance = 0, label = "GraphREML convergence multi iteration ids")
+compare_numeric(actual_convergence_multi$iterations$likelihood_change, expected_convergence_multi$iterations$likelihood_change, tolerance = 1e-3, label = "GraphREML convergence multi likelihood changes")
+compare_numeric(actual_convergence_multi$iterations$trust_region_lambda, expected_convergence_multi$iterations$trust_region_lambda, tolerance = 1e-12, label = "GraphREML convergence multi trust-region lambdas")
+if (!is.character(actual_tall_multi_error) || length(actual_tall_multi_error) != 1L || is.na(actual_tall_multi_error) || !nzchar(actual_tall_multi_error)) {
+  fail("GraphREML tall multi-write should fail with a non-empty error message")
+}
+if (length(expected_tall_multi_error) != 1L || !grepl("already exists", expected_tall_multi_error[[1L]], fixed = TRUE)) {
+  fail("upstream GraphLD tall multi-write did not record the expected existing-file error")
+}
+if (!grepl("already exists", actual_tall_multi_error, fixed = TRUE)) {
+  fail("GraphREML tall multi-write error differs: actual=", actual_tall_multi_error,
+       "; expected=", expected_tall_multi_error[[1L]])
+}
 
 message(
   "GraphREML conformance: block=", inputs$block_name,

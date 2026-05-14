@@ -206,6 +206,16 @@ def main() -> None:
         )
     write_tall_results(os.fspath(out_dir / "reml_tall.csv"), model, summary)
     write_convergence_results(os.fspath(out_dir / "reml_convergence.csv"), summary)
+    write_convergence_results(os.fspath(out_dir / "reml_convergence_multi.csv"), summary)
+    write_convergence_results(os.fspath(out_dir / "reml_convergence_multi.csv"), summary)
+    try:
+        tall_multi_path = out_dir / "reml_tall_multi.csv"
+        write_tall_results(os.fspath(tall_multi_path), model, summary)
+        write_tall_results(os.fspath(tall_multi_path), model, summary)
+    except Exception as exc:  # noqa: BLE001
+        (out_dir / "reml_tall_multi_error.txt").write_text(f"{type(exc).__name__}: {exc}\n", encoding="utf-8")
+    else:
+        raise RuntimeError("expected GraphLD tall multi-write to fail on existing output file")
 
 
 if __name__ == "__main__":

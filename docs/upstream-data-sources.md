@@ -53,7 +53,8 @@ surrogate assignment on the R side. The same gate now also writes R-side
 CLI-style output families with `ldgm_write_reml_outputs()` and checks the
 parameter/heritability/enrichment wide CSV outputs plus tall/convergence files
 for on-disk column layout and currently shared numeric fields. The same gate
-now also checks the upstream-style alternate-output multi-trait append path:
+now also checks the upstream-style alternate-output multi-trait append path,
+convergence-file refresh behavior, and the current tall-existing-file error path:
 
 ```bash
 RCPP_LDGM_PYTHON=.sync/ldgm-python/bin/python \
