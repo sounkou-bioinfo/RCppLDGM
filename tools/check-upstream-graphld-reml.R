@@ -287,21 +287,23 @@ expected_tall <- utils::read.csv(tall_path, stringsAsFactors = FALSE, check.name
 expected_convergence <- read_convergence_csv(convergence_path)
 actual_dir <- tempfile("graphld-reml-r-")
 dir.create(actual_dir)
-actual_parameters_path <- file.path(actual_dir, "reml_parameters.csv")
-actual_heritability_path <- file.path(actual_dir, "reml_heritability.csv")
-actual_enrichment_path <- file.path(actual_dir, "reml_enrichment.csv")
-actual_tall_path <- file.path(actual_dir, "reml_tall.csv")
-actual_convergence_path <- file.path(actual_dir, "reml_convergence.csv")
-ldgm_write_reml_results(actual_parameters_path, fit, format = "wide", name = "trait", metric = "parameters")
-ldgm_write_reml_results(actual_heritability_path, fit, format = "wide", name = "trait", metric = "heritability")
-ldgm_write_reml_results(actual_enrichment_path, fit, format = "wide", name = "trait", metric = "enrichment")
-ldgm_write_reml_results(actual_tall_path, fit, format = "tall")
-ldgm_write_reml_results(actual_convergence_path, fit, format = "convergence")
-actual_parameters <- utils::read.csv(actual_parameters_path, stringsAsFactors = FALSE, check.names = FALSE)
-actual_heritability <- utils::read.csv(actual_heritability_path, stringsAsFactors = FALSE, check.names = FALSE)
-actual_enrichment <- utils::read.csv(actual_enrichment_path, stringsAsFactors = FALSE, check.names = FALSE)
-actual_tall <- utils::read.csv(actual_tall_path, stringsAsFactors = FALSE, check.names = FALSE)
-actual_convergence <- read_convergence_csv(actual_convergence_path)
+alt_paths <- ldgm_write_reml_outputs(
+  file.path(actual_dir, "reml"),
+  fit,
+  name = "trait",
+  alt_output = TRUE,
+  overwrite = TRUE
+)
+tall_paths <- ldgm_write_reml_outputs(
+  file.path(actual_dir, "reml_tall"),
+  fit,
+  overwrite = TRUE
+)
+actual_parameters <- utils::read.csv(alt_paths[["parameters"]], stringsAsFactors = FALSE, check.names = FALSE)
+actual_heritability <- utils::read.csv(alt_paths[["heritability"]], stringsAsFactors = FALSE, check.names = FALSE)
+actual_enrichment <- utils::read.csv(alt_paths[["enrichment"]], stringsAsFactors = FALSE, check.names = FALSE)
+actual_tall <- utils::read.csv(tall_paths[["tall"]], stringsAsFactors = FALSE, check.names = FALSE)
+actual_convergence <- read_convergence_csv(alt_paths[["convergence"]])
 compare_numeric(fit$likelihood_history, expected_history$likelihood, tolerance = 1e-3, label = "GraphREML likelihood history")
 compare_numeric(fit$log$trust_region_lambdas, expected_history$trust_region_lambda, tolerance = 1e-12, label = "GraphREML trust-region history")
 compare_numeric(seq_along(fit$likelihood_history), expected_history$iteration, tolerance = 0, label = "GraphREML iteration history")

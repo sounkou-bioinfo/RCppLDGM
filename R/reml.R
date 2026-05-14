@@ -727,6 +727,89 @@ ldgm_write_reml_results <- function(path,
   invisible(path)
 }
 
+#' Write a GraphLD-Style GraphREML Output Family
+#'
+#' Writes the same filename family used by GraphLD's `graphreml` CLI. A
+#' `path_prefix` such as `"results/trait"` produces `"trait.convergence.csv"`
+#' plus either `"trait.tall.csv"` or the alternate wide-format trio
+#' `"trait.parameters.csv"`, `"trait.heritability.csv"`, and
+#' `"trait.enrichment.csv"`.
+#'
+#' @param path_prefix Output filename prefix without the `.csv` suffixes.
+#' @param fit A list returned by [ldgm_run_reml()].
+#' @param name Row label used for alternate wide-format outputs.
+#' @param alt_output If `TRUE`, write GraphLD's alternate wide-format parameter,
+#'   heritability, and enrichment files. Otherwise write the tall result file.
+#' @param save_results If `FALSE`, write only the convergence file, matching the
+#'   GraphLD CLI `--no-save` path.
+#' @param overwrite If `TRUE`, replace an existing tall result file before
+#'   writing. The convergence file is always replaced so repeated alternate
+#'   output calls can append trait rows while refreshing convergence state, and
+#'   alternate wide-format files continue to append by trait name when they
+#'   already exist, matching GraphLD's writer behavior.
+#'
+#' @return A named character vector of written file paths.
+#' @export
+ldgm_write_reml_outputs <- function(path_prefix,
+                                    fit,
+                                    name = "trait",
+                                    alt_output = FALSE,
+                                    save_results = TRUE,
+                                    overwrite = FALSE) {
+  path_prefix <- normalize_reml_output_prefix(path_prefix)
+  alt_output <- isTRUE(alt_output)
+  save_results <- isTRUE(save_results)
+  overwrite <- isTRUE(overwrite)
+
+  convergence_path <- paste0(path_prefix, ".convergence.csv")
+  ldgm_write_reml_results(convergence_path, fit, format = "convergence", overwrite = TRUE)
+  written <- c(convergence = convergence_path)
+
+  if (!save_results) {
+    return(written)
+  }
+
+  if (!alt_output) {
+    tall_path <- paste0(path_prefix, ".tall.csv")
+    ldgm_write_reml_results(tall_path, fit, format = "tall", overwrite = overwrite)
+    return(c(written, tall = tall_path))
+  }
+
+  parameter_path <- paste0(path_prefix, ".parameters.csv")
+  heritability_path <- paste0(path_prefix, ".heritability.csv")
+  enrichment_path <- paste0(path_prefix, ".enrichment.csv")
+  ldgm_write_reml_results(
+    parameter_path,
+    fit,
+    format = "wide",
+    metric = "parameters",
+    name = name,
+    append = file.exists(parameter_path)
+  )
+  ldgm_write_reml_results(
+    heritability_path,
+    fit,
+    format = "wide",
+    metric = "heritability",
+    name = name,
+    append = file.exists(heritability_path)
+  )
+  ldgm_write_reml_results(
+    enrichment_path,
+    fit,
+    format = "wide",
+    metric = "enrichment",
+    name = name,
+    append = file.exists(enrichment_path)
+  )
+  c(
+    written,
+    parameters = parameter_path,
+    heritability = heritability_path,
+    enrichment = enrichment_path
+  )
+}
+
 select_reml_metric <- function(metrics, metric = c("parameters", "heritability", "enrichment")) {
   metric <- match.arg(metric)
   if (identical(metric, "parameters")) {
@@ -799,6 +882,13 @@ normalize_reml_output_path <- function(path) {
     stop("`path` must be a single non-empty string", call. = FALSE)
   }
   path
+}
+
+normalize_reml_output_prefix <- function(path_prefix) {
+  if (!is.character(path_prefix) || length(path_prefix) != 1L || is.na(path_prefix) || !nzchar(path_prefix)) {
+    stop("`path_prefix` must be a single non-empty string", call. = FALSE)
+  }
+  path_prefix
 }
 
 validate_reml_output_header <- function(path, expected_names) {

@@ -96,6 +96,7 @@ reference:
   - ldgm_reml_results
   - ldgm_reml_convergence_results
   - ldgm_write_reml_results
+  - ldgm_write_reml_outputs
   - ldgm_simulate
 - title: Annotation and summary-stat inputs
   contents:

@@ -188,6 +188,31 @@ convergence_lines <- readLines(convergence_path)
 expect_equal(convergence_lines[[1L]], "converged,num_iterations,final_likelihood")
 expect_true(any(convergence_lines == "iteration,likelihood_change,trust_region_lambda"))
 
+family_prefix <- tempfile(pattern = "reml-family-")
+family_paths <- ldgm_write_reml_outputs(family_prefix, fit_jk, overwrite = TRUE)
+expect_equal(names(family_paths), c("convergence", "tall"))
+expect_true(all(file.exists(unname(family_paths))))
+expect_equal(basename(unname(family_paths)), c(
+  paste0(basename(family_prefix), ".convergence.csv"),
+  paste0(basename(family_prefix), ".tall.csv")
+))
+
+alt_prefix <- tempfile(pattern = "reml-alt-")
+alt_paths <- ldgm_write_reml_outputs(alt_prefix, fit_jk, name = "trait1", alt_output = TRUE, overwrite = TRUE)
+expect_equal(names(alt_paths), c("convergence", "parameters", "heritability", "enrichment"))
+expect_true(all(file.exists(unname(alt_paths))))
+parameter_disk <- utils::read.csv(alt_paths[["parameters"]], stringsAsFactors = FALSE, check.names = FALSE)
+expect_equal(nrow(parameter_disk), 1L)
+ldgm_write_reml_outputs(alt_prefix, fit_jk, name = "trait2", alt_output = TRUE)
+parameter_disk2 <- utils::read.csv(alt_paths[["parameters"]], stringsAsFactors = FALSE, check.names = FALSE)
+expect_equal(parameter_disk2$name, c("trait1", "trait2"))
+
+nosave_prefix <- tempfile(pattern = "reml-nosave-")
+nosave_paths <- ldgm_write_reml_outputs(nosave_prefix, fit_jk, save_results = FALSE, overwrite = TRUE)
+expect_equal(names(nosave_paths), "convergence")
+expect_true(file.exists(nosave_paths[[1L]]))
+expect_equal(file.exists(paste0(nosave_prefix, ".tall.csv")), FALSE)
+
 fit_threshold <- ldgm_run_reml(
   list(good = P_reml, high_chisq = P_reml),
   list(z_reml, c(2, 0, 0)),
