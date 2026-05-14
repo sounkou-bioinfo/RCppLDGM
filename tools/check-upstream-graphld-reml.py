@@ -145,30 +145,65 @@ def main() -> None:
         }
     ).write_csv(out_dir / "reml_history.csv")
 
+    parameter_values = np.asarray(summary["parameters"], dtype=float).reshape(-1)
+    parameter_se = np.asarray(summary["parameters_se"], dtype=float).reshape(-1)
+    parameter_log10pval = np.asarray(summary["parameters_log10pval"], dtype=float).reshape(-1)
+    heritability_values = np.asarray(summary["heritability"], dtype=float).reshape(-1)
+    heritability_se = np.asarray(summary["heritability_se"], dtype=float).reshape(-1)
+    heritability_log10pval = np.asarray(summary["heritability_log10pval"], dtype=float).reshape(-1)
+    enrichment_values = np.asarray(summary["enrichment"], dtype=float).reshape(-1)
+    enrichment_se = np.asarray(summary["enrichment_se"], dtype=float).reshape(-1)
+    enrichment_log10pval = np.asarray(summary["enrichment_log10pval"], dtype=float).reshape(-1)
+
     write_results(
         os.fspath(out_dir / "reml_parameters.csv"),
-        np.asarray(summary["parameters"], dtype=float).reshape(-1),
-        np.asarray(summary["parameters_se"], dtype=float).reshape(-1),
-        np.asarray(summary["parameters_log10pval"], dtype=float).reshape(-1),
+        parameter_values,
+        parameter_se,
+        parameter_log10pval,
         model.annotation_columns,
         "trait",
     )
     write_results(
         os.fspath(out_dir / "reml_heritability.csv"),
-        np.asarray(summary["heritability"], dtype=float).reshape(-1),
-        np.asarray(summary["heritability_se"], dtype=float).reshape(-1),
-        np.asarray(summary["heritability_log10pval"], dtype=float).reshape(-1),
+        heritability_values,
+        heritability_se,
+        heritability_log10pval,
         model.annotation_columns,
         "trait",
     )
     write_results(
         os.fspath(out_dir / "reml_enrichment.csv"),
-        np.asarray(summary["enrichment"], dtype=float).reshape(-1),
-        np.asarray(summary["enrichment_se"], dtype=float).reshape(-1),
-        np.asarray(summary["enrichment_log10pval"], dtype=float).reshape(-1),
+        enrichment_values,
+        enrichment_se,
+        enrichment_log10pval,
         model.annotation_columns,
         "trait",
     )
+    for trait_name in ("trait1", "trait2"):
+        write_results(
+            os.fspath(out_dir / "reml_parameters_multi.csv"),
+            parameter_values,
+            parameter_se,
+            parameter_log10pval,
+            model.annotation_columns,
+            trait_name,
+        )
+        write_results(
+            os.fspath(out_dir / "reml_heritability_multi.csv"),
+            heritability_values,
+            heritability_se,
+            heritability_log10pval,
+            model.annotation_columns,
+            trait_name,
+        )
+        write_results(
+            os.fspath(out_dir / "reml_enrichment_multi.csv"),
+            enrichment_values,
+            enrichment_se,
+            enrichment_log10pval,
+            model.annotation_columns,
+            trait_name,
+        )
     write_tall_results(os.fspath(out_dir / "reml_tall.csv"), model, summary)
     write_convergence_results(os.fspath(out_dir / "reml_convergence.csv"), summary)
 

@@ -212,9 +212,17 @@ history_path <- file.path(out_dir, "reml_history.csv")
 parameters_path <- file.path(out_dir, "reml_parameters.csv")
 heritability_path <- file.path(out_dir, "reml_heritability.csv")
 enrichment_path <- file.path(out_dir, "reml_enrichment.csv")
+parameters_multi_path <- file.path(out_dir, "reml_parameters_multi.csv")
+heritability_multi_path <- file.path(out_dir, "reml_heritability_multi.csv")
+enrichment_multi_path <- file.path(out_dir, "reml_enrichment_multi.csv")
 tall_path <- file.path(out_dir, "reml_tall.csv")
 convergence_path <- file.path(out_dir, "reml_convergence.csv")
-required_paths <- c(metrics_path, h2_path, summary_path, history_path, parameters_path, heritability_path, enrichment_path, tall_path, convergence_path)
+required_paths <- c(
+  metrics_path, h2_path, summary_path, history_path,
+  parameters_path, heritability_path, enrichment_path,
+  parameters_multi_path, heritability_multi_path, enrichment_multi_path,
+  tall_path, convergence_path
+)
 if (!all(file.exists(required_paths))) {
   fail("GraphLD GraphREML outputs missing from generator: ", out_dir)
 }
@@ -283,6 +291,9 @@ expected_history <- utils::read.csv(history_path, stringsAsFactors = FALSE, chec
 expected_parameters <- utils::read.csv(parameters_path, stringsAsFactors = FALSE, check.names = FALSE)
 expected_heritability <- utils::read.csv(heritability_path, stringsAsFactors = FALSE, check.names = FALSE)
 expected_enrichment <- utils::read.csv(enrichment_path, stringsAsFactors = FALSE, check.names = FALSE)
+expected_parameters_multi <- utils::read.csv(parameters_multi_path, stringsAsFactors = FALSE, check.names = FALSE)
+expected_heritability_multi <- utils::read.csv(heritability_multi_path, stringsAsFactors = FALSE, check.names = FALSE)
+expected_enrichment_multi <- utils::read.csv(enrichment_multi_path, stringsAsFactors = FALSE, check.names = FALSE)
 expected_tall <- utils::read.csv(tall_path, stringsAsFactors = FALSE, check.names = FALSE)
 expected_convergence <- read_convergence_csv(convergence_path)
 actual_dir <- tempfile("graphld-reml-r-")
@@ -294,6 +305,13 @@ alt_paths <- ldgm_write_reml_outputs(
   alt_output = TRUE,
   overwrite = TRUE
 )
+alt_multi_paths <- ldgm_write_reml_outputs(
+  file.path(actual_dir, "reml_multi"),
+  list(fit, fit),
+  name = c("trait1", "trait2"),
+  alt_output = TRUE,
+  overwrite = TRUE
+)
 tall_paths <- ldgm_write_reml_outputs(
   file.path(actual_dir, "reml_tall"),
   fit,
@@ -302,6 +320,9 @@ tall_paths <- ldgm_write_reml_outputs(
 actual_parameters <- utils::read.csv(alt_paths[["parameters"]], stringsAsFactors = FALSE, check.names = FALSE)
 actual_heritability <- utils::read.csv(alt_paths[["heritability"]], stringsAsFactors = FALSE, check.names = FALSE)
 actual_enrichment <- utils::read.csv(alt_paths[["enrichment"]], stringsAsFactors = FALSE, check.names = FALSE)
+actual_parameters_multi <- utils::read.csv(alt_multi_paths[["parameters"]], stringsAsFactors = FALSE, check.names = FALSE)
+actual_heritability_multi <- utils::read.csv(alt_multi_paths[["heritability"]], stringsAsFactors = FALSE, check.names = FALSE)
+actual_enrichment_multi <- utils::read.csv(alt_multi_paths[["enrichment"]], stringsAsFactors = FALSE, check.names = FALSE)
 actual_tall <- utils::read.csv(tall_paths[["tall"]], stringsAsFactors = FALSE, check.names = FALSE)
 actual_convergence <- read_convergence_csv(alt_paths[["convergence"]])
 compare_numeric(fit$likelihood_history, expected_history$likelihood, tolerance = 1e-3, label = "GraphREML likelihood history")
@@ -316,6 +337,15 @@ compare_numeric(actual_heritability$base, expected_heritability$base, tolerance 
 compare_character(names(actual_enrichment), names(expected_enrichment), label = "GraphREML enrichment columns")
 compare_character(actual_enrichment$name, expected_enrichment$name, label = "GraphREML enrichment$name")
 compare_numeric(actual_enrichment$base, expected_enrichment$base, tolerance = 1e-12, label = "GraphREML enrichment value")
+compare_character(names(actual_parameters_multi), names(expected_parameters_multi), label = "GraphREML parameter multi columns")
+compare_character(actual_parameters_multi$name, expected_parameters_multi$name, label = "GraphREML parameter multi$name")
+compare_numeric(actual_parameters_multi$base, expected_parameters_multi$base, tolerance = 1e-2, label = "GraphREML parameter multi value")
+compare_character(names(actual_heritability_multi), names(expected_heritability_multi), label = "GraphREML heritability multi columns")
+compare_character(actual_heritability_multi$name, expected_heritability_multi$name, label = "GraphREML heritability multi$name")
+compare_numeric(actual_heritability_multi$base, expected_heritability_multi$base, tolerance = 5e-7, label = "GraphREML heritability multi value")
+compare_character(names(actual_enrichment_multi), names(expected_enrichment_multi), label = "GraphREML enrichment multi columns")
+compare_character(actual_enrichment_multi$name, expected_enrichment_multi$name, label = "GraphREML enrichment multi$name")
+compare_numeric(actual_enrichment_multi$base, expected_enrichment_multi$base, tolerance = 1e-12, label = "GraphREML enrichment multi value")
 compare_character(names(actual_tall), names(expected_tall), label = "GraphREML tall columns")
 compare_character(actual_tall$name, expected_tall$name, label = "GraphREML tall$name")
 compare_numeric(actual_tall$parameter, expected_tall$parameter, tolerance = 1e-2, label = "GraphREML tall parameter")
