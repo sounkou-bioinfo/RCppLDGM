@@ -156,6 +156,12 @@ wide_disk2 <- utils::read.csv(wide_path, stringsAsFactors = FALSE, check.names =
 expect_equal(nrow(wide_disk2), 2L)
 expect_equal(wide_disk2$name, c("trait1", "trait2"))
 expect_error(ldgm_write_reml_results(wide_path, fit_jk, format = "wide", name = "trait3"), "already exists")
+bad_header_path <- tempfile(fileext = ".csv")
+writeLines("name,wrong_header", bad_header_path)
+expect_error(
+  ldgm_write_reml_results(bad_header_path, fit_jk, format = "wide", name = "trait_bad", append = TRUE),
+  "header does not match"
+)
 
 h2_path <- tempfile(fileext = ".csv")
 ldgm_write_reml_results(h2_path, fit_jk, format = "wide", metric = "heritability", name = "trait1")
@@ -174,6 +180,7 @@ ldgm_write_reml_results(tall_path, fit_jk, format = "tall")
 tall_disk <- utils::read.csv(tall_path, stringsAsFactors = FALSE, check.names = FALSE)
 expect_equal(names(tall_disk), names(tall_results))
 expect_equal(nrow(tall_disk), nrow(tall_results))
+expect_error(ldgm_write_reml_results(tall_path, fit_jk, format = "tall", append = TRUE), "only supported")
 
 convergence_path <- tempfile(fileext = ".csv")
 ldgm_write_reml_results(convergence_path, fit_jk, format = "convergence")
