@@ -4,7 +4,12 @@
 \alias{ldgm_reml_results}
 \title{Format GraphREML Results for CSV-Style Outputs}
 \usage{
-ldgm_reml_results(fit, format = c("wide", "tall"), name = "trait")
+ldgm_reml_results(
+  fit,
+  format = c("wide", "tall"),
+  name = "trait",
+  metric = c("parameters", "heritability", "enrichment")
+)
 }
 \arguments{
 \item{fit}{A list returned by \code{\link[=ldgm_run_reml]{ldgm_run_reml()}}.}
@@ -12,6 +17,9 @@ ldgm_reml_results(fit, format = c("wide", "tall"), name = "trait")
 \item{format}{Output layout: \code{"wide"} or \code{"tall"}.}
 
 \item{name}{Row label used for the wide format. Ignored for \code{format = "tall"}.}
+
+\item{metric}{Metric family to emit for \code{format = "wide"}: \code{"parameters"},
+\code{"heritability"}, or \code{"enrichment"}.}
 }
 \value{
 A data frame.

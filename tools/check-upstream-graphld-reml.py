@@ -146,10 +146,26 @@ def main() -> None:
     ).write_csv(out_dir / "reml_history.csv")
 
     write_results(
-        os.fspath(out_dir / "reml_wide.csv"),
+        os.fspath(out_dir / "reml_parameters.csv"),
         np.asarray(summary["parameters"], dtype=float).reshape(-1),
         np.asarray(summary["parameters_se"], dtype=float).reshape(-1),
         np.asarray(summary["parameters_log10pval"], dtype=float).reshape(-1),
+        model.annotation_columns,
+        "trait",
+    )
+    write_results(
+        os.fspath(out_dir / "reml_heritability.csv"),
+        np.asarray(summary["heritability"], dtype=float).reshape(-1),
+        np.asarray(summary["heritability_se"], dtype=float).reshape(-1),
+        np.asarray(summary["heritability_log10pval"], dtype=float).reshape(-1),
+        model.annotation_columns,
+        "trait",
+    )
+    write_results(
+        os.fspath(out_dir / "reml_enrichment.csv"),
+        np.asarray(summary["enrichment"], dtype=float).reshape(-1),
+        np.asarray(summary["enrichment_se"], dtype=float).reshape(-1),
+        np.asarray(summary["enrichment_log10pval"], dtype=float).reshape(-1),
         model.annotation_columns,
         "trait",
     )

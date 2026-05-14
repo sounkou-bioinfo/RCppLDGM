@@ -50,8 +50,8 @@ initialized block likelihood, gradient, Hessian, and per-variant heritability
 vector against `ldgm_reml_block()`, then compares `run_graphREML()` summary and
 history fields against `ldgm_run_reml()` after selected-view merging and
 surrogate assignment on the R side. The same gate now also checks GraphLD-style
-wide/tall/convergence CSV output surfaces for column layout and currently shared
-numeric fields:
+parameter/heritability/enrichment wide CSV outputs plus tall/convergence surfaces
+for column layout and currently shared numeric fields:
 
 ```bash
 RCPP_LDGM_PYTHON=.sync/ldgm-python/bin/python \

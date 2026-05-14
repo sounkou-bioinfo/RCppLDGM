@@ -565,11 +565,17 @@ ldgm_run_reml <- function(ldgms,
 #' @param fit A list returned by [ldgm_run_reml()].
 #' @param format Output layout: `"wide"` or `"tall"`.
 #' @param name Row label used for the wide format. Ignored for `format = "tall"`.
+#' @param metric Metric family to emit for `format = "wide"`: `"parameters"`,
+#'   `"heritability"`, or `"enrichment"`.
 #'
 #' @return A data frame.
 #' @export
-ldgm_reml_results <- function(fit, format = c("wide", "tall"), name = "trait") {
+ldgm_reml_results <- function(fit,
+                              format = c("wide", "tall"),
+                              name = "trait",
+                              metric = c("parameters", "heritability", "enrichment")) {
   format <- match.arg(format)
+  metric <- match.arg(metric)
   metrics <- normalize_reml_result_metrics(fit)
 
   if (identical(format, "tall")) {
@@ -593,11 +599,12 @@ ldgm_reml_results <- function(fit, format = c("wide", "tall"), name = "trait") {
     stop("`name` must be a single non-empty string", call. = FALSE)
   }
 
+  selected <- select_reml_metric(metrics, metric)
   out <- data.frame(name = name, stringsAsFactors = FALSE, check.names = FALSE)
   for (annotation_name in metrics$annotation_names) {
-    out[[annotation_name]] <- unname(metrics$parameters[[annotation_name]])
-    out[[paste0(annotation_name, "_SE")]] <- unname(metrics$parameters_se[[annotation_name]])
-    out[[paste0(annotation_name, "_log10pval")]] <- unname(metrics$parameters_log10pval[[annotation_name]])
+    out[[annotation_name]] <- unname(selected$values[[annotation_name]])
+    out[[paste0(annotation_name, "_SE")]] <- unname(selected$se[[annotation_name]])
+    out[[paste0(annotation_name, "_log10pval")]] <- unname(selected$log10pval[[annotation_name]])
   }
   out
 }
@@ -643,6 +650,8 @@ ldgm_reml_convergence_results <- function(fit) {
 #' @param fit A list returned by [ldgm_run_reml()].
 #' @param format Output layout: `"wide"`, `"tall"`, or `"convergence"`.
 #' @param name Row label used for `format = "wide"`.
+#' @param metric Metric family to emit for `format = "wide"`: `"parameters"`,
+#'   `"heritability"`, or `"enrichment"`.
 #' @param append If `TRUE`, append to an existing wide-format file after header
 #'   validation. Ignored for other formats.
 #' @param overwrite If `TRUE`, replace an existing file before writing.
@@ -653,9 +662,11 @@ ldgm_write_reml_results <- function(path,
                                     fit,
                                     format = c("wide", "tall", "convergence"),
                                     name = "trait",
+                                    metric = c("parameters", "heritability", "enrichment"),
                                     append = FALSE,
                                     overwrite = FALSE) {
   format <- match.arg(format)
+  metric <- match.arg(metric)
   path <- normalize_reml_output_path(path)
   append <- isTRUE(append)
   overwrite <- isTRUE(overwrite)
@@ -700,7 +711,7 @@ ldgm_write_reml_results <- function(path,
     return(invisible(path))
   }
 
-  results <- ldgm_reml_results(fit, format = format, name = name)
+  results <- ldgm_reml_results(fit, format = format, name = name, metric = metric)
   if (append) {
     validate_reml_output_header(path, names(results))
   }
@@ -714,6 +725,29 @@ ldgm_write_reml_results <- function(path,
     append = append
   )
   invisible(path)
+}
+
+select_reml_metric <- function(metrics, metric = c("parameters", "heritability", "enrichment")) {
+  metric <- match.arg(metric)
+  if (identical(metric, "parameters")) {
+    return(list(
+      values = metrics$parameters,
+      se = metrics$parameters_se,
+      log10pval = metrics$parameters_log10pval
+    ))
+  }
+  if (identical(metric, "heritability")) {
+    return(list(
+      values = metrics$heritability,
+      se = metrics$heritability_se,
+      log10pval = metrics$heritability_log10pval
+    ))
+  }
+  list(
+    values = metrics$enrichment,
+    se = metrics$enrichment_se,
+    log10pval = metrics$enrichment_log10pval
+  )
 }
 
 normalize_reml_result_metrics <- function(fit) {

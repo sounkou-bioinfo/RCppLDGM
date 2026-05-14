@@ -9,6 +9,7 @@ ldgm_write_reml_results(
   fit,
   format = c("wide", "tall", "convergence"),
   name = "trait",
+  metric = c("parameters", "heritability", "enrichment"),
   append = FALSE,
   overwrite = FALSE
 )
@@ -21,6 +22,9 @@ ldgm_write_reml_results(
 \item{format}{Output layout: \code{"wide"}, \code{"tall"}, or \code{"convergence"}.}
 
 \item{name}{Row label used for \code{format = "wide"}.}
+
+\item{metric}{Metric family to emit for \code{format = "wide"}: \code{"parameters"},
+\code{"heritability"}, or \code{"enrichment"}.}
 
 \item{append}{If \code{TRUE}, append to an existing wide-format file after header
 validation. Ignored for other formats.}

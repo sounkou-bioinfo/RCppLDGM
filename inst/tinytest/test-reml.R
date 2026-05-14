@@ -113,6 +113,14 @@ expect_equal(wide_results$name, "trait1")
 expect_equal(unname(wide_results$base), unname(fit_jk$parameters[["base"]]), tolerance = 1e-12)
 expect_equal(unname(wide_results$coding_SE), unname(fit_jk$parameters_se[["coding"]]), tolerance = 1e-12)
 
+wide_h2 <- ldgm_reml_results(fit_jk, format = "wide", name = "trait1", metric = "heritability")
+expect_equal(unname(wide_h2$base), unname(fit_jk$heritability[["base"]]), tolerance = 1e-12)
+expect_equal(unname(wide_h2$coding_SE), unname(fit_jk$heritability_se[["coding"]]), tolerance = 1e-12)
+
+wide_enrichment <- ldgm_reml_results(fit_jk, format = "wide", name = "trait1", metric = "enrichment")
+expect_equal(unname(wide_enrichment$base), unname(fit_jk$enrichment[["base"]]), tolerance = 1e-12)
+expect_equal(unname(wide_enrichment$coding_SE), unname(fit_jk$enrichment_se[["coding"]]), tolerance = 1e-12)
+
 tall_results <- ldgm_reml_results(fit_jk, format = "tall")
 expect_equal(
   names(tall_results),
@@ -148,6 +156,18 @@ wide_disk2 <- utils::read.csv(wide_path, stringsAsFactors = FALSE, check.names =
 expect_equal(nrow(wide_disk2), 2L)
 expect_equal(wide_disk2$name, c("trait1", "trait2"))
 expect_error(ldgm_write_reml_results(wide_path, fit_jk, format = "wide", name = "trait3"), "already exists")
+
+h2_path <- tempfile(fileext = ".csv")
+ldgm_write_reml_results(h2_path, fit_jk, format = "wide", metric = "heritability", name = "trait1")
+h2_disk <- utils::read.csv(h2_path, stringsAsFactors = FALSE, check.names = FALSE)
+expect_equal(names(h2_disk), names(wide_h2))
+expect_equal(unname(h2_disk$base), unname(wide_h2$base), tolerance = 1e-12)
+
+enrichment_path <- tempfile(fileext = ".csv")
+ldgm_write_reml_results(enrichment_path, fit_jk, format = "wide", metric = "enrichment", name = "trait1")
+enrichment_disk <- utils::read.csv(enrichment_path, stringsAsFactors = FALSE, check.names = FALSE)
+expect_equal(names(enrichment_disk), names(wide_enrichment))
+expect_equal(unname(enrichment_disk$coding_SE), unname(wide_enrichment$coding_SE), tolerance = 1e-12)
 
 tall_path <- tempfile(fileext = ".csv")
 ldgm_write_reml_results(tall_path, fit_jk, format = "tall")
