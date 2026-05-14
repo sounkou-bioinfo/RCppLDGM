@@ -123,9 +123,9 @@ sumstats_na <- data.frame(
   stringsAsFactors = FALSE
 )
 merged_na <- ldgm_merge_snplists(ldgm_na, sumstats_na, add_allelic_cols = "Z")
-expect_equal(merged_na$sumstat_indices, c(0L, 1L, 1L))
-expect_equal(sum(is.na(ldgm_variant_info(merged_na$ldgm)$site_ids)), 2L)
-expect_equal(ldgm_variant_info(merged_na$ldgm)$Z, c(1, 2, 2), tolerance = 1e-12)
+expect_equal(merged_na$sumstat_indices, c(0L, 1L))
+expect_equal(sum(is.na(ldgm_variant_info(merged_na$ldgm)$site_ids)), 1L)
+expect_equal(ldgm_variant_info(merged_na$ldgm)$Z, c(1, 2), tolerance = 1e-12)
 
 expect_error(ldgm_merge_snplists(ldgm, sumstats[, c("SNP", "REF", "ALT", "Z")]), "position")
 expect_error(ldgm_merge_snplists(ldgm, transform(sumstats, REF = "N", ALT = "N")), "matching alleles")

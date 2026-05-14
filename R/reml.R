@@ -557,6 +557,231 @@ ldgm_run_reml <- function(ldgms,
   )
 }
 
+#' Format GraphREML Results for CSV-Style Outputs
+#'
+#' Builds a data frame from [ldgm_run_reml()] output using either GraphLD's
+#' wide one-row-per-trait layout or its tall one-row-per-annotation layout.
+#'
+#' @param fit A list returned by [ldgm_run_reml()].
+#' @param format Output layout: `"wide"` or `"tall"`.
+#' @param name Row label used for the wide format. Ignored for `format = "tall"`.
+#'
+#' @return A data frame.
+#' @export
+ldgm_reml_results <- function(fit, format = c("wide", "tall"), name = "trait") {
+  format <- match.arg(format)
+  metrics <- normalize_reml_result_metrics(fit)
+
+  if (identical(format, "tall")) {
+    return(data.frame(
+      name = metrics$annotation_names,
+      enrichment = unname(metrics$enrichment),
+      enrichment_SE = unname(metrics$enrichment_se),
+      enrichment_log10pval = unname(metrics$enrichment_log10pval),
+      heritability = unname(metrics$heritability),
+      heritability_SE = unname(metrics$heritability_se),
+      heritability_log10pval = unname(metrics$heritability_log10pval),
+      parameter = unname(metrics$parameters),
+      parameter_SE = unname(metrics$parameters_se),
+      parameter_log10pval = unname(metrics$parameters_log10pval),
+      stringsAsFactors = FALSE,
+      check.names = FALSE
+    ))
+  }
+
+  if (!is.character(name) || length(name) != 1L || is.na(name) || !nzchar(name)) {
+    stop("`name` must be a single non-empty string", call. = FALSE)
+  }
+
+  out <- data.frame(name = name, stringsAsFactors = FALSE, check.names = FALSE)
+  for (annotation_name in metrics$annotation_names) {
+    out[[annotation_name]] <- unname(metrics$parameters[[annotation_name]])
+    out[[paste0(annotation_name, "_SE")]] <- unname(metrics$parameters_se[[annotation_name]])
+    out[[paste0(annotation_name, "_log10pval")]] <- unname(metrics$parameters_log10pval[[annotation_name]])
+  }
+  out
+}
+
+#' Extract GraphREML Convergence Results
+#'
+#' Returns the GraphLD-style convergence summary and per-iteration trust-region
+#' history from [ldgm_run_reml()] output.
+#'
+#' @param fit A list returned by [ldgm_run_reml()].
+#'
+#' @return A list with `summary` and `iterations` data frames.
+#' @export
+ldgm_reml_convergence_results <- function(fit) {
+  metrics <- normalize_reml_result_metrics(fit)
+  log <- metrics$log
+  n_rows <- min(length(log$likelihood_changes), length(log$trust_region_lambdas))
+
+  list(
+    summary = data.frame(
+      converged = isTRUE(log$converged),
+      num_iterations = as.integer(log$num_iterations),
+      final_likelihood = as.numeric(log$final_likelihood),
+      stringsAsFactors = FALSE,
+      check.names = FALSE
+    ),
+    iterations = data.frame(
+      iteration = seq_len(n_rows),
+      likelihood_change = as.numeric(log$likelihood_changes[seq_len(n_rows)]),
+      trust_region_lambda = as.numeric(log$trust_region_lambdas[seq_len(n_rows)]),
+      stringsAsFactors = FALSE,
+      check.names = FALSE
+    )
+  )
+}
+
+#' Write GraphREML Results to CSV
+#'
+#' Writes [ldgm_run_reml()] output using GraphLD-style wide, tall, or
+#' convergence CSV layouts.
+#'
+#' @param path Output CSV path.
+#' @param fit A list returned by [ldgm_run_reml()].
+#' @param format Output layout: `"wide"`, `"tall"`, or `"convergence"`.
+#' @param name Row label used for `format = "wide"`.
+#' @param append If `TRUE`, append to an existing wide-format file after header
+#'   validation. Ignored for other formats.
+#' @param overwrite If `TRUE`, replace an existing file before writing.
+#'
+#' @return `path`, invisibly.
+#' @export
+ldgm_write_reml_results <- function(path,
+                                    fit,
+                                    format = c("wide", "tall", "convergence"),
+                                    name = "trait",
+                                    append = FALSE,
+                                    overwrite = FALSE) {
+  format <- match.arg(format)
+  path <- normalize_reml_output_path(path)
+  append <- isTRUE(append)
+  overwrite <- isTRUE(overwrite)
+
+  if (append && overwrite) {
+    stop("`append` and `overwrite` cannot both be `TRUE`", call. = FALSE)
+  }
+  if (append && !identical(format, "wide")) {
+    stop("`append = TRUE` is only supported for `format = \"wide\"`", call. = FALSE)
+  }
+
+  dir.create(dirname(path), recursive = TRUE, showWarnings = FALSE)
+  if (file.exists(path)) {
+    if (overwrite) {
+      unlink(path)
+    } else if (!append) {
+      stop("output file already exists: ", path, call. = FALSE)
+    }
+  }
+
+  if (identical(format, "convergence")) {
+    convergence <- ldgm_reml_convergence_results(fit)
+    con <- file(path, open = "wt")
+    on.exit(close(con), add = TRUE)
+    utils::write.table(
+      convergence$summary,
+      file = con,
+      sep = ",",
+      row.names = FALSE,
+      col.names = TRUE,
+      quote = FALSE
+    )
+    writeLines("", con = con)
+    utils::write.table(
+      convergence$iterations,
+      file = con,
+      sep = ",",
+      row.names = FALSE,
+      col.names = TRUE,
+      quote = FALSE
+    )
+    return(invisible(path))
+  }
+
+  results <- ldgm_reml_results(fit, format = format, name = name)
+  if (append) {
+    validate_reml_output_header(path, names(results))
+  }
+  utils::write.table(
+    results,
+    file = path,
+    sep = ",",
+    row.names = FALSE,
+    col.names = !append,
+    quote = FALSE,
+    append = append
+  )
+  invisible(path)
+}
+
+normalize_reml_result_metrics <- function(fit) {
+  if (!is.list(fit)) {
+    stop("`fit` must be a list returned by `ldgm_run_reml()`", call. = FALSE)
+  }
+  required <- c(
+    "parameters", "parameters_se", "parameters_log10pval",
+    "heritability", "heritability_se", "heritability_log10pval",
+    "enrichment", "enrichment_se", "enrichment_log10pval", "log"
+  )
+  missing <- setdiff(required, names(fit))
+  if (length(missing) > 0L) {
+    stop("`fit` is missing GraphREML result fields: ", paste(missing, collapse = ", "), call. = FALSE)
+  }
+
+  annotation_names <- names(fit$parameters)
+  if (is.null(annotation_names) || anyNA(annotation_names) || any(!nzchar(annotation_names))) {
+    annotation_names <- paste0("annot", seq_along(fit$parameters))
+  }
+
+  metric_names <- c(
+    "parameters", "parameters_se", "parameters_log10pval",
+    "heritability", "heritability_se", "heritability_log10pval",
+    "enrichment", "enrichment_se", "enrichment_log10pval"
+  )
+  for (metric_name in metric_names) {
+    values <- as.numeric(fit[[metric_name]])
+    if (length(values) != length(annotation_names)) {
+      stop("GraphREML result field `", metric_name, "` has length ", length(values),
+           " but expected ", length(annotation_names), call. = FALSE)
+    }
+    names(values) <- annotation_names
+    fit[[metric_name]] <- values
+  }
+
+  log_required <- c("converged", "num_iterations", "final_likelihood", "likelihood_changes", "trust_region_lambdas")
+  log_missing <- setdiff(log_required, names(fit$log))
+  if (length(log_missing) > 0L) {
+    stop("`fit$log` is missing GraphREML convergence fields: ", paste(log_missing, collapse = ", "), call. = FALSE)
+  }
+
+  fit$annotation_names <- annotation_names
+  fit
+}
+
+normalize_reml_output_path <- function(path) {
+  if (!is.character(path) || length(path) != 1L || is.na(path) || !nzchar(path)) {
+    stop("`path` must be a single non-empty string", call. = FALSE)
+  }
+  path
+}
+
+validate_reml_output_header <- function(path, expected_names) {
+  header <- readLines(path, n = 1L, warn = FALSE)
+  if (length(header) != 1L || !nzchar(header)) {
+    stop("existing output file is missing a CSV header: ", path, call. = FALSE)
+  }
+  actual_names <- strsplit(header, ",", fixed = TRUE)[[1L]]
+  if (!identical(actual_names, expected_names)) {
+    stop(
+      "existing output header does not match requested GraphREML format: ", path,
+      call. = FALSE
+    )
+  }
+  invisible(TRUE)
+}
+
 prepare_reml_block <- function(precision, z, annotations, params, sample_size, intercept, denominator) {
   if (!is.numeric(z) || length(dim(z)) > 1L) {
     stop("`z` must be a numeric vector", call. = FALSE)

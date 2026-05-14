@@ -104,6 +104,63 @@ expect_true(all(is.finite(fit_jk$parameters_se)))
 expect_true(all(fit_jk$parameters_se >= 0))
 expect_equal(length(fit_jk$log$trust_region_lambdas), fit_jk$num_iterations)
 
+wide_results <- ldgm_reml_results(fit_jk, format = "wide", name = "trait1")
+expect_equal(
+  names(wide_results),
+  c("name", "base", "base_SE", "base_log10pval", "coding", "coding_SE", "coding_log10pval")
+)
+expect_equal(wide_results$name, "trait1")
+expect_equal(unname(wide_results$base), unname(fit_jk$parameters[["base"]]), tolerance = 1e-12)
+expect_equal(unname(wide_results$coding_SE), unname(fit_jk$parameters_se[["coding"]]), tolerance = 1e-12)
+
+tall_results <- ldgm_reml_results(fit_jk, format = "tall")
+expect_equal(
+  names(tall_results),
+  c(
+    "name", "enrichment", "enrichment_SE", "enrichment_log10pval",
+    "heritability", "heritability_SE", "heritability_log10pval",
+    "parameter", "parameter_SE", "parameter_log10pval"
+  )
+)
+expect_equal(tall_results$name, colnames(annotations_reml))
+expect_equal(tall_results$parameter, unname(fit_jk$parameters), tolerance = 1e-12)
+
+convergence_results <- ldgm_reml_convergence_results(fit_jk)
+expect_equal(names(convergence_results), c("summary", "iterations"))
+expect_equal(names(convergence_results$summary), c("converged", "num_iterations", "final_likelihood"))
+expect_equal(
+  names(convergence_results$iterations),
+  c("iteration", "likelihood_change", "trust_region_lambda")
+)
+expect_equal(convergence_results$summary$num_iterations, fit_jk$num_iterations)
+expect_equal(
+  nrow(convergence_results$iterations),
+  min(length(fit_jk$log$likelihood_changes), length(fit_jk$log$trust_region_lambdas))
+)
+
+wide_path <- tempfile(fileext = ".csv")
+ldgm_write_reml_results(wide_path, fit_jk, format = "wide", name = "trait1")
+wide_disk <- utils::read.csv(wide_path, stringsAsFactors = FALSE, check.names = FALSE)
+expect_equal(nrow(wide_disk), 1L)
+expect_equal(names(wide_disk), names(wide_results))
+ldgm_write_reml_results(wide_path, fit_jk, format = "wide", name = "trait2", append = TRUE)
+wide_disk2 <- utils::read.csv(wide_path, stringsAsFactors = FALSE, check.names = FALSE)
+expect_equal(nrow(wide_disk2), 2L)
+expect_equal(wide_disk2$name, c("trait1", "trait2"))
+expect_error(ldgm_write_reml_results(wide_path, fit_jk, format = "wide", name = "trait3"), "already exists")
+
+tall_path <- tempfile(fileext = ".csv")
+ldgm_write_reml_results(tall_path, fit_jk, format = "tall")
+tall_disk <- utils::read.csv(tall_path, stringsAsFactors = FALSE, check.names = FALSE)
+expect_equal(names(tall_disk), names(tall_results))
+expect_equal(nrow(tall_disk), nrow(tall_results))
+
+convergence_path <- tempfile(fileext = ".csv")
+ldgm_write_reml_results(convergence_path, fit_jk, format = "convergence")
+convergence_lines <- readLines(convergence_path)
+expect_equal(convergence_lines[[1L]], "converged,num_iterations,final_likelihood")
+expect_true(any(convergence_lines == "iteration,likelihood_change,trust_region_lambda"))
+
 fit_threshold <- ldgm_run_reml(
   list(good = P_reml, high_chisq = P_reml),
   list(z_reml, c(2, 0, 0)),
