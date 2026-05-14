@@ -207,11 +207,37 @@ ldgm_write_reml_outputs(alt_prefix, fit_jk, name = "trait2", alt_output = TRUE)
 parameter_disk2 <- utils::read.csv(alt_paths[["parameters"]], stringsAsFactors = FALSE, check.names = FALSE)
 expect_equal(parameter_disk2$name, c("trait1", "trait2"))
 
+alt_multi_prefix <- tempfile(pattern = "reml-alt-multi-")
+alt_multi_paths <- ldgm_write_reml_outputs(
+  alt_multi_prefix,
+  list(fit_jk, fit_jk),
+  name = c("trait1", "trait2"),
+  alt_output = TRUE,
+  overwrite = TRUE
+)
+expect_true(all(file.exists(unname(alt_multi_paths))))
+parameter_multi_disk <- utils::read.csv(alt_multi_paths[["parameters"]], stringsAsFactors = FALSE, check.names = FALSE)
+expect_equal(parameter_multi_disk$name, c("trait1", "trait2"))
+
+expect_error(
+  ldgm_write_reml_outputs(tempfile(pattern = "reml-alt-bad-"), list(fit_jk, fit_jk), name = "trait1", alt_output = TRUE),
+  "one non-empty string per GraphREML fit"
+)
+expect_error(
+  ldgm_write_reml_outputs(tempfile(pattern = "reml-alt-invalid-"), list(fit_jk, list(foo = 1)), name = c("trait1", "trait2"), alt_output = TRUE),
+  "contain only GraphREML fits"
+)
+
 nosave_prefix <- tempfile(pattern = "reml-nosave-")
 nosave_paths <- ldgm_write_reml_outputs(nosave_prefix, fit_jk, save_results = FALSE, overwrite = TRUE)
 expect_equal(names(nosave_paths), "convergence")
 expect_true(file.exists(nosave_paths[[1L]]))
 expect_equal(file.exists(paste0(nosave_prefix, ".tall.csv")), FALSE)
+
+expect_error(
+  ldgm_write_reml_outputs(tempfile(pattern = "reml-tall-multi-"), list(fit_jk, fit_jk), name = c("trait1", "trait2"), overwrite = TRUE),
+  "already exists"
+)
 
 fit_threshold <- ldgm_run_reml(
   list(good = P_reml, high_chisq = P_reml),

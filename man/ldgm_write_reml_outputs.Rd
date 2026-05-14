@@ -16,9 +16,10 @@ ldgm_write_reml_outputs(
 \arguments{
 \item{path_prefix}{Output filename prefix without the \code{.csv} suffixes.}
 
-\item{fit}{A list returned by \code{\link[=ldgm_run_reml]{ldgm_run_reml()}}.}
+\item{fit}{A list returned by \code{\link[=ldgm_run_reml]{ldgm_run_reml()}}, or a list of such fits.}
 
-\item{name}{Row label used for alternate wide-format outputs.}
+\item{name}{Row label used for alternate wide-format outputs. Supply one
+non-empty string per fit when \code{fit} is a list.}
 
 \item{alt_output}{If \code{TRUE}, write GraphLD's alternate wide-format parameter,
 heritability, and enrichment files. Otherwise write the tall result file.}
@@ -27,10 +28,10 @@ heritability, and enrichment files. Otherwise write the tall result file.}
 GraphLD CLI \code{--no-save} path.}
 
 \item{overwrite}{If \code{TRUE}, replace an existing tall result file before
-writing. The convergence file is always replaced so repeated alternate
-output calls can append trait rows while refreshing convergence state, and
-alternate wide-format files continue to append by trait name when they
-already exist, matching GraphLD's writer behavior.}
+writing the first fit. The convergence file is always replaced so repeated
+alternate output calls can append trait rows while refreshing convergence
+state, and alternate wide-format files continue to append by trait name when
+they already exist, matching GraphLD's writer behavior.}
 }
 \value{
 A named character vector of written file paths.
