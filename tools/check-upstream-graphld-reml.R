@@ -112,7 +112,7 @@ ensure_sksparse_compat <- function(python, message_prefix) {
   }
 }
 
-prepare_reml_block_inputs <- function(data_dir, population) {
+prepare_reml_metadata_inputs <- function(data_dir, population) {
   sumstats <- utils::read.delim(file.path(data_dir, "example.sumstats"), stringsAsFactors = FALSE)
   sumstats$Z <- as.numeric(sumstats$Beta) / as.numeric(sumstats$se)
 
@@ -145,6 +145,20 @@ prepare_reml_block_inputs <- function(data_dir, population) {
     required_cols = c("SNP", "CHR", "POS", "A1", "A2", "Z", "base")
   )
 
+  list(
+    metadata = metadata,
+    ldgms = ldgms,
+    blocks = blocks,
+    sample_size = mean(sumstats$N, na.rm = TRUE)
+  )
+}
+
+prepare_reml_block_inputs <- function(data_dir, population) {
+  inputs <- prepare_reml_metadata_inputs(data_dir, population)
+  metadata <- inputs$metadata
+  ldgms <- inputs$ldgms
+  blocks <- inputs$blocks
+
   for (i in seq_along(ldgms)) {
     if (nrow(blocks[[i]]) == 0L) {
       next
@@ -166,13 +180,14 @@ prepare_reml_block_inputs <- function(data_dir, population) {
     annotation_matrix <- as.matrix(data.frame(base = as.numeric(surrogate$precision$variant_info$base)))
     return(list(
       block_name = sub("\\.edgelist$", "", basename(metadata$name[[i]])),
-      sample_size = mean(sumstats$N, na.rm = TRUE),
+      sample_size = inputs$sample_size,
       precision = surrogate$precision,
       z = surrogate$z,
       annotations = annotation_matrix
     ))
   }
 }
+
 
 python <- arg("RCPP_LDGM_PYTHON", default_python())
 graphld_root <- arg("RCPP_LDGM_GRAPHLD_ROOT", ".sync/graphld")

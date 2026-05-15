@@ -104,6 +104,27 @@ expect_true(all(is.finite(fit_jk$parameters_se)))
 expect_true(all(fit_jk$parameters_se >= 0))
 expect_equal(length(fit_jk$log$trust_region_lambdas), fit_jk$num_iterations)
 
+fit_empty_block <- ldgm_run_reml(
+  list(P_reml, NULL),
+  list(z_reml, numeric()),
+  list(annotations_reml, annotations_reml[0, , drop = FALSE]),
+  params = params_reml,
+  sample_size = 100,
+  link_fn_denominator = 10,
+  diagonal_method = "exact",
+  num_iterations = 1L,
+  annotation_names = colnames(annotations_reml),
+  num_jackknife_blocks = 2L,
+  block_names = c("real", "empty")
+)
+expect_equal(fit_empty_block$block_names, c("real", "empty"))
+expect_equal(fit_empty_block$num_jackknife_blocks, 2L)
+expect_equal(dim(fit_empty_block$jackknife_params), c(2L, ncol(annotations_reml)))
+expect_true(all(is.finite(fit_empty_block$parameters_se)))
+expect_equal(length(fit_empty_block$variant_h2), nrow(annotations_reml))
+expect_equal(fit_empty_block$blocks[[2L]]$per_variant_h2, numeric(0))
+expect_equal(fit_empty_block$blocks[[2L]]$gradient, c(0, 0), tolerance = 0)
+
 wide_results <- ldgm_reml_results(fit_jk, format = "wide", name = "trait1")
 expect_equal(
   names(wide_results),

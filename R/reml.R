@@ -376,6 +376,10 @@ ldgm_run_reml <- function(ldgms,
     gradient <- numeric(p)
     hessian <- matrix(0, nrow = p, ncol = p)
     for (i in seq_along(blocks$ldgms)) {
+      if (isTRUE(reml_is_empty_block(blocks$z[[i]], blocks$annotations[[i]]))) {
+        block_results[[i]] <- reml_empty_block_result(p)
+        next
+      }
       block_results[[i]] <- ldgm_reml_block(
         blocks$ldgms[[i]],
         blocks$z[[i]],
@@ -946,6 +950,23 @@ validate_reml_output_header <- function(path, expected_names) {
   invisible(TRUE)
 }
 
+reml_is_empty_block <- function(z, annotations) {
+  length(z) == 0L && nrow(as_numeric_matrix(annotations)) == 0L
+}
+
+reml_empty_block_result <- function(p) {
+  p <- as.integer(p)
+  list(
+    likelihood = 0,
+    gradient = numeric(p),
+    hessian = matrix(0, nrow = p, ncol = p),
+    per_variant_h2 = numeric(0),
+    diag_update = numeric(0),
+    p_z = numeric(0),
+    model_precision = Matrix::Matrix(numeric(0), nrow = 0L, ncol = 0L, sparse = TRUE)
+  )
+}
+
 prepare_reml_block <- function(precision, z, annotations, params, sample_size, intercept, denominator) {
   if (!is.numeric(z) || length(dim(z)) > 1L) {
     stop("`z` must be a numeric vector", call. = FALSE)
@@ -1025,6 +1046,16 @@ normalize_reml_blocks <- function(ldgms,
   }
   annotations <- lapply(annotations, ldgm_annotation_matrix)
   z <- lapply(z, as.numeric)
+  for (i in seq_len(n_blocks)) {
+    empty_z <- length(z[[i]]) == 0L
+    empty_annotations <- nrow(annotations[[i]]) == 0L
+    if (xor(empty_z, empty_annotations)) {
+      stop("empty GraphREML blocks must supply both zero-length `z` and zero-row `annotations`", call. = FALSE)
+    }
+    if (!empty_z && is.null(ldgms[[i]])) {
+      stop("non-empty GraphREML blocks must supply an LDGM precision object", call. = FALSE)
+    }
+  }
   filtered <- reml_filter_blocks_by_chisq(
     ldgms,
     z,
@@ -1249,7 +1280,11 @@ reml_jackknife_summary <- function(block_results,
                                    denominator,
                                    num_jackknife_blocks) {
   n_blocks <- length(block_results)
-  p <- length(block_results[[1L]]$gradient)
+  first_nonempty <- which(vapply(block_results, function(result) length(result$gradient) > 0L, logical(1)))[1L]
+  if (is.na(first_nonempty)) {
+    stop("at least one non-empty GraphREML block is required", call. = FALSE)
+  }
+  p <- length(block_results[[first_nonempty]]$gradient)
   n_jk <- min(as.integer(num_jackknife_blocks), n_blocks)
   gradient_blocks <- matrix(0, nrow = n_blocks, ncol = p)
   hessian_blocks <- array(0, dim = c(n_blocks, p, p))
@@ -1413,6 +1448,10 @@ reml_variant_scores <- function(block_results,
   scores <- vector("list", length(block_results))
   for (i in seq_along(block_results)) {
     annotations <- as_numeric_matrix(annotation_blocks[[i]])
+    if (nrow(annotations) == 0L) {
+      scores[[i]] <- numeric(0)
+      next
+    }
     params_matrix <- as_reml_params(params, ncol(annotations))
     node_grad <- ldgm_gaussian_likelihood_gradient(
       block_results[[i]]$p_z,
@@ -1440,6 +1479,10 @@ reml_variant_hessians <- function(block_results,
   hessians <- vector("list", length(block_results))
   for (i in seq_along(block_results)) {
     annotations <- as_numeric_matrix(annotation_blocks[[i]])
+    if (nrow(annotations) == 0L) {
+      hessians[[i]] <- numeric(0)
+      next
+    }
     params_matrix <- as_reml_params(params, ncol(annotations))
     node_grad <- ldgm_gaussian_likelihood_gradient(
       block_results[[i]]$p_z,
