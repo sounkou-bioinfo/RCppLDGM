@@ -1450,9 +1450,20 @@ prepare_graphreml_inputs <- function(ldgms,
     if (is.null(merged_block) || nrow(merged_block$ldgm$variant_info) == 0L) {
       next
     }
-    prepared_ldgms[i] <- list(merged_block$ldgm)
-    prepared_z[[i]] <- as.numeric(merged_block$ldgm$variant_info$Z)
-    prepared_annotations[[i]] <- as.matrix(merged_block$ldgm$variant_info[, annotation_prepared$annotation_cols, drop = FALSE])
+    block_precision <- merged_block$ldgm
+    block_variant_z <- as.numeric(block_precision$variant_info$Z)
+    if (anyNA(block_variant_z)) {
+      if (!isTRUE(use_surrogate_markers)) {
+        stop(
+          "missing GraphREML Z scores require `use_surrogate_markers = TRUE` when preparing low-level inputs",
+          call. = FALSE
+        )
+      }
+    }
+    surrogate <- ldgm_reml_surrogate_markers(block_precision, block_variant_z)
+    prepared_ldgms[i] <- list(surrogate$precision)
+    prepared_z[[i]] <- surrogate$z
+    prepared_annotations[[i]] <- as.matrix(surrogate$precision$variant_info[, annotation_prepared$annotation_cols, drop = FALSE])
     storage.mode(prepared_annotations[[i]]) <- "double"
     variant_output_indices[[i]] <- as.integer(merged_block$sumstat_indices) + 1L
   }

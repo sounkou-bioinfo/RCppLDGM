@@ -441,7 +441,13 @@ expect_error(
 )
 
 P_dup <- Matrix::Matrix(matrix(c(2, 0.1, 0.1, 3), 2), sparse = TRUE)
-variant_info_dup <- data.frame(index = c(1L, 2L, 2L), SNP = c("a", "b", "c"))
+variant_info_dup <- data.frame(
+  index = c(1L, 2L, 2L),
+  site_ids = c("a", "b", "c"),
+  position = c(10L, 20L, 30L),
+  anc_alleles = c("A", "C", "C"),
+  deriv_alleles = c("G", "T", "A")
+)
 ldgm_dup <- ldgm_precision(P_dup, variant_info_dup)
 annotations_dup <- cbind(base = c(1, 1, 1), coding = c(0, 1, 1))
 z_dup <- c(0.1, -0.2)
@@ -456,6 +462,32 @@ block_dup <- ldgm_reml_block(
 )
 expected_h2_dup <- ldgm_reml_link(annotations_dup, c(0, 0.2), denominator = 10)
 expect_equal(block_dup$diag_update, c(expected_h2_dup[[1]], sum(expected_h2_dup[2:3])), tolerance = 1e-12)
+prepared_dup <- ldgm_prepare_reml_inputs(
+  ldgm_dup,
+  data.frame(
+    SNP = c("a", "b", "c"),
+    CHR = c(1L, 1L, 1L),
+    POS = c(10L, 20L, 30L),
+    REF = c("A", "C", "C"),
+    ALT = c("G", "T", "A"),
+    Z = c(0.1, -0.2, -0.2),
+    N = c(50, 50, 50),
+    stringsAsFactors = FALSE
+  ),
+  data.frame(
+    SNP = c("a", "b", "c"),
+    CHR = c(1L, 1L, 1L),
+    POS = c(10L, 20L, 30L),
+    base = c(1, 1, 1),
+    coding = c(0, 1, 1),
+    stringsAsFactors = FALSE
+  ),
+  sample_size = 50
+)
+expect_equal(length(prepared_dup$z[[1L]]), nrow(ldgm_precision_matrix(prepared_dup$ldgms[[1L]])))
+expect_equal(prepared_dup$z[[1L]], z_dup, tolerance = 1e-12)
+expect_equal(prepared_dup$variant_output_indices[[1L]], c(1L, 2L, 3L))
+expect_equal(dim(prepared_dup$annotations[[1L]]), c(3L, 2L))
 
 P_select_full <- ldgm_precision(
   Matrix::Diagonal(3, x = c(2, 3, 4)),

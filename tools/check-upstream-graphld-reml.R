@@ -122,15 +122,6 @@ prepare_reml_metadata_inputs <- function(data_dir, population) {
   }
   annotations <- annotations[, c("SNP", "CHR", "POS", "base"), drop = FALSE]
 
-  merged_data <- merge(sumstats, annotations, by = "SNP", all.y = TRUE, suffixes = c("", "_ann"))
-  if ("CHR_ann" %in% names(merged_data)) {
-    merged_data$CHR <- merged_data$CHR_ann
-  }
-  if ("POS_ann" %in% names(merged_data)) {
-    merged_data$POS <- merged_data$POS_ann
-  }
-  merged_data <- merged_data[!duplicated(merged_data$SNP), , drop = FALSE]
-
   metadata <- utils::read.csv(file.path(data_dir, "metadata.csv"), stringsAsFactors = FALSE)
   metadata <- metadata[metadata$population == population, , drop = FALSE]
   metadata <- metadata[order(metadata$chrom, metadata$chromStart), , drop = FALSE]
@@ -138,54 +129,37 @@ prepare_reml_metadata_inputs <- function(data_dir, population) {
     fail("no metadata rows for population ", population)
   }
 
-  ldgms <- ldgm_load_block_catalog(metadata, ldgm_dir = data_dir, population = population)
-  blocks <- ldgm_partition_variants(
-    metadata,
-    merged_data,
-    required_cols = c("SNP", "CHR", "POS", "A1", "A2", "Z", "base")
+  prepared <- ldgm_prepare_reml_inputs(
+    ldgms = ldgm_block_catalog(metadata, ldgm_dir = data_dir, population = population),
+    sumstats = sumstats,
+    annotation_data = annotations,
+    ref_allele_col = "A2",
+    alt_allele_col = "A1",
+    use_surrogate_markers = TRUE
   )
 
   list(
     metadata = metadata,
-    ldgms = ldgms,
-    blocks = blocks,
-    sample_size = mean(sumstats$N, na.rm = TRUE)
+    prepared = prepared,
+    sample_size = prepared$sample_size
   )
 }
 
 prepare_reml_block_inputs <- function(data_dir, population) {
   inputs <- prepare_reml_metadata_inputs(data_dir, population)
-  metadata <- inputs$metadata
-  ldgms <- inputs$ldgms
-  blocks <- inputs$blocks
-
-  for (i in seq_along(ldgms)) {
-    if (nrow(blocks[[i]]) == 0L) {
-      next
-    }
-    merged <- tryCatch(
-      ldgm_merge_snplists(
-        ldgms[[i]],
-        blocks[[i]],
-        table_format = "ldsc",
-        add_allelic_cols = "Z",
-        add_cols = "base"
-      ),
-      error = function(e) NULL
-    )
-    if (is.null(merged) || nrow(merged$ldgm$variant_info) == 0L) {
-      next
-    }
-    surrogate <- ldgm_reml_surrogate_markers(merged$ldgm, merged$ldgm$variant_info$Z)
-    annotation_matrix <- as.matrix(data.frame(base = as.numeric(surrogate$precision$variant_info$base)))
-    return(list(
-      block_name = sub("\\.edgelist$", "", basename(metadata$name[[i]])),
-      sample_size = inputs$sample_size,
-      precision = surrogate$precision,
-      z = surrogate$z,
-      annotations = annotation_matrix
-    ))
+  nonempty <- which(vapply(inputs$prepared$z, length, integer(1)) > 0L)
+  if (length(nonempty) == 0L) {
+    return(NULL)
   }
+  i <- nonempty[[1L]]
+  list(
+    block_name = inputs$prepared$block_names[[i]],
+    sample_size = inputs$prepared$sample_size,
+    precision = inputs$prepared$ldgms[[i]],
+    z = inputs$prepared$z[[i]],
+    annotations = inputs$prepared$annotations[[i]],
+    prepared = inputs$prepared
+  )
 }
 
 
@@ -285,14 +259,9 @@ compare_numeric(sum(block_fit$per_variant_h2), expected_metrics$per_variant_h2_s
 compare_df(actual_h2, expected_h2, columns = "per_variant_h2", tolerance = 1e-12, label = "GraphREML per-variant h2")
 
 fit <- ldgm_run_reml(
-  ldgms = list(inputs$precision),
-  z = list(inputs$z),
-  annotations = list(inputs$annotations),
+  inputs$prepared,
   params = 0,
-  sample_size = inputs$sample_size,
-  annotation_names = "base",
   num_iterations = num_iterations,
-  num_jackknife_blocks = 1L,
   seed = seed
 )
 compare_numeric(unname(fit$parameters[[1L]]), expected_summary$parameter[[1L]], tolerance = 1e-2, label = "GraphREML parameter")
@@ -410,6 +379,8 @@ message(
   "GraphREML conformance: block=", inputs$block_name,
   ", active_indices=", length(inputs$z),
   ", variant_rows=", length(block_fit$per_variant_h2),
+  ", block_family=", paste(inputs$prepared$block_names, collapse = ","),
+  ", output_variant_rows=", length(fit$variant_h2),
   ", parameter=", format(unname(fit$parameters[[1L]]), scientific = TRUE),
   ", iterations=", num_iterations
 )
