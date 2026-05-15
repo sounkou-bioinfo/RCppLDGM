@@ -119,7 +119,9 @@ score-test gradients are written with \code{\link[=ldgm_write_score_test_hdf5]{l
 \code{score_test_hdf5} is supplied.}
 
 \item{score_test_variant_data}{Data frame, or list of per-block data frames,
-with \code{CHR}, \code{POS}, and \code{RSID}/\code{SNP} columns for HDF5 row data.}
+with \code{CHR}, \code{POS}, and \code{RSID}/\code{SNP} columns for HDF5 row data. When
+\code{ldgms} is an \code{ldgm_reml_inputs} object, this defaults to the prepared
+metadata-backed active rows.}
 
 \item{score_test_jackknife_blocks}{Optional jackknife assignments for the HDF5
 row data.}

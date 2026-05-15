@@ -353,7 +353,9 @@ ldgm_prepare_reml_inputs <- function(ldgms,
 #' @param score_test_trait_name Trait group name to use under `/traits` when
 #'   `score_test_hdf5` is supplied.
 #' @param score_test_variant_data Data frame, or list of per-block data frames,
-#'   with `CHR`, `POS`, and `RSID`/`SNP` columns for HDF5 row data.
+#'   with `CHR`, `POS`, and `RSID`/`SNP` columns for HDF5 row data. When
+#'   `ldgms` is an `ldgm_reml_inputs` object, this defaults to the prepared
+#'   metadata-backed active rows.
 #' @param score_test_jackknife_blocks Optional jackknife assignments for the HDF5
 #'   row data.
 #' @param score_test_diagonal_method,score_test_n_samples Inverse-diagonal
@@ -497,6 +499,9 @@ ldgm_run_reml <- function(ldgms,
   }
   if (!is.logical(score_test_project_annotations) || length(score_test_project_annotations) != 1L || is.na(score_test_project_annotations)) {
     stop("`score_test_project_annotations` must be `TRUE` or `FALSE`", call. = FALSE)
+  }
+  if (is.null(score_test_variant_data) && !is.null(score_test_hdf5) && !is.null(prepared_inputs)) {
+    score_test_variant_data <- reml_prepared_score_variant_data(prepared_inputs)
   }
 
   evaluate <- function(theta) {
@@ -644,7 +649,17 @@ ldgm_run_reml <- function(ldgms,
       stop("`score_test_variant_data` rows must match the number of scored variants", call. = FALSE)
     }
     score_jackknife_blocks <- normalize_reml_score_jackknife_blocks(score_test_jackknife_blocks)
-    score_jackknife_blocks <- score_jackknife_blocks %||% jackknife$variant_assignments
+    default_score_jackknife_blocks <- jackknife$variant_assignments
+    if (length(default_score_jackknife_blocks) != length(score)) {
+      default_score_jackknife_blocks <- reml_variant_jackknife_assignments(
+        blocks$annotations,
+        jackknife$num_jackknife_blocks
+      )
+    }
+    score_jackknife_blocks <- score_jackknife_blocks %||% default_score_jackknife_blocks
+    if (length(score_jackknife_blocks) != length(score) || anyNA(score_jackknife_blocks)) {
+      stop("`jackknife_blocks` must contain one non-missing value per variant", call. = FALSE)
+    }
     score_test <- ldgm_write_score_test_hdf5(
       score_test_hdf5,
       variant_data = score_variant_data,
@@ -2010,6 +2025,33 @@ normalize_reml_score_variant_data <- function(variant_data) {
     rownames(variant_data) <- NULL
   }
   normalize_score_hdf5_variant_data(variant_data)
+}
+
+reml_prepared_score_variant_data <- function(prepared_inputs) {
+  if (!inherits(prepared_inputs, "ldgm_reml_inputs")) {
+    stop("`prepared_inputs` must be an `ldgm_reml_inputs` object", call. = FALSE)
+  }
+  block_data <- prepared_inputs$block_data
+  variant_output_indices <- prepared_inputs$variant_output_indices
+  if (!is.list(block_data) || !is.list(variant_output_indices) || length(block_data) != length(variant_output_indices)) {
+    stop("prepared GraphREML inputs must carry one row-data mapping per block", call. = FALSE)
+  }
+  out <- vector("list", length(block_data))
+  for (i in seq_along(block_data)) {
+    block <- as.data.frame(block_data[[i]])
+    rows <- as.integer(variant_output_indices[[i]])
+    if (length(rows) == 0L) {
+      out[[i]] <- data.frame(CHR = integer(), POS = numeric(), SNP = character(), stringsAsFactors = FALSE)
+      next
+    }
+    if (anyNA(rows) || any(rows < 1L) || any(rows > nrow(block))) {
+      stop("prepared GraphREML score row mappings must be one-based row ids within each block", call. = FALSE)
+    }
+    keep_cols <- unique(c("CHR", "POS", if ("RSID" %in% names(block)) "RSID" else "SNP"))
+    out[[i]] <- block[rows, keep_cols, drop = FALSE]
+    rownames(out[[i]]) <- NULL
+  }
+  do.call(rbind, out)
 }
 
 normalize_reml_score_jackknife_blocks <- function(jackknife_blocks) {

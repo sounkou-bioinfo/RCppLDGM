@@ -213,6 +213,22 @@ expect_equal(fit_prepared_reml$block_names, c("block1", "block2"))
 expect_equal(length(fit_prepared_reml$variant_h2), 4L)
 expect_equal(fit_prepared_reml$variant_h2[[3L]], 0)
 expect_true(all(fit_prepared_reml$variant_h2[c(1L, 2L, 4L)] > 0))
+prepared_reml_h5 <- tempfile(fileext = ".h5")
+fit_prepared_reml_h5 <- ldgm_run_reml(
+  prepared_reml,
+  params = -0.2,
+  num_iterations = 1L,
+  diagonal_method = "exact",
+  link_fn_denominator = 10,
+  score_test_hdf5 = prepared_reml_h5,
+  score_test_trait_name = "prepared_trait",
+  score_test_diagonal_method = "exact",
+  score_test_overwrite = TRUE
+)
+prepared_reml_h5_data <- ldgm_read_score_test_hdf5(prepared_reml_h5, "prepared_trait")
+expect_equal(prepared_reml_h5_data$variant_data$RSID, c("rs1", "rs2", "rs3"))
+expect_equal(length(prepared_reml_h5_data$gradient), 3L)
+expect_true(all(is.finite(prepared_reml_h5_data$gradient)))
 
 wide_results <- ldgm_reml_results(fit_jk, format = "wide", name = "trait1")
 expect_equal(
