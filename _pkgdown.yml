@@ -135,6 +135,8 @@ reference:
   - ldgm_add_score_test_trait_group
   - ldgm_remove_score_test_trait_groups
   - ldgm_rename_score_test_trait_group
+  - ldgm_remove_score_test_traits
+  - ldgm_rename_score_test_trait
   - ldgm_write_gene_score_hdf5
   - ldgm_read_score_test_hdf5
   - ldgm_score_test_hdf5_inventory

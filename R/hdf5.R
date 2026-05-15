@@ -593,6 +593,77 @@ ldgm_rename_score_test_trait_group <- function(file, old_name, new_name) {
   invisible(list(file = file, old_name = old_name, new_name = new_name))
 }
 
+#' Remove Traits from Score-Test HDF5
+#'
+#' Removes one or more `/traits/<name>` entries by exact name or wildcard
+#' pattern, then updates `/groups` to drop removed traits and delete any trait
+#' groups left with fewer than two members.
+#'
+#' @param file HDF5 path.
+#' @param traits Character vector of exact trait names or wildcard patterns.
+#'
+#' @return Invisibly, a list with `removed_traits` and `removed_groups`.
+#' @export
+ldgm_remove_score_test_traits <- function(file, traits) {
+  check_hdf5_file_arg(file, must_exist = TRUE)
+  header <- ldgm_read_score_test_hdf5(file)
+  matched <- match_score_test_trait_patterns(traits, as.character(header$trait_names %||% character()))
+  RC_remove_graphld_score_traits(file, matched)
+  existing_groups <- ldgm_read_score_test_trait_groups(file)
+  updated_groups <- prune_score_test_trait_groups(existing_groups, matched)
+  if (isTRUE(updated_groups$changed)) {
+    ldgm_write_score_test_trait_groups(file, updated_groups$groups)
+  }
+  invisible(list(
+    file = file,
+    removed_traits = matched,
+    removed_groups = updated_groups$removed_groups
+  ))
+}
+
+#' Rename a Trait in Score-Test HDF5
+#'
+#' Renames one `/traits/<name>` entry while rejecting conflicts with existing
+#' trait-group names and updating `/groups` memberships that refer to the trait.
+#'
+#' @param file HDF5 path.
+#' @param old_name Existing trait name.
+#' @param new_name Replacement trait name.
+#'
+#' @return Invisibly, a list with `old_name`, `new_name`, and `updated_groups`.
+#' @export
+ldgm_rename_score_test_trait <- function(file, old_name, new_name) {
+  check_hdf5_file_arg(file, must_exist = TRUE)
+  old_name <- normalize_score_test_trait_name(old_name)
+  new_name <- normalize_score_test_trait_name(new_name)
+  header <- ldgm_read_score_test_hdf5(file)
+  trait_names <- as.character(header$trait_names %||% character())
+  if (!old_name %in% trait_names) {
+    stop("trait not found: ", old_name, call. = FALSE)
+  }
+  if (new_name %in% trait_names && !identical(new_name, old_name)) {
+    stop("trait already exists: ", new_name, call. = FALSE)
+  }
+  groups <- ldgm_read_score_test_trait_groups(file)
+  if (new_name %in% names(groups) && !identical(new_name, old_name)) {
+    stop("`new_name` must not match an existing trait group", call. = FALSE)
+  }
+  if (identical(new_name, old_name)) {
+    return(invisible(list(file = file, old_name = old_name, new_name = new_name, updated_groups = character())))
+  }
+  RC_rename_graphld_score_trait(file, old_name, new_name)
+  updated_groups <- rename_score_test_group_trait(groups, old_name, new_name)
+  if (isTRUE(updated_groups$changed)) {
+    ldgm_write_score_test_trait_groups(file, updated_groups$groups)
+  }
+  invisible(list(
+    file = file,
+    old_name = old_name,
+    new_name = new_name,
+    updated_groups = updated_groups$updated_groups
+  ))
+}
+
 #' Write a GraphLD-Style Surrogate-Marker HDF5 Map
 #'
 #' Writes one per-block surrogate-marker dataset at the HDF5 root, matching the
@@ -716,7 +787,74 @@ normalize_score_test_group_name <- function(x) {
   x
 }
 
+normalize_score_test_trait_name <- function(x) {
+  if (!is.character(x) || length(x) != 1L || is.na(x) || !nzchar(x)) {
+    stop("trait names must be single non-empty strings", call. = FALSE)
+  }
+  if (grepl("/", x, fixed = TRUE)) {
+    stop("trait names must not contain '/'", call. = FALSE)
+  }
+  x
+}
+
 match_score_test_trait_patterns <- function(patterns, trait_names) {
+  if (!is.character(patterns) || length(patterns) < 1L || anyNA(patterns) || any(!nzchar(patterns))) {
+    stop("`traits` must contain one or more non-empty trait names or patterns", call. = FALSE)
+  }
+  matched <- unique(unlist(lapply(patterns, function(pattern) {
+    hits <- trait_names[grepl(utils::glob2rx(pattern), trait_names)]
+    if (length(hits) == 0L) {
+      stop("no traits matched pattern: ", pattern, call. = FALSE)
+    }
+    hits
+  }), use.names = FALSE))
+  sort(matched)
+}
+
+prune_score_test_trait_groups <- function(groups, removed_traits) {
+  if (length(groups) == 0L) {
+    return(list(groups = groups, removed_groups = character(), changed = FALSE))
+  }
+  out <- groups
+  removed_groups <- character()
+  changed <- FALSE
+  for (name in names(groups)) {
+    values <- as.character(groups[[name]])
+    kept <- values[!values %in% removed_traits]
+    if (length(kept) == length(values)) {
+      next
+    }
+    changed <- TRUE
+    if (length(kept) < 2L) {
+      out[[name]] <- NULL
+      removed_groups[[length(removed_groups) + 1L]] <- name
+      next
+    }
+    out[[name]] <- kept
+  }
+  list(groups = out, removed_groups = removed_groups, changed = changed)
+}
+
+rename_score_test_group_trait <- function(groups, old_name, new_name) {
+  if (length(groups) == 0L) {
+    return(list(groups = groups, updated_groups = character(), changed = FALSE))
+  }
+  out <- groups
+  updated_groups <- character()
+  for (name in names(groups)) {
+    values <- as.character(groups[[name]])
+    hits <- values == old_name
+    if (!any(hits)) {
+      next
+    }
+    values[hits] <- new_name
+    out[[name]] <- values
+    updated_groups[[length(updated_groups) + 1L]] <- name
+  }
+  list(groups = out, updated_groups = updated_groups, changed = length(updated_groups) > 0L)
+}
+
+match_score_test_group_patterns <- function(patterns, group_names) {
   matched <- unique(unlist(lapply(patterns, function(pattern) {
     hits <- trait_names[grepl(utils::glob2rx(pattern), trait_names)]
     if (length(hits) == 0L) {

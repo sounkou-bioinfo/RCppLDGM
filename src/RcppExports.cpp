@@ -248,6 +248,31 @@ BEGIN_RCPP
     return rcpp_result_gen;
 END_RCPP
 }
+// remove_graphld_score_traits_cpp
+Rcpp::List remove_graphld_score_traits_cpp(const std::string& filename, Rcpp::CharacterVector trait_names);
+RcppExport SEXP _RcppLDGM_remove_graphld_score_traits_cpp(SEXP filenameSEXP, SEXP trait_namesSEXP) {
+BEGIN_RCPP
+    Rcpp::RObject rcpp_result_gen;
+    Rcpp::RNGScope rcpp_rngScope_gen;
+    Rcpp::traits::input_parameter< const std::string& >::type filename(filenameSEXP);
+    Rcpp::traits::input_parameter< Rcpp::CharacterVector >::type trait_names(trait_namesSEXP);
+    rcpp_result_gen = Rcpp::wrap(remove_graphld_score_traits_cpp(filename, trait_names));
+    return rcpp_result_gen;
+END_RCPP
+}
+// rename_graphld_score_trait_cpp
+Rcpp::List rename_graphld_score_trait_cpp(const std::string& filename, const std::string& old_name, const std::string& new_name);
+RcppExport SEXP _RcppLDGM_rename_graphld_score_trait_cpp(SEXP filenameSEXP, SEXP old_nameSEXP, SEXP new_nameSEXP) {
+BEGIN_RCPP
+    Rcpp::RObject rcpp_result_gen;
+    Rcpp::RNGScope rcpp_rngScope_gen;
+    Rcpp::traits::input_parameter< const std::string& >::type filename(filenameSEXP);
+    Rcpp::traits::input_parameter< const std::string& >::type old_name(old_nameSEXP);
+    Rcpp::traits::input_parameter< const std::string& >::type new_name(new_nameSEXP);
+    rcpp_result_gen = Rcpp::wrap(rename_graphld_score_trait_cpp(filename, old_name, new_name));
+    return rcpp_result_gen;
+END_RCPP
+}
 // write_graphld_surrogate_hdf5_cpp
 Rcpp::List write_graphld_surrogate_hdf5_cpp(const std::string& filename, const std::string& block_name, SEXP surrogate_map, bool overwrite, const std::string& compression, int chunk_size);
 RcppExport SEXP _RcppLDGM_write_graphld_surrogate_hdf5_cpp(SEXP filenameSEXP, SEXP block_nameSEXP, SEXP surrogate_mapSEXP, SEXP overwriteSEXP, SEXP compressionSEXP, SEXP chunk_sizeSEXP) {
@@ -370,6 +395,8 @@ static const R_CallMethodDef CallEntries[] = {
     {"_RcppLDGM_read_graphld_score_hdf5_cpp", (DL_FUNC) &_RcppLDGM_read_graphld_score_hdf5_cpp, 2},
     {"_RcppLDGM_write_graphld_trait_groups_cpp", (DL_FUNC) &_RcppLDGM_write_graphld_trait_groups_cpp, 2},
     {"_RcppLDGM_read_graphld_trait_groups_cpp", (DL_FUNC) &_RcppLDGM_read_graphld_trait_groups_cpp, 1},
+    {"_RcppLDGM_remove_graphld_score_traits_cpp", (DL_FUNC) &_RcppLDGM_remove_graphld_score_traits_cpp, 2},
+    {"_RcppLDGM_rename_graphld_score_trait_cpp", (DL_FUNC) &_RcppLDGM_rename_graphld_score_trait_cpp, 3},
     {"_RcppLDGM_write_graphld_surrogate_hdf5_cpp", (DL_FUNC) &_RcppLDGM_write_graphld_surrogate_hdf5_cpp, 6},
     {"_RcppLDGM_read_graphld_surrogate_hdf5_cpp", (DL_FUNC) &_RcppLDGM_read_graphld_surrogate_hdf5_cpp, 2},
     {"_RcppLDGM_openmp_info_cpp", (DL_FUNC) &_RcppLDGM_openmp_info_cpp, 0},

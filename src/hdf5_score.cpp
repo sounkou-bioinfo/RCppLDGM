@@ -1044,6 +1044,79 @@ Rcpp::List read_graphld_trait_groups_cpp(const std::string& filename) {
   return read_trait_groups_list(file.get());
 }
 
+// [[Rcpp::export(name = "RC_remove_graphld_score_traits")]]
+Rcpp::List remove_graphld_score_traits_cpp(const std::string& filename,
+                                           Rcpp::CharacterVector trait_names) {
+  ensure_hdf5_ready();
+  std::vector<std::string> names = character_vector_to_strings(trait_names, "trait_names");
+  if (names.empty()) {
+    Rcpp::stop("`trait_names` must contain at least one trait name");
+  }
+
+  H5Handle file = open_file_for_write(filename, false);
+  if (!link_exists(file.get(), "traits")) {
+    Rcpp::stop("the HDF5 group 'traits' does not exist");
+  }
+  H5Handle traits = open_group(file.get(), "traits");
+
+  for (size_t i = 0; i < names.size(); ++i) {
+    const std::string& name = names[i];
+    if (name.empty()) {
+      Rcpp::stop("`trait_names` must not contain empty strings");
+    }
+    if (name.find('/') != std::string::npos) {
+      Rcpp::stop("`trait_names` must not contain '/'");
+    }
+    if (!link_exists(traits.get(), name)) {
+      Rcpp::stop("the HDF5 group 'traits/%s' does not exist", name.c_str());
+    }
+    check_status(H5Ldelete(traits.get(), name.c_str(), H5P_DEFAULT), "deleting trait '" + name + "'");
+  }
+
+  check_status(H5Fflush(file.get(), H5F_SCOPE_GLOBAL), "flushing HDF5 file");
+  return Rcpp::List::create(Rcpp::Named("file") = filename,
+                            Rcpp::Named("removed_traits") = trait_names,
+                            Rcpp::Named("n_traits") = trait_names.size());
+}
+
+// [[Rcpp::export(name = "RC_rename_graphld_score_trait")]]
+Rcpp::List rename_graphld_score_trait_cpp(const std::string& filename,
+                                          const std::string& old_name,
+                                          const std::string& new_name) {
+  ensure_hdf5_ready();
+  if (old_name.empty()) {
+    Rcpp::stop("`old_name` must not be empty");
+  }
+  if (new_name.empty()) {
+    Rcpp::stop("`new_name` must not be empty");
+  }
+  if (old_name.find('/') != std::string::npos) {
+    Rcpp::stop("`old_name` must not contain '/'");
+  }
+  if (new_name.find('/') != std::string::npos) {
+    Rcpp::stop("`new_name` must not contain '/'");
+  }
+
+  H5Handle file = open_file_for_write(filename, false);
+  if (!link_exists(file.get(), "traits")) {
+    Rcpp::stop("the HDF5 group 'traits' does not exist");
+  }
+  H5Handle traits = open_group(file.get(), "traits");
+  if (!link_exists(traits.get(), old_name)) {
+    Rcpp::stop("the HDF5 group 'traits/%s' does not exist", old_name.c_str());
+  }
+  if (link_exists(traits.get(), new_name)) {
+    Rcpp::stop("the HDF5 group 'traits/%s' already exists", new_name.c_str());
+  }
+
+  check_status(H5Lmove(traits.get(), old_name.c_str(), traits.get(), new_name.c_str(), H5P_DEFAULT, H5P_DEFAULT),
+               "renaming trait '" + old_name + "' to '" + new_name + "'");
+  check_status(H5Fflush(file.get(), H5F_SCOPE_GLOBAL), "flushing HDF5 file");
+  return Rcpp::List::create(Rcpp::Named("file") = filename,
+                            Rcpp::Named("old_name") = old_name,
+                            Rcpp::Named("new_name") = new_name);
+}
+
 // [[Rcpp::export(name = "RC_write_graphld_surrogate_hdf5")]]
 Rcpp::List write_graphld_surrogate_hdf5_cpp(const std::string& filename,
                                             const std::string& block_name,

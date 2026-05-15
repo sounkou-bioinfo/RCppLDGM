@@ -57,6 +57,14 @@ RC_read_graphld_trait_groups <- function(filename) {
     .Call(`_RcppLDGM_read_graphld_trait_groups_cpp`, filename)
 }
 
+RC_remove_graphld_score_traits <- function(filename, trait_names) {
+    .Call(`_RcppLDGM_remove_graphld_score_traits_cpp`, filename, trait_names)
+}
+
+RC_rename_graphld_score_trait <- function(filename, old_name, new_name) {
+    .Call(`_RcppLDGM_rename_graphld_score_trait_cpp`, filename, old_name, new_name)
+}
+
 RC_write_graphld_surrogate_hdf5 <- function(filename, block_name, surrogate_map, overwrite, compression, chunk_size) {
     .Call(`_RcppLDGM_write_graphld_surrogate_hdf5_cpp`, filename, block_name, surrogate_map, overwrite, compression, chunk_size)
 }
