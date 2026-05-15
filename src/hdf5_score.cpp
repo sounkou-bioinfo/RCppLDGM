@@ -516,7 +516,7 @@ void create_variant_group_if_needed(hid_t file,
 
   write_attr_string(file, "metadata", "");
   write_attr_string(file, "data_type", "variant");
-  write_attr_strings(file, "keys", std::vector<std::string>{"RSID", "POS"});
+  write_attr_strings(file, "keys", std::vector<std::string>{"RSID", "POS", "CHR"});
   write_attr_string(file, "source", source);
 
   require_group(file, "traits");
@@ -699,7 +699,10 @@ SEXP read_atomic_dataset(hid_t loc, const std::string& name, const std::string& 
   H5Handle dataset(check_id(H5Dopen2(loc, name.c_str(), H5P_DEFAULT), "opening dataset '" + name + "'"),
                    H5Dclose);
   std::vector<hsize_t> dims = dataset_dims(dataset.get());
-  if (dims.size() > 1) {
+  if (dims.size() > 2) {
+    Rcpp::stop("%s dataset '%s' must be one-dimensional", label_prefix, name);
+  }
+  if (dims.size() == 2 && dims[0] != 1 && dims[1] != 1) {
     Rcpp::stop("%s dataset '%s' must be one-dimensional", label_prefix, name);
   }
   H5Handle type(check_id(H5Dget_type(dataset.get()), "opening datatype for dataset '" + name + "'"), H5Tclose);

@@ -226,8 +226,8 @@ fit_prepared_reml_h5 <- ldgm_run_reml(
   score_test_overwrite = TRUE
 )
 prepared_reml_h5_data <- ldgm_read_score_test_hdf5(prepared_reml_h5, "prepared_trait")
-expect_equal(prepared_reml_h5_data$variant_data$RSID, c("rs1", "rs2", "rs3"))
-expect_equal(length(prepared_reml_h5_data$gradient), 3L)
+expect_equal(prepared_reml_h5_data$variant_data$RSID, c("rs1", "rs2", "rs_missing", "rs3"))
+expect_equal(length(prepared_reml_h5_data$gradient), 4L)
 expect_true(all(is.finite(prepared_reml_h5_data$gradient)))
 
 wide_results <- ldgm_reml_results(fit_jk, format = "wide", name = "trait1")

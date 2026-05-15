@@ -619,7 +619,7 @@ ldgm_run_reml <- function(ldgms,
       stop("`score_test_variant_data` is required when `score_test_hdf5` is supplied", call. = FALSE)
     }
     score_variant_data <- normalize_reml_score_variant_data(score_test_variant_data)
-    score <- reml_variant_scores(
+    score_blocks <- reml_variant_scores(
       current$blocks,
       blocks$ldgms,
       blocks$annotations,
@@ -627,11 +627,23 @@ ldgm_run_reml <- function(ldgms,
       denominator = link_fn_denominator,
       diagonal_method = score_test_diagonal_method,
       n_samples = score_test_n_samples,
-      seed = seed
+      seed = seed,
+      flatten = FALSE
     )
+    score_annotations <- blocks$annotations
+    if (!is.null(variant_output_indices)) {
+      score_blocks <- reml_expand_variant_surface_blocks(
+        score_blocks,
+        output_annotations,
+        variant_output_indices = variant_output_indices,
+        fill = 0
+      )
+      score_annotations <- output_annotations
+    }
+    score <- unlist(score_blocks, use.names = FALSE)
     score_hessian <- NULL
     if (isTRUE(score_test_write_hessian)) {
-      score_hessian <- reml_variant_hessians(
+      score_hessian_blocks <- reml_variant_hessians(
         current$blocks,
         blocks$ldgms,
         blocks$annotations,
@@ -639,23 +651,30 @@ ldgm_run_reml <- function(ldgms,
         denominator = link_fn_denominator,
         diagonal_method = score_test_diagonal_method,
         n_samples = score_test_n_samples,
-        seed = seed
+        seed = seed,
+        flatten = FALSE
       )
+      if (!is.null(variant_output_indices)) {
+        score_hessian_blocks <- reml_expand_variant_surface_blocks(
+          score_hessian_blocks,
+          output_annotations,
+          variant_output_indices = variant_output_indices,
+          fill = 0
+        )
+      }
+      score_hessian <- unlist(score_hessian_blocks, use.names = FALSE)
     }
     if (isTRUE(score_test_project_annotations)) {
-      score <- reml_project_out(score, do.call(rbind, blocks$annotations))
+      score <- reml_project_out(score, do.call(rbind, score_annotations))
     }
     if (nrow(score_variant_data) != length(score)) {
       stop("`score_test_variant_data` rows must match the number of scored variants", call. = FALSE)
     }
     score_jackknife_blocks <- normalize_reml_score_jackknife_blocks(score_test_jackknife_blocks)
-    default_score_jackknife_blocks <- jackknife$variant_assignments
-    if (length(default_score_jackknife_blocks) != length(score)) {
-      default_score_jackknife_blocks <- reml_variant_jackknife_assignments(
-        blocks$annotations,
-        jackknife$num_jackknife_blocks
-      )
-    }
+    default_score_jackknife_blocks <- reml_variant_jackknife_assignments(
+      score_annotations,
+      jackknife$num_jackknife_blocks
+    )
     score_jackknife_blocks <- score_jackknife_blocks %||% default_score_jackknife_blocks
     if (length(score_jackknife_blocks) != length(score) || anyNA(score_jackknife_blocks)) {
       stop("`jackknife_blocks` must contain one non-missing value per variant", call. = FALSE)
@@ -1719,24 +1738,25 @@ reml_link_gradient <- function(annotations, params, denominator) {
   annotations * as.numeric(sigmoid_stable(eta) / denominator)
 }
 
-reml_expand_variant_h2 <- function(block_results,
-                                   annotation_blocks,
-                                   variant_output_indices = NULL) {
+reml_expand_variant_surface_blocks <- function(surface_blocks,
+                                               annotation_blocks,
+                                               variant_output_indices = NULL,
+                                               fill = 0) {
   if (is.null(variant_output_indices)) {
-    return(lapply(block_results, `[[`, "per_variant_h2"))
+    return(lapply(surface_blocks, as.numeric))
   }
-  if (!is.list(variant_output_indices) || length(variant_output_indices) != length(block_results)) {
+  if (!is.list(variant_output_indices) || length(variant_output_indices) != length(surface_blocks)) {
     stop("`variant_output_indices` must contain one block mapping per GraphREML block", call. = FALSE)
   }
-  out <- vector("list", length(block_results))
-  for (i in seq_along(block_results)) {
+  out <- vector("list", length(surface_blocks))
+  for (i in seq_along(surface_blocks)) {
     annotations <- as_numeric_matrix(annotation_blocks[[i]])
-    values <- as.numeric(block_results[[i]]$per_variant_h2)
+    values <- as.numeric(surface_blocks[[i]])
     indices <- as.integer(variant_output_indices[[i]])
     if (length(values) != length(indices)) {
-      stop("GraphREML output index mapping length must match per-block variant_h2 length", call. = FALSE)
+      stop("GraphREML output index mapping length must match per-block variant surface length", call. = FALSE)
     }
-    expanded <- numeric(nrow(annotations))
+    expanded <- rep(as.numeric(fill), nrow(annotations))
     if (length(indices) > 0L) {
       if (anyNA(indices) || any(indices < 1L) || any(indices > nrow(annotations))) {
         stop("GraphREML output indices must be one-based row ids within each output block", call. = FALSE)
@@ -1746,6 +1766,17 @@ reml_expand_variant_h2 <- function(block_results,
     out[[i]] <- expanded
   }
   out
+}
+
+reml_expand_variant_h2 <- function(block_results,
+                                   annotation_blocks,
+                                   variant_output_indices = NULL) {
+  reml_expand_variant_surface_blocks(
+    lapply(block_results, `[[`, "per_variant_h2"),
+    annotation_blocks,
+    variant_output_indices = variant_output_indices,
+    fill = 0
+  )
 }
 
 reml_heritability_totals <- function(annotation_blocks, variant_h2_blocks) {
@@ -1938,7 +1969,8 @@ reml_variant_scores <- function(block_results,
                                 denominator,
                                 diagonal_method,
                                 n_samples,
-                                seed) {
+                                seed,
+                                flatten = TRUE) {
   scores <- vector("list", length(block_results))
   for (i in seq_along(block_results)) {
     annotations <- as_numeric_matrix(annotation_blocks[[i]])
@@ -1959,7 +1991,7 @@ reml_variant_scores <- function(block_results,
     indices <- reml_variant_indices(ldgms[[i]], length(node_grad), nrow(annotations))
     scores[[i]] <- as.numeric(node_grad[indices] * del_h2_del_x)
   }
-  unlist(scores, use.names = FALSE)
+  if (isTRUE(flatten)) unlist(scores, use.names = FALSE) else scores
 }
 
 reml_variant_hessians <- function(block_results,
@@ -1969,7 +2001,8 @@ reml_variant_hessians <- function(block_results,
                                   denominator,
                                   diagonal_method,
                                   n_samples,
-                                  seed) {
+                                  seed,
+                                  flatten = TRUE) {
   hessians <- vector("list", length(block_results))
   for (i in seq_along(block_results)) {
     annotations <- as_numeric_matrix(annotation_blocks[[i]])
@@ -2001,7 +2034,7 @@ reml_variant_hessians <- function(block_results,
     indices <- reml_variant_indices(ldgms[[i]], length(node_grad), nrow(annotations))
     hessians[[i]] <- as.numeric(node_hessian[indices] * del_h2_del_x^2 + node_grad[indices] * del2_h2_del_x2)
   }
-  unlist(hessians, use.names = FALSE)
+  if (isTRUE(flatten)) unlist(hessians, use.names = FALSE) else hessians
 }
 
 reml_variant_indices <- function(precision, n_nodes, n_variants) {
@@ -2032,23 +2065,18 @@ reml_prepared_score_variant_data <- function(prepared_inputs) {
     stop("`prepared_inputs` must be an `ldgm_reml_inputs` object", call. = FALSE)
   }
   block_data <- prepared_inputs$block_data
-  variant_output_indices <- prepared_inputs$variant_output_indices
-  if (!is.list(block_data) || !is.list(variant_output_indices) || length(block_data) != length(variant_output_indices)) {
-    stop("prepared GraphREML inputs must carry one row-data mapping per block", call. = FALSE)
+  if (!is.list(block_data)) {
+    stop("prepared GraphREML inputs must carry per-block row data", call. = FALSE)
   }
   out <- vector("list", length(block_data))
   for (i in seq_along(block_data)) {
     block <- as.data.frame(block_data[[i]])
-    rows <- as.integer(variant_output_indices[[i]])
-    if (length(rows) == 0L) {
+    if (nrow(block) == 0L) {
       out[[i]] <- data.frame(CHR = integer(), POS = numeric(), SNP = character(), stringsAsFactors = FALSE)
       next
     }
-    if (anyNA(rows) || any(rows < 1L) || any(rows > nrow(block))) {
-      stop("prepared GraphREML score row mappings must be one-based row ids within each block", call. = FALSE)
-    }
     keep_cols <- unique(c("CHR", "POS", if ("RSID" %in% names(block)) "RSID" else "SNP"))
-    out[[i]] <- block[rows, keep_cols, drop = FALSE]
+    out[[i]] <- block[, keep_cols, drop = FALSE]
     rownames(out[[i]]) <- NULL
   }
   do.call(rbind, out)

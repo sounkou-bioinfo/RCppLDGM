@@ -117,7 +117,13 @@ def main() -> None:
     pl.DataFrame({"per_variant_h2": np.asarray(per_variant_h2, dtype=float).reshape(-1)}).write_csv(out_dir / "per_variant_h2.csv")
 
     model = gld.ModelOptions()
-    method = gld.MethodOptions(num_iterations=args.num_iterations, run_serial=True, verbose=False)
+    method = gld.MethodOptions(
+        num_iterations=args.num_iterations,
+        run_serial=True,
+        verbose=False,
+        score_test_hdf5_file_name=os.fspath(out_dir / "reml_score.h5"),
+        score_test_hdf5_trait_name="trait",
+    )
     summary = gld.run_graphREML(
         model_options=model,
         method_options=method,

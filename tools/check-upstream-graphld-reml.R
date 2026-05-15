@@ -210,13 +210,14 @@ enrichment_multi_path <- file.path(out_dir, "reml_enrichment_multi.csv")
 tall_path <- file.path(out_dir, "reml_tall.csv")
 convergence_path <- file.path(out_dir, "reml_convergence.csv")
 convergence_multi_path <- file.path(out_dir, "reml_convergence_multi.csv")
+score_h5_path <- file.path(out_dir, "reml_score.h5")
 tall_multi_error_path <- file.path(out_dir, "reml_tall_multi_error.txt")
 required_paths <- c(
   metrics_path, h2_path, summary_path, history_path,
   parameters_path, heritability_path, enrichment_path,
   jackknife_params_path, jackknife_h2_path, jackknife_enrichment_path,
   parameters_multi_path, heritability_multi_path, enrichment_multi_path,
-  tall_path, convergence_path, convergence_multi_path, tall_multi_error_path
+  tall_path, convergence_path, convergence_multi_path, score_h5_path, tall_multi_error_path
 )
 if (!all(file.exists(required_paths))) {
   fail("GraphLD GraphREML outputs missing from generator: ", out_dir)
@@ -262,11 +263,16 @@ compare_numeric(length(inputs$z), expected_metrics$n_active_indices[[1L]], toler
 compare_numeric(sum(block_fit$per_variant_h2), expected_metrics$per_variant_h2_sum[[1L]], tolerance = 1e-10, label = "GraphREML per-variant h2 sum")
 compare_df(actual_h2, expected_h2, columns = "per_variant_h2", tolerance = 1e-12, label = "GraphREML per-variant h2")
 
+actual_score_h5 <- file.path(actual_dir <- tempfile("graphld-reml-r-"), "reml_score.h5")
+dir.create(actual_dir)
 fit <- ldgm_run_reml(
   inputs$prepared,
   params = 0,
   num_iterations = num_iterations,
-  seed = seed
+  seed = seed,
+  score_test_hdf5 = actual_score_h5,
+  score_test_trait_name = "trait",
+  score_test_overwrite = TRUE
 )
 compare_numeric(unname(fit$parameters[[1L]]), expected_summary$parameter[[1L]], tolerance = 1e-2, label = "GraphREML parameter")
 compare_numeric(unname(fit$heritability[[1L]]), expected_summary$heritability[[1L]], tolerance = 5e-7, label = "GraphREML heritability")
@@ -290,9 +296,8 @@ expected_enrichment_multi <- utils::read.csv(enrichment_multi_path, stringsAsFac
 expected_tall <- utils::read.csv(tall_path, stringsAsFactors = FALSE, check.names = FALSE)
 expected_convergence <- read_convergence_csv(convergence_path)
 expected_convergence_multi <- read_convergence_csv(convergence_multi_path)
+expected_score_h5 <- ldgm_read_score_test_hdf5(score_h5_path, "trait")
 expected_tall_multi_error <- readLines(tall_multi_error_path, warn = FALSE)
-actual_dir <- tempfile("graphld-reml-r-")
-dir.create(actual_dir)
 alt_paths <- ldgm_write_reml_outputs(
   file.path(actual_dir, "reml"),
   fit,
@@ -324,6 +329,7 @@ actual_tall_multi_error <- tryCatch(
   },
   error = function(e) conditionMessage(e)
 )
+actual_score_h5_data <- ldgm_read_score_test_hdf5(actual_score_h5, "trait")
 actual_parameters <- utils::read.csv(alt_paths[["parameters"]], stringsAsFactors = FALSE, check.names = FALSE)
 actual_heritability <- utils::read.csv(alt_paths[["heritability"]], stringsAsFactors = FALSE, check.names = FALSE)
 actual_enrichment <- utils::read.csv(alt_paths[["enrichment"]], stringsAsFactors = FALSE, check.names = FALSE)
@@ -339,6 +345,13 @@ compare_numeric(seq_along(fit$likelihood_history), expected_history$iteration, t
 compare_numeric(fit$jackknife_params[, 1L], expected_jackknife_params$base, tolerance = 1e-2, label = "GraphREML jackknife parameter")
 compare_numeric(fit$jackknife_h2[, 1L], expected_jackknife_h2$base, tolerance = 1e-6, label = "GraphREML jackknife heritability")
 compare_numeric(fit$jackknife_enrichment[, 1L], expected_jackknife_enrichment$base, tolerance = 1e-12, label = "GraphREML jackknife enrichment")
+compare_character(as.character(actual_score_h5_data$data_type), as.character(expected_score_h5$data_type), label = "GraphREML score HDF5 data_type")
+compare_character(as.character(actual_score_h5_data$keys), as.character(expected_score_h5$keys), label = "GraphREML score HDF5 keys")
+compare_character(actual_score_h5_data$variant_data$RSID, expected_score_h5$variant_data$RSID, label = "GraphREML score HDF5 RSID")
+compare_numeric(actual_score_h5_data$variant_data$CHR, expected_score_h5$variant_data$CHR, tolerance = 0, label = "GraphREML score HDF5 CHR")
+compare_numeric(actual_score_h5_data$variant_data$POS, expected_score_h5$variant_data$POS, tolerance = 0, label = "GraphREML score HDF5 POS")
+compare_numeric(actual_score_h5_data$variant_data$jackknife_blocks, expected_score_h5$variant_data$jackknife_blocks, tolerance = 0, label = "GraphREML score HDF5 jackknife blocks")
+compare_numeric(actual_score_h5_data$gradient, expected_score_h5$gradient, tolerance = 1e-3, label = "GraphREML score HDF5 gradient")
 compare_character(names(actual_parameters), names(expected_parameters), label = "GraphREML parameter columns")
 compare_character(actual_parameters$name, expected_parameters$name, label = "GraphREML parameter$name")
 compare_numeric(actual_parameters$base, expected_parameters$base, tolerance = 1e-2, label = "GraphREML parameter value")

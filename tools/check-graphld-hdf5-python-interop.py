@@ -329,7 +329,7 @@ def main(argv: list[str]) -> int:
         if _decode_attr_string(handle.attrs["data_type"]) != "variant":
             raise AssertionError(f"unexpected data_type attribute: {handle.attrs['data_type']!r}")
         keys = [_decode_attr_string(value) for value in handle.attrs["keys"]]
-        if keys != ["RSID", "POS"]:
+        if keys != ["RSID", "POS", "CHR"]:
             raise AssertionError(f"unexpected keys attribute: {keys!r}")
         if _decode_attr_string(handle.attrs["source"]) != "graphld-hdf5-interop":
             raise AssertionError(f"unexpected source attribute: {handle.attrs['source']!r}")

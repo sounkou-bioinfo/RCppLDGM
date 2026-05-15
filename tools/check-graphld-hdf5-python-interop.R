@@ -155,7 +155,7 @@ stopifnot(
   isTRUE(all.equal(native$variant_data$AF, variant_data$AF, tolerance = 1e-12, check.attributes = FALSE)),
   identical(as.integer(native$variant_data$jackknife_blocks), jackknife_blocks),
   identical(native$metadata, ""),
-  identical(as.character(native$keys), c("RSID", "POS")),
+  identical(as.character(native$keys), c("RSID", "POS", "CHR")),
   identical(native$source, source_tag),
   identical(native$groups, list(body = trait_name, combined = c(trait_name, trait_name_b))),
   identical(ldgm_read_score_test_trait_groups(h5), list(body = trait_name, combined = c(trait_name, trait_name_b))),
