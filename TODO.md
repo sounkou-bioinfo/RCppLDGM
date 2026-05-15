@@ -28,7 +28,7 @@ This tracks what is **still to implement** after the current conformance/porting
 ## Performance and broader conformance
 
 - [ ] **Larger GraphLD/SuiteSparse conformance scope**
-  - [ ] Expand BLUP, clumping, inverse-diagonal, XNys/xdiag, and graphREML comparisons beyond tiny fixtures.
+  - [ ] Expand BLUP, clumping, inverse-diagonal, XNys/xdiag, and graphREML comparisons beyond the current tiny/default plus synthetic conformance fixtures.
   - [ ] Add upstream-scale (or larger synthetic/benchmark) datasets outside `inst/`.
 
 - [ ] **Benchmarking and benchmarking comparisons**

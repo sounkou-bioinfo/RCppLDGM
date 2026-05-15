@@ -44,17 +44,20 @@ RCPP_LDGM_GRAPHLD_MAX_BLOCKS=2 \
 Rscript tools/check-upstream-graphld-blup-clump.R
 ```
 
-A pinned fixed-block GraphREML core and multi-iteration optimizer-summary check can be
-run on the same upstream test slice. This compares upstream GraphLD's
-initialized block likelihood, gradient, Hessian, and per-variant heritability
-vector against `ldgm_reml_block()`, then compares `run_graphREML()` summary and
-history fields against `ldgm_run_reml()` after selected-view merging and
-surrogate assignment on the R side. The same gate now also writes R-side
-CLI-style output families with `ldgm_write_reml_outputs()` and checks the
-parameter/heritability/enrichment wide CSV outputs plus tall/convergence files
-for on-disk column layout and currently shared numeric fields. The same gate
-now also checks the upstream-style alternate-output multi-trait append path,
-convergence-file refresh behavior, and the current tall-existing-file error path:
+A pinned GraphREML conformance check can be run on the same upstream test slice.
+It now covers two fixtures: the original metadata-driven tiny upstream example
+and a synthetic two-block active-variant fixture that keeps both EUR metadata
+blocks non-empty. For each fixture, the gate compares upstream GraphLD block
+likelihood/gradient/Hessian/per-variant-h2 outputs against `ldgm_reml_block()`,
+then compares `run_graphREML()` summary and history fields against
+`ldgm_run_reml()` after selected-view merging and surrogate assignment on the R
+side. The same gate also writes R-side CLI-style output families with
+`ldgm_write_reml_outputs()` and checks the parameter/heritability/enrichment
+wide CSV outputs plus tall/convergence files for on-disk column layout and
+currently shared numeric fields. The same gate now also checks the upstream-style
+alternate-output multi-trait append path, convergence-file refresh behavior,
+and shared-field score-test HDF5 output for both fixtures, plus the current
+tall-existing-file error path:
 
 ```bash
 RCPP_LDGM_PYTHON=.sync/ldgm-python/bin/python \
