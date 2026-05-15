@@ -92,6 +92,7 @@ reference:
   - ldgm_reml_link
   - ldgm_reml_surrogate_markers
   - ldgm_reml_block
+  - ldgm_prepare_reml_inputs
   - ldgm_run_reml
   - ldgm_reml_results
   - ldgm_reml_convergence_results

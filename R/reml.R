@@ -190,6 +190,106 @@ ldgm_reml_block <- function(precision,
   )
 }
 
+#' Prepare GraphREML Inputs from GraphLD-Style Tables
+#'
+#' Converts GraphLD-style summary-statistics, annotation, and block-catalog
+#' inputs into the explicit block lists consumed by [ldgm_run_reml()]. This is a
+#' staging helper for metadata-driven or provider-backed GraphREML workflows:
+#' it keeps the low-level optimizer boundary explicit while giving callers a
+#' single place to resolve block catalogs, merge annotations, preserve empty
+#' metadata blocks, and retain per-block row mappings for output summaries.
+#'
+#' @param ldgms An `ldgm_precision` block, a list of such blocks, a
+#'   [LdgmBlockCatalog] object, or a path to a GraphLD metadata CSV.
+#' @param sumstats Summary-statistics data frame or object implementing
+#'   [LdgmSummaryStats].
+#' @param annotation_data Annotation data frame or object implementing
+#'   [LdgmAnnotationData].
+#' @param metadata Optional metadata data frame used to partition `sumstats`
+#'   when `ldgms` is already loaded.
+#' @param ldgm_dir Directory containing metadata-referenced `.edgelist` and
+#'   `.snplist` files. Defaults to the metadata file directory.
+#' @param population Population column/name passed to [ldgm_load_ldgm()].
+#' @param populations Optional population filter for metadata files.
+#' @param chromosomes Optional chromosome filter for metadata files.
+#' @param sample_size Optional GWAS sample size override. When `NULL`, the mean
+#'   `N` column from `sumstats` is used if available.
+#' @param match_by_position Match summary statistics by position instead of SNP
+#'   identifier.
+#' @param z_col Summary-statistics Z-score column.
+#' @param variant_id_col Summary-statistics variant id column.
+#' @param ref_allele_col Summary-statistics reference allele column.
+#' @param alt_allele_col Summary-statistics alternate allele column.
+#' @param pos_col Preferred position column in `sumstats` and `annotation_data`.
+#' @param chrom_col Preferred chromosome column in `sumstats` and
+#'   `annotation_data`.
+#' @param use_surrogate_markers If `TRUE`, keep annotation rows without matched
+#'   Z scores so [ldgm_run_reml()] can resolve them through surrogate markers.
+#'
+#' @return A list with class `ldgm_reml_inputs` containing low-level
+#'   `ldgms`/`z`/`annotations` blocks, inferred `sample_size`, `annotation_names`,
+#'   `block_names`, full-row output annotation blocks, jackknife annotation
+#'   blocks, and per-block row mappings back to the partitioned GraphLD-style
+#'   tables.
+#' @export
+ldgm_prepare_reml_inputs <- function(ldgms,
+                                     sumstats,
+                                     annotation_data,
+                                     metadata = NULL,
+                                     ldgm_dir = NULL,
+                                     population = "EUR",
+                                     populations = NULL,
+                                     chromosomes = NULL,
+                                     sample_size = NULL,
+                                     match_by_position = FALSE,
+                                     z_col = "Z",
+                                     variant_id_col = "SNP",
+                                     ref_allele_col = "REF",
+                                     alt_allele_col = "ALT",
+                                     pos_col = "POS",
+                                     chrom_col = NULL,
+                                     use_surrogate_markers = TRUE) {
+  if (!is.logical(use_surrogate_markers) || length(use_surrogate_markers) != 1L || is.na(use_surrogate_markers)) {
+    stop("`use_surrogate_markers` must be `TRUE` or `FALSE`", call. = FALSE)
+  }
+  if ((is.character(ldgms) && length(ldgms) == 1L) || ldgm_implements(ldgms, LdgmBlockCatalog)) {
+    catalog <- ldgm_block_catalog(
+      ldgms,
+      ldgm_dir = ldgm_dir,
+      population = population,
+      populations = populations,
+      chromosomes = chromosomes
+    )
+    metadata <- ldgm_block_metadata_frame(catalog)
+    ldgms <- ldgm_load_block_catalog(catalog, population = population)
+  }
+  if (inherits(ldgms, "ldgm_precision")) {
+    ldgms <- list(ldgms)
+  }
+  if (!is.list(ldgms) || !all(vapply(ldgms, inherits, logical(1), "ldgm_precision"))) {
+    stop("`ldgms` must be an ldgm_precision object, a list of them, a block catalog, or a metadata CSV path", call. = FALSE)
+  }
+  prepared <- prepare_graphreml_inputs(
+    ldgms = ldgms,
+    sumstats = sumstats,
+    annotation_data = annotation_data,
+    metadata = metadata,
+    populations = populations,
+    chromosomes = chromosomes,
+    sample_size = sample_size,
+    match_by_position = match_by_position,
+    z_col = z_col,
+    variant_id_col = variant_id_col,
+    ref_allele_col = ref_allele_col,
+    alt_allele_col = alt_allele_col,
+    pos_col = pos_col,
+    chrom_col = chrom_col,
+    use_surrogate_markers = use_surrogate_markers
+  )
+  class(prepared) <- c("ldgm_reml_inputs", "list")
+  prepared
+}
+
 #' Run a Serial GraphREML-Style Optimizer
 #'
 #' Initial serial scheduler for GraphLD-style graphREML over one or more LDGM
@@ -203,12 +303,15 @@ ldgm_reml_block <- function(precision,
 #' initial serial surrogate-marker path for missing Z scores. It does not yet
 #' implement GraphLD's multiprocessing manager.
 #'
-#' @param ldgms An `ldgm_precision`/sparse precision block or a list of blocks.
-#' @param z Numeric Z-score vector or list of vectors, one per block.
+#' @param ldgms An `ldgm_precision`/sparse precision block, a list of blocks,
+#'   or an `ldgm_reml_inputs` object returned by [ldgm_prepare_reml_inputs()].
+#' @param z Numeric Z-score vector or list of vectors, one per block. Ignored
+#'   when `ldgms` is an `ldgm_reml_inputs` object.
 #' @param annotations Numeric annotation matrix or list of matrices, one per
-#'   block.
+#'   block. Ignored when `ldgms` is an `ldgm_reml_inputs` object.
 #' @param params Optional starting parameter vector. Defaults to zeros.
-#' @param sample_size Positive GWAS sample size.
+#' @param sample_size Positive GWAS sample size. When `ldgms` is an
+#'   `ldgm_reml_inputs` object, defaults to the prepared `sample_size`.
 #' @param annotation_names Optional names for annotation parameters. Defaults to
 #'   annotation matrix column names or `annot1`, `annot2`, ...
 #' @param num_iterations Maximum number of optimization iterations.
@@ -270,10 +373,10 @@ ldgm_reml_block <- function(precision,
 #'   and final block derivatives.
 #' @export
 ldgm_run_reml <- function(ldgms,
-                          z,
-                          annotations,
+                          z = NULL,
+                          annotations = NULL,
                           params = NULL,
-                          sample_size,
+                          sample_size = NULL,
                           annotation_names = NULL,
                           num_iterations = 10L,
                           convergence_tol = 1e-3,
@@ -305,6 +408,32 @@ ldgm_run_reml <- function(ldgms,
                           score_test_write_hessian = FALSE,
                           score_test_project_annotations = TRUE,
                           score_test_overwrite = FALSE) {
+  prepared_inputs <- NULL
+  output_annotations <- NULL
+  variant_output_indices <- NULL
+  jackknife_annotations <- NULL
+  if (inherits(ldgms, "ldgm_reml_inputs")) {
+    prepared_inputs <- ldgms
+    if (!is.null(z)) {
+      stop("`z` must be `NULL` when `ldgms` is an `ldgm_reml_inputs` object", call. = FALSE)
+    }
+    if (!is.null(annotations)) {
+      stop("`annotations` must be `NULL` when `ldgms` is an `ldgm_reml_inputs` object", call. = FALSE)
+    }
+    ldgms <- prepared_inputs$ldgms
+    z <- prepared_inputs$z
+    annotations <- prepared_inputs$annotations
+    sample_size <- sample_size %||% prepared_inputs$sample_size
+    annotation_names <- annotation_names %||% prepared_inputs$annotation_names
+    block_names <- block_names %||% prepared_inputs$block_names
+    output_annotations <- prepared_inputs$output_annotations
+    variant_output_indices <- prepared_inputs$variant_output_indices
+    jackknife_annotations <- prepared_inputs$jackknife_annotations
+  }
+  if (is.null(z) || is.null(annotations)) {
+    stop("`z` and `annotations` are required unless `ldgms` is an `ldgm_reml_inputs` object", call. = FALSE)
+  }
+  check_reml_sample_size(sample_size)
   if (!is.logical(use_surrogate_markers) || length(use_surrogate_markers) != 1L || is.na(use_surrogate_markers)) {
     stop("`use_surrogate_markers` must be `TRUE` or `FALSE`", call. = FALSE)
   }
@@ -461,14 +590,21 @@ ldgm_run_reml <- function(ldgms,
     }
   }
 
+  output_annotations <- output_annotations %||% blocks$annotations
+  jackknife_annotations <- jackknife_annotations %||% output_annotations
   jackknife <- reml_jackknife_summary(
     current$blocks,
-    blocks$annotations,
+    jackknife_annotations,
     params,
     denominator = link_fn_denominator,
     num_jackknife_blocks = as.integer(num_jackknife_blocks)
   )
-  variant_h2 <- unlist(lapply(current$blocks, `[[`, "per_variant_h2"), use.names = FALSE)
+  variant_h2_blocks <- reml_expand_variant_h2(
+    current$blocks,
+    output_annotations,
+    variant_output_indices = variant_output_indices
+  )
+  variant_h2 <- unlist(variant_h2_blocks, use.names = FALSE)
 
   score_test <- NULL
   if (!is.null(score_test_hdf5)) {
@@ -520,7 +656,7 @@ ldgm_run_reml <- function(ldgms,
     )
   }
 
-  totals <- reml_heritability_totals(current$blocks, blocks$annotations)
+  totals <- reml_heritability_totals(output_annotations, variant_h2_blocks)
   params <- as.numeric(params)
   names(params) <- annotation_names
   names(totals$heritability) <- annotation_names
@@ -1195,6 +1331,302 @@ normalize_reml_surrogate_map <- function(surrogate_map, n_nodes) {
   surrogate_map
 }
 
+prepare_graphreml_inputs <- function(ldgms,
+                                     sumstats,
+                                     annotation_data,
+                                     metadata = NULL,
+                                     populations = NULL,
+                                     chromosomes = NULL,
+                                     sample_size = NULL,
+                                     match_by_position = FALSE,
+                                     z_col = "Z",
+                                     variant_id_col = "SNP",
+                                     ref_allele_col = "REF",
+                                     alt_allele_col = "ALT",
+                                     pos_col = "POS",
+                                     chrom_col = NULL,
+                                     use_surrogate_markers = TRUE) {
+  if (!is.null(metadata)) {
+    metadata <- reml_normalize_partition_metadata(
+      metadata,
+      populations = populations,
+      chromosomes = chromosomes
+    )
+  } else if (length(ldgms) > 1L) {
+    stop("provide `metadata` when preparing GraphREML inputs for multiple LDGMs", call. = FALSE)
+  }
+
+  sumstats_frame <- reml_prepare_sumstats_frame(
+    sumstats,
+    match_by_position = match_by_position,
+    z_col = z_col,
+    variant_id_col = variant_id_col,
+    ref_allele_col = ref_allele_col,
+    alt_allele_col = alt_allele_col,
+    pos_col = pos_col,
+    chrom_col = chrom_col
+  )
+  annotation_prepared <- reml_prepare_annotation_frame(
+    annotation_data,
+    match_by_position = match_by_position,
+    variant_id_col = variant_id_col,
+    pos_col = pos_col,
+    chrom_col = chrom_col
+  )
+  merged_data <- reml_join_graphreml_data(
+    sumstats_frame,
+    annotation_prepared$data,
+    match_by_position = match_by_position,
+    use_surrogate_markers = use_surrogate_markers
+  )
+  if (nrow(merged_data) == 0L) {
+    stop("no overlapping variants found between summary statistics and annotations", call. = FALSE)
+  }
+
+  if (is.null(sample_size) && "N" %in% names(merged_data)) {
+    sample_size <- mean(as.numeric(merged_data$N), na.rm = TRUE)
+    if (!is.finite(sample_size)) {
+      sample_size <- NULL
+    }
+  }
+
+  if (is.null(metadata)) {
+    block_data <- list(merged_data)
+    block_names <- normalize_reml_block_names(ldgms, length(ldgms))
+  } else {
+    partition_required_cols <- unique(c(
+      "CHR", "POS", "SNP", "REF", "ALT", "Z",
+      annotation_prepared$annotation_cols,
+      if ("N" %in% names(merged_data)) "N" else NULL
+    ))
+    block_data <- ldgm_partition_variants(
+      metadata,
+      merged_data,
+      chrom_col = "CHR",
+      pos_col = "POS",
+      required_cols = partition_required_cols
+    )
+    block_names <- reml_prepare_input_block_names(metadata, ldgms)
+  }
+  if (length(block_data) != length(ldgms)) {
+    stop("number of prepared GraphREML blocks must match number of LDGMs", call. = FALSE)
+  }
+
+  prepared_ldgms <- vector("list", length(ldgms))
+  prepared_z <- vector("list", length(ldgms))
+  prepared_annotations <- vector("list", length(ldgms))
+  output_annotations <- vector("list", length(ldgms))
+  variant_output_indices <- vector("list", length(ldgms))
+
+  for (i in seq_along(ldgms)) {
+    output_annotations[[i]] <- as.matrix(block_data[[i]][, annotation_prepared$annotation_cols, drop = FALSE])
+    storage.mode(output_annotations[[i]]) <- "double"
+    prepared_ldgms[i] <- list(NULL)
+    prepared_z[[i]] <- numeric(0)
+    prepared_annotations[[i]] <- output_annotations[[i]][0, , drop = FALSE]
+    variant_output_indices[[i]] <- integer(0)
+    if (nrow(block_data[[i]]) == 0L) {
+      next
+    }
+    merged_block <- tryCatch(
+      ldgm_merge_snplists(
+        ldgms[[i]],
+        block_data[[i]],
+        variant_id_col = "SNP",
+        ref_allele_col = "REF",
+        alt_allele_col = "ALT",
+        match_by_position = match_by_position,
+        pos_col = "POS",
+        add_allelic_cols = "Z",
+        add_cols = annotation_prepared$annotation_cols
+      ),
+      error = function(e) {
+        if (grepl("no variants|matching alleles", conditionMessage(e), ignore.case = TRUE)) {
+          return(NULL)
+        }
+        stop(e)
+      }
+    )
+    if (is.null(merged_block) || nrow(merged_block$ldgm$variant_info) == 0L) {
+      next
+    }
+    prepared_ldgms[i] <- list(merged_block$ldgm)
+    prepared_z[[i]] <- as.numeric(merged_block$ldgm$variant_info$Z)
+    prepared_annotations[[i]] <- as.matrix(merged_block$ldgm$variant_info[, annotation_prepared$annotation_cols, drop = FALSE])
+    storage.mode(prepared_annotations[[i]]) <- "double"
+    variant_output_indices[[i]] <- as.integer(merged_block$sumstat_indices) + 1L
+  }
+
+  list(
+    ldgms = prepared_ldgms,
+    z = prepared_z,
+    annotations = prepared_annotations,
+    output_annotations = output_annotations,
+    jackknife_annotations = output_annotations,
+    variant_output_indices = variant_output_indices,
+    sample_size = sample_size,
+    annotation_names = annotation_prepared$annotation_cols,
+    block_names = block_names,
+    merged_data = merged_data,
+    block_data = block_data
+  )
+}
+
+reml_normalize_partition_metadata <- function(metadata,
+                                              populations = NULL,
+                                              chromosomes = NULL) {
+  if (!is.data.frame(metadata)) {
+    stop("`metadata` must be a data frame", call. = FALSE)
+  }
+  required <- c("chrom", "chromStart", "chromEnd")
+  missing_required <- setdiff(required, names(metadata))
+  if (length(missing_required) > 0L) {
+    stop("`metadata` is missing required columns: ", paste(missing_required, collapse = ", "), call. = FALSE)
+  }
+  keep <- rep(TRUE, nrow(metadata))
+  if (!is.null(populations)) {
+    populations <- normalize_ldgm_population_filter(populations)
+    if (!"population" %in% names(metadata)) {
+      stop("metadata must contain `population` to filter populations", call. = FALSE)
+    }
+    keep <- keep & metadata$population %in% populations
+  }
+  if (!is.null(chromosomes)) {
+    chromosomes <- chromosomes[!is.na(chromosomes)]
+    if (length(chromosomes) == 0L) {
+      stop("`chromosomes` must contain at least one non-missing value", call. = FALSE)
+    }
+    keep <- keep & metadata$chrom %in% chromosomes
+  }
+  metadata <- metadata[keep, , drop = FALSE]
+  if (nrow(metadata) == 0L) {
+    stop("no metadata blocks remain after filtering", call. = FALSE)
+  }
+  metadata[order(metadata$chrom, metadata$chromStart), , drop = FALSE]
+}
+
+reml_prepare_sumstats_frame <- function(sumstats,
+                                        match_by_position = FALSE,
+                                        z_col = "Z",
+                                        variant_id_col = "SNP",
+                                        ref_allele_col = "REF",
+                                        alt_allele_col = "ALT",
+                                        pos_col = "POS",
+                                        chrom_col = NULL) {
+  required_cols <- unique(c(
+    chrom_col,
+    pos_col,
+    z_col,
+    if (isTRUE(match_by_position)) NULL else variant_id_col,
+    ref_allele_col,
+    alt_allele_col,
+    "CHR",
+    "N"
+  ))
+  frame <- if (ldgm_implements(sumstats, LdgmSummaryStats)) {
+    ldgm_summary_stats_frame(sumstats, required_cols = required_cols)
+  } else if (is.data.frame(sumstats)) {
+    normalize_ldgm_summary_stats_frame(sumstats, required_cols = required_cols)
+  } else {
+    stop("summary-statistic inputs must be data frames or implement `LdgmSummaryStats`", call. = FALSE)
+  }
+  chrom_col <- detect_column(frame, unique(c(chrom_col, "chrom", "chromosome", "CHR")), "chromosome")
+  pos_col <- detect_column(frame, unique(c(pos_col, "position", "POS", "BP")), "position")
+  if (!z_col %in% names(frame)) {
+    stop("summary statistics must contain `", z_col, "`", call. = FALSE)
+  }
+  frame$CHR <- frame[[chrom_col]]
+  frame$POS <- frame[[pos_col]]
+  frame$Z <- as.numeric(frame[[z_col]])
+  if (!isTRUE(match_by_position)) {
+    if (!variant_id_col %in% names(frame)) {
+      stop("summary statistics must contain `", variant_id_col, "`", call. = FALSE)
+    }
+    frame$SNP <- frame[[variant_id_col]]
+  }
+  if (ref_allele_col %in% names(frame)) {
+    frame$REF <- frame[[ref_allele_col]]
+  }
+  if (alt_allele_col %in% names(frame)) {
+    frame$ALT <- frame[[alt_allele_col]]
+  }
+  row.names(frame) <- NULL
+  frame
+}
+
+reml_prepare_annotation_frame <- function(annotation_data,
+                                          match_by_position = FALSE,
+                                          variant_id_col = "SNP",
+                                          pos_col = "POS",
+                                          chrom_col = NULL) {
+  annotation_cols <- if (ldgm_implements(annotation_data, LdgmAnnotationData)) {
+    ldgm_annotation_columns(annotation_data)
+  } else {
+    normalize_ldgm_annotation_data_frame(annotation_data)$annotation_cols
+  }
+  required_cols <- unique(c(
+    chrom_col,
+    pos_col,
+    if (isTRUE(match_by_position)) NULL else variant_id_col,
+    "CHR",
+    "POS",
+    if (isTRUE(match_by_position)) NULL else "SNP"
+  ))
+  frame <- if (ldgm_implements(annotation_data, LdgmAnnotationData)) {
+    ldgm_annotation_data_frame(
+      annotation_data,
+      annotation_cols = annotation_cols,
+      required_cols = required_cols
+    )
+  } else {
+    normalize_ldgm_annotation_data_frame(annotation_data, annotation_cols = annotation_cols)$data
+  }
+  chrom_col <- detect_column(frame, unique(c(chrom_col, "chrom", "chromosome", "CHR")), "chromosome")
+  pos_col <- detect_column(frame, unique(c(pos_col, "position", "POS", "BP")), "position")
+  frame$CHR <- frame[[chrom_col]]
+  frame$POS <- frame[[pos_col]]
+  if (!isTRUE(match_by_position)) {
+    snp_col <- detect_column(frame, unique(c(variant_id_col, "SNP", "RSID")), "variant id")
+    frame$SNP <- frame[[snp_col]]
+  }
+  row.names(frame) <- NULL
+  list(data = frame, annotation_cols = annotation_cols)
+}
+
+reml_join_graphreml_data <- function(sumstats_frame,
+                                     annotation_frame,
+                                     match_by_position = FALSE,
+                                     use_surrogate_markers = TRUE) {
+  join_cols <- if (isTRUE(match_by_position)) c("CHR", "POS") else "SNP"
+  merged <- merge(
+    sumstats_frame,
+    annotation_frame,
+    by = join_cols,
+    all = FALSE,
+    all.y = isTRUE(use_surrogate_markers),
+    sort = FALSE,
+    suffixes = c("", "_ann")
+  )
+  if (!isTRUE(match_by_position)) {
+    if ("CHR_ann" %in% names(merged)) {
+      merged$CHR <- merged$CHR_ann
+    }
+    if ("POS_ann" %in% names(merged)) {
+      merged$POS <- merged$POS_ann
+    }
+  }
+  merged <- merged[!duplicated(merged[join_cols]), , drop = FALSE]
+  row.names(merged) <- NULL
+  merged
+}
+
+reml_prepare_input_block_names <- function(metadata, ldgms) {
+  if ("name" %in% names(metadata) && all(!is.na(metadata$name)) && all(nzchar(metadata$name))) {
+    return(sub("\\.edgelist$", "", basename(metadata$name)))
+  }
+  normalize_reml_block_names(ldgms, length(ldgms))
+}
+
 reml_select_surrogate_index <- function(precision,
                                         missing_index,
                                         observed_indices,
@@ -1259,13 +1691,47 @@ reml_link_gradient <- function(annotations, params, denominator) {
   annotations * as.numeric(sigmoid_stable(eta) / denominator)
 }
 
-reml_heritability_totals <- function(block_results, annotation_blocks) {
+reml_expand_variant_h2 <- function(block_results,
+                                   annotation_blocks,
+                                   variant_output_indices = NULL) {
+  if (is.null(variant_output_indices)) {
+    return(lapply(block_results, `[[`, "per_variant_h2"))
+  }
+  if (!is.list(variant_output_indices) || length(variant_output_indices) != length(block_results)) {
+    stop("`variant_output_indices` must contain one block mapping per GraphREML block", call. = FALSE)
+  }
+  out <- vector("list", length(block_results))
+  for (i in seq_along(block_results)) {
+    annotations <- as_numeric_matrix(annotation_blocks[[i]])
+    values <- as.numeric(block_results[[i]]$per_variant_h2)
+    indices <- as.integer(variant_output_indices[[i]])
+    if (length(values) != length(indices)) {
+      stop("GraphREML output index mapping length must match per-block variant_h2 length", call. = FALSE)
+    }
+    expanded <- numeric(nrow(annotations))
+    if (length(indices) > 0L) {
+      if (anyNA(indices) || any(indices < 1L) || any(indices > nrow(annotations))) {
+        stop("GraphREML output indices must be one-based row ids within each output block", call. = FALSE)
+      }
+      expanded[indices] <- values
+    }
+    out[[i]] <- expanded
+  }
+  out
+}
+
+reml_heritability_totals <- function(annotation_blocks, variant_h2_blocks) {
   p <- ncol(annotation_blocks[[1L]])
   h2 <- numeric(p)
   annot_sums <- numeric(p)
-  for (i in seq_along(block_results)) {
-    h2 <- h2 + colSums(annotation_blocks[[i]] * block_results[[i]]$per_variant_h2)
-    annot_sums <- annot_sums + colSums(annotation_blocks[[i]])
+  for (i in seq_along(annotation_blocks)) {
+    annotations <- as_numeric_matrix(annotation_blocks[[i]])
+    variant_h2 <- as.numeric(variant_h2_blocks[[i]])
+    if (nrow(annotations) != length(variant_h2)) {
+      stop("GraphREML output annotations and variant_h2 blocks must have matching row counts", call. = FALSE)
+    }
+    h2 <- h2 + colSums(annotations * variant_h2)
+    annot_sums <- annot_sums + colSums(annotations)
   }
   enrichment <- rep(NA_real_, p)
   if (p >= 1L && is.finite(h2[[1L]]) && h2[[1L]] != 0 && is.finite(annot_sums[[1L]]) && annot_sums[[1L]] != 0) {

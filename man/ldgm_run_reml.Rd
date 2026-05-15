@@ -6,10 +6,10 @@
 \usage{
 ldgm_run_reml(
   ldgms,
-  z,
-  annotations,
+  z = NULL,
+  annotations = NULL,
   params = NULL,
-  sample_size,
+  sample_size = NULL,
   annotation_names = NULL,
   num_iterations = 10L,
   convergence_tol = 0.001,
@@ -44,16 +44,19 @@ ldgm_run_reml(
 )
 }
 \arguments{
-\item{ldgms}{An \code{ldgm_precision}/sparse precision block or a list of blocks.}
+\item{ldgms}{An \code{ldgm_precision}/sparse precision block, a list of blocks,
+or an \code{ldgm_reml_inputs} object returned by \code{\link[=ldgm_prepare_reml_inputs]{ldgm_prepare_reml_inputs()}}.}
 
-\item{z}{Numeric Z-score vector or list of vectors, one per block.}
+\item{z}{Numeric Z-score vector or list of vectors, one per block. Ignored
+when \code{ldgms} is an \code{ldgm_reml_inputs} object.}
 
 \item{annotations}{Numeric annotation matrix or list of matrices, one per
-block.}
+block. Ignored when \code{ldgms} is an \code{ldgm_reml_inputs} object.}
 
 \item{params}{Optional starting parameter vector. Defaults to zeros.}
 
-\item{sample_size}{Positive GWAS sample size.}
+\item{sample_size}{Positive GWAS sample size. When \code{ldgms} is an
+\code{ldgm_reml_inputs} object, defaults to the prepared \code{sample_size}.}
 
 \item{annotation_names}{Optional names for annotation parameters. Defaults to
 annotation matrix column names or \code{annot1}, \code{annot2}, ...}

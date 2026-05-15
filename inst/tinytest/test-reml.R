@@ -125,6 +125,95 @@ expect_equal(length(fit_empty_block$variant_h2), nrow(annotations_reml))
 expect_equal(fit_empty_block$blocks[[2L]]$per_variant_h2, numeric(0))
 expect_equal(fit_empty_block$blocks[[2L]]$gradient, c(0, 0), tolerance = 0)
 
+variant_info_reml1 <- data.frame(
+  index = 1:2,
+  site_ids = c("rs1", "rs2"),
+  position = c(100L, 150L),
+  anc_alleles = c("A", "C"),
+  deriv_alleles = c("G", "T"),
+  af = c(0.1, 0.2)
+)
+variant_info_reml2 <- data.frame(
+  index = 1L,
+  site_ids = "rs3",
+  position = 250L,
+  anc_alleles = "G",
+  deriv_alleles = "A",
+  af = 0.3
+)
+ldgm_reml1 <- ldgm_precision(
+  ldgm_sparse_precision(ldgm_edge_list(c(1L, 2L, 1L), c(1L, 2L, 2L), c(2, 3, 0.1))),
+  variant_info_reml1
+)
+ldgm_reml2 <- ldgm_precision(
+  ldgm_sparse_precision(ldgm_edge_list(1L, 1L, 4)),
+  variant_info_reml2
+)
+sumstats_reml_meta <- data.frame(
+  CHR = c(1L, 1L, 1L, 1L),
+  POS = c(100L, 150L, 175L, 250L),
+  SNP = c("rs1", "rs2", "rs_missing", "rs3"),
+  REF = c("A", "T", "A", "G"),
+  ALT = c("G", "C", "C", "A"),
+  Z = c(0.2, 0.5, 0.8, -0.3),
+  N = rep(100, 4)
+)
+annotation_reml_meta <- data.frame(
+  CHR = c(1L, 1L, 1L, 1L),
+  POS = c(100L, 150L, 175L, 250L),
+  SNP = c("rs1", "rs2", "rs_missing", "rs3"),
+  base = c(1, 1, 1, 1)
+)
+metadata_reml_meta <- data.frame(
+  chrom = c(1L, 1L),
+  chromStart = c(50L, 200L),
+  chromEnd = c(200L, 300L)
+)
+summary_provider_calls_reml <- new.env(parent = emptyenv())
+summary_provider_calls_reml$frame <- 0L
+annotation_provider_calls_reml <- new.env(parent = emptyenv())
+annotation_provider_calls_reml$frame <- 0L
+summary_provider_reml <- ldgm_summary_stats_provider(
+  frame = function(required_cols) {
+    summary_provider_calls_reml$frame <- summary_provider_calls_reml$frame + 1L
+    sumstats_reml_meta[, unique(required_cols), drop = FALSE]
+  },
+  required_cols = c("CHR", "POS", "SNP", "REF", "ALT", "Z", "N")
+)
+annotation_provider_reml <- ldgm_annotation_data_provider(
+  frame = function(annotation_cols, required_cols) {
+    annotation_provider_calls_reml$frame <- annotation_provider_calls_reml$frame + 1L
+    annotation_reml_meta[, unique(c(required_cols, annotation_cols)), drop = FALSE]
+  },
+  annotation_cols = "base"
+)
+prepared_reml <- ldgm_prepare_reml_inputs(
+  list(block1 = ldgm_reml1, block2 = ldgm_reml2),
+  summary_provider_reml,
+  annotation_provider_reml,
+  metadata = metadata_reml_meta
+)
+expect_equal(prepared_reml$sample_size, 100)
+expect_equal(prepared_reml$annotation_names, "base")
+expect_equal(prepared_reml$block_names, c("block1", "block2"))
+expect_equal(prepared_reml$variant_output_indices[[1L]], c(1L, 2L))
+expect_equal(prepared_reml$variant_output_indices[[2L]], 1L)
+expect_equal(dim(prepared_reml$output_annotations[[1L]]), c(3L, 1L))
+expect_equal(dim(prepared_reml$annotations[[1L]]), c(2L, 1L))
+expect_equal(summary_provider_calls_reml$frame, 1L)
+expect_equal(annotation_provider_calls_reml$frame, 1L)
+fit_prepared_reml <- ldgm_run_reml(
+  prepared_reml,
+  params = -0.2,
+  num_iterations = 1L,
+  diagonal_method = "exact",
+  link_fn_denominator = 10
+)
+expect_equal(fit_prepared_reml$block_names, c("block1", "block2"))
+expect_equal(length(fit_prepared_reml$variant_h2), 4L)
+expect_equal(fit_prepared_reml$variant_h2[[3L]], 0)
+expect_true(all(fit_prepared_reml$variant_h2[c(1L, 2L, 4L)] > 0))
+
 wide_results <- ldgm_reml_results(fit_jk, format = "wide", name = "trait1")
 expect_equal(
   names(wide_results),
