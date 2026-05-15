@@ -501,31 +501,96 @@ ldgm_read_score_test_trait_groups <- function(file) {
 #' @export
 ldgm_write_score_test_trait_groups <- function(file, groups) {
   check_hdf5_file_arg(file, must_exist = FALSE)
-  if (!is.list(groups) || is.data.frame(groups)) {
-    stop("`groups` must be a named list", call. = FALSE)
-  }
-  group_names <- names(groups)
-  if (length(groups) > 0L && (is.null(group_names) || length(group_names) != length(groups))) {
-    stop("`groups` must be a named list", call. = FALSE)
-  }
-  if (length(groups) > 0L) {
-    if (anyNA(group_names) || any(!nzchar(group_names))) {
-      stop("`groups` names must be non-empty", call. = FALSE)
-    }
-    if (any(grepl("/", group_names, fixed = TRUE))) {
-      stop("`groups` names must not contain '/'", call. = FALSE)
-    }
-  }
-  normalized <- stats::setNames(vector("list", length(groups)), group_names %||% character())
-  for (i in seq_along(groups)) {
-    values <- as.character(groups[[i]])
-    if (length(values) < 1L || anyNA(values) || any(!nzchar(values))) {
-      stop("each trait group must be a non-empty character vector", call. = FALSE)
-    }
-    normalized[[i]] <- values
-  }
+  normalized <- normalize_score_test_trait_groups(groups)
   result <- RC_write_graphld_trait_groups(file, normalized)
   invisible(result)
+}
+
+#' Add a GraphLD-Style Trait Group to Score-Test HDF5
+#'
+#' Adds or replaces one `/groups/<name>` entry using the same trait-pattern
+#' matching semantics as GraphLD's score-test CLI `add-meta` command.
+#'
+#' @param file HDF5 path.
+#' @param group_name Name of the trait group to create.
+#' @param traits Character vector of exact trait names or wildcard patterns.
+#'
+#' @return Invisibly, a list with the written `group_name` and resolved `traits`.
+#' @export
+ldgm_add_score_test_trait_group <- function(file, group_name, traits) {
+  check_hdf5_file_arg(file, must_exist = TRUE)
+  group_name <- normalize_score_test_group_name(group_name)
+  if (!is.character(traits) || length(traits) < 1L || anyNA(traits) || any(!nzchar(traits))) {
+    stop("`traits` must contain one or more non-empty trait names or patterns", call. = FALSE)
+  }
+
+  header <- ldgm_read_score_test_hdf5(file)
+  trait_names <- as.character(header$trait_names %||% character())
+  if (group_name %in% trait_names) {
+    stop("`group_name` must not match an existing trait name", call. = FALSE)
+  }
+  resolved <- match_score_test_trait_patterns(traits, trait_names)
+  if (length(resolved) < 2L) {
+    stop("trait groups require at least two matched traits", call. = FALSE)
+  }
+  groups <- ldgm_read_score_test_trait_groups(file)
+  groups[[group_name]] <- resolved
+  ldgm_write_score_test_trait_groups(file, groups)
+  invisible(list(file = file, group_name = group_name, traits = resolved))
+}
+
+#' Remove GraphLD-Style Trait Groups from Score-Test HDF5
+#'
+#' Removes one or more `/groups/<name>` entries by exact name or wildcard
+#' pattern.
+#'
+#' @param file HDF5 path.
+#' @param groups Character vector of exact group names or wildcard patterns.
+#'
+#' @return Invisibly, a list with `removed_groups`.
+#' @export
+ldgm_remove_score_test_trait_groups <- function(file, groups) {
+  check_hdf5_file_arg(file, must_exist = TRUE)
+  existing <- ldgm_read_score_test_trait_groups(file)
+  matched <- match_score_test_group_patterns(groups, names(existing))
+  kept <- existing[setdiff(names(existing), matched)]
+  ldgm_write_score_test_trait_groups(file, kept)
+  invisible(list(file = file, removed_groups = matched))
+}
+
+#' Rename a GraphLD-Style Trait Group in Score-Test HDF5
+#'
+#' Renames one `/groups/<name>` entry while rejecting conflicts with existing
+#' trait or group names.
+#'
+#' @param file HDF5 path.
+#' @param old_name Existing trait-group name.
+#' @param new_name Replacement trait-group name.
+#'
+#' @return Invisibly, a list with `old_name` and `new_name`.
+#' @export
+ldgm_rename_score_test_trait_group <- function(file, old_name, new_name) {
+  check_hdf5_file_arg(file, must_exist = TRUE)
+  old_name <- normalize_score_test_group_name(old_name)
+  new_name <- normalize_score_test_group_name(new_name)
+  groups <- ldgm_read_score_test_trait_groups(file)
+  if (!old_name %in% names(groups)) {
+    stop("trait group not found: ", old_name, call. = FALSE)
+  }
+  header <- ldgm_read_score_test_hdf5(file)
+  trait_names <- as.character(header$trait_names %||% character())
+  if (new_name %in% trait_names) {
+    stop("`new_name` must not match an existing trait name", call. = FALSE)
+  }
+  if (new_name %in% names(groups) && !identical(new_name, old_name)) {
+    stop("trait group already exists: ", new_name, call. = FALSE)
+  }
+  groups[[new_name]] <- groups[[old_name]]
+  if (!identical(new_name, old_name)) {
+    groups[[old_name]] <- NULL
+  }
+  ldgm_write_score_test_trait_groups(file, groups)
+  invisible(list(file = file, old_name = old_name, new_name = new_name))
 }
 
 #' Write a GraphLD-Style Surrogate-Marker HDF5 Map
@@ -612,6 +677,68 @@ ldgm_read_surrogate_map_hdf5 <- function(file, block_name, file_index_base = c("
     out[out < 1L] <- NA_integer_
   }
   out
+}
+
+normalize_score_test_trait_groups <- function(groups) {
+  if (!is.list(groups) || is.data.frame(groups)) {
+    stop("`groups` must be a named list", call. = FALSE)
+  }
+  group_names <- names(groups)
+  if (length(groups) > 0L && (is.null(group_names) || length(group_names) != length(groups))) {
+    stop("`groups` must be a named list", call. = FALSE)
+  }
+  if (length(groups) > 0L) {
+    if (anyNA(group_names) || any(!nzchar(group_names))) {
+      stop("`groups` names must be non-empty", call. = FALSE)
+    }
+    if (any(grepl("/", group_names, fixed = TRUE))) {
+      stop("`groups` names must not contain '/'", call. = FALSE)
+    }
+  }
+  normalized <- stats::setNames(vector("list", length(groups)), group_names %||% character())
+  for (i in seq_along(groups)) {
+    values <- as.character(groups[[i]])
+    if (length(values) < 1L || anyNA(values) || any(!nzchar(values))) {
+      stop("each trait group must be a non-empty character vector", call. = FALSE)
+    }
+    normalized[[i]] <- values
+  }
+  normalized
+}
+
+normalize_score_test_group_name <- function(x) {
+  if (!is.character(x) || length(x) != 1L || is.na(x) || !nzchar(x)) {
+    stop("trait group names must be single non-empty strings", call. = FALSE)
+  }
+  if (grepl("/", x, fixed = TRUE)) {
+    stop("trait group names must not contain '/'", call. = FALSE)
+  }
+  x
+}
+
+match_score_test_trait_patterns <- function(patterns, trait_names) {
+  matched <- unique(unlist(lapply(patterns, function(pattern) {
+    hits <- trait_names[grepl(utils::glob2rx(pattern), trait_names)]
+    if (length(hits) == 0L) {
+      stop("no traits matched pattern: ", pattern, call. = FALSE)
+    }
+    hits
+  }), use.names = FALSE))
+  sort(matched)
+}
+
+match_score_test_group_patterns <- function(patterns, group_names) {
+  if (!is.character(patterns) || length(patterns) < 1L || anyNA(patterns) || any(!nzchar(patterns))) {
+    stop("`groups` must contain one or more non-empty group names or patterns", call. = FALSE)
+  }
+  matched <- unique(unlist(lapply(patterns, function(pattern) {
+    hits <- group_names[grepl(utils::glob2rx(pattern), group_names)]
+    if (length(hits) == 0L) {
+      stop("no trait groups matched pattern: ", pattern, call. = FALSE)
+    }
+    hits
+  }), use.names = FALSE))
+  sort(matched)
 }
 
 describe_hdf5_inventory_frame <- function(x) {
