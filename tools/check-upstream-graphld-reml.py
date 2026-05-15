@@ -144,6 +144,24 @@ def main() -> None:
             "trust_region_lambda": np.asarray(summary["log"]["trust_region_lambdas"], dtype=float).reshape(-1),
         }
     ).write_csv(out_dir / "reml_history.csv")
+    pl.DataFrame(
+        {
+            "jackknife_block": np.arange(1, np.asarray(summary["jackknife_params"]).shape[0] + 1),
+            "base": np.asarray(summary["jackknife_params"], dtype=float).reshape(-1),
+        }
+    ).write_csv(out_dir / "reml_jackknife_params.csv")
+    pl.DataFrame(
+        {
+            "jackknife_block": np.arange(1, np.asarray(summary["jackknife_h2"]).shape[0] + 1),
+            "base": np.asarray(summary["jackknife_h2"], dtype=float).reshape(-1),
+        }
+    ).write_csv(out_dir / "reml_jackknife_h2.csv")
+    pl.DataFrame(
+        {
+            "jackknife_block": np.arange(1, np.asarray(summary["jackknife_enrichment"]).shape[0] + 1),
+            "base": np.asarray(summary["jackknife_enrichment"], dtype=float).reshape(-1),
+        }
+    ).write_csv(out_dir / "reml_jackknife_enrichment.csv")
 
     parameter_values = np.asarray(summary["parameters"], dtype=float).reshape(-1)
     parameter_se = np.asarray(summary["parameters_se"], dtype=float).reshape(-1)

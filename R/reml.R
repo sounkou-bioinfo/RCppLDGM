@@ -529,6 +529,7 @@ ldgm_run_reml <- function(ldgms,
   }
 
   current <- evaluate(params)
+  jackknife_state <- current
   likelihood_history <- numeric()
   trust_region_history <- numeric()
   trust_region_lambda <- as.numeric(trust_region_size)
@@ -537,6 +538,7 @@ ldgm_run_reml <- function(ldgms,
   last_step_bad <- TRUE
   for (iteration in seq_len(as.integer(num_iterations))) {
     iterations_run <- iteration
+    jackknife_state <- current
     old_params <- params
     old_likelihood <- current$likelihood
     if (isTRUE(reset_trust_region) || isTRUE(last_step_bad)) {
@@ -593,7 +595,7 @@ ldgm_run_reml <- function(ldgms,
   output_annotations <- output_annotations %||% blocks$annotations
   jackknife_annotations <- jackknife_annotations %||% output_annotations
   jackknife <- reml_jackknife_summary(
-    current$blocks,
+    jackknife_state$blocks,
     jackknife_annotations,
     params,
     denominator = link_fn_denominator,
@@ -680,8 +682,8 @@ ldgm_run_reml <- function(ldgms,
     converged = converged,
     num_iterations = iterations_run,
     num_jackknife_blocks = jackknife$num_jackknife_blocks,
-    gradient = current$gradient,
-    hessian = current$hessian,
+    gradient = jackknife_state$gradient,
+    hessian = jackknife_state$hessian,
     score_test_hdf5 = score_test,
     block_names = blocks$block_names,
     block_max_chisq = blocks$block_max_chisq,
