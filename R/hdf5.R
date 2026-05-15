@@ -425,6 +425,53 @@ ldgm_read_score_test_hdf5 <- function(file, trait_name = NULL) {
   RC_read_graphld_score_hdf5(file, trait_name)
 }
 
+#' Inspect GraphLD-Style Score-Test HDF5 Contents
+#'
+#' Summarizes the trait names, trait groups, and row-data columns stored in a
+#' GraphLD-style score-test HDF5 file. With `verbose = TRUE`, the summary also
+#' includes one dataset inventory per trait, mirroring the information surfaced
+#' by upstream GraphLD's `score_test` CLI `show` command.
+#'
+#' @param file HDF5 path.
+#' @param verbose If `TRUE`, include per-trait dataset summaries.
+#'
+#' @return A list with `file`, `data_type`, `trait_names`, `groups`, `row_data`,
+#'   and, when `verbose = TRUE`, `traits`.
+#' @export
+ldgm_score_test_hdf5_inventory <- function(file, verbose = FALSE) {
+  check_hdf5_file_arg(file, must_exist = TRUE)
+  if (!is.logical(verbose) || length(verbose) != 1L || is.na(verbose)) {
+    stop("`verbose` must be `TRUE` or `FALSE`", call. = FALSE)
+  }
+
+  header <- ldgm_read_score_test_hdf5(file)
+  row_data <- header$row_data %||% header$variant_data
+  row_data <- as.data.frame(row_data, stringsAsFactors = FALSE)
+  trait_names <- as.character(header$trait_names %||% character())
+  groups <- header$groups %||% list()
+
+  out <- list(
+    file = file,
+    data_type = header$data_type %||% NA_character_,
+    trait_names = trait_names,
+    groups = groups,
+    row_data = describe_hdf5_inventory_frame(row_data)
+  )
+
+  if (!isTRUE(verbose)) {
+    return(out)
+  }
+
+  trait_inventory <- vector("list", length(trait_names))
+  names(trait_inventory) <- trait_names
+  for (i in seq_along(trait_names)) {
+    trait <- ldgm_read_score_test_hdf5(file, trait_names[[i]])
+    trait_inventory[[i]] <- describe_hdf5_trait_inventory(trait)
+  }
+  out$traits <- trait_inventory
+  out
+}
+
 #' Read GraphLD-Style Trait Groups from Score-Test HDF5
 #'
 #' Reads the optional `/groups` mapping used by GraphLD score-test CLI
@@ -565,6 +612,47 @@ ldgm_read_surrogate_map_hdf5 <- function(file, block_name, file_index_base = c("
     out[out < 1L] <- NA_integer_
   }
   out
+}
+
+describe_hdf5_inventory_frame <- function(x) {
+  if (!is.data.frame(x)) {
+    stop("`x` must be a data frame", call. = FALSE)
+  }
+  data.frame(
+    name = names(x),
+    class = vapply(x, hdf5_inventory_class, character(1)),
+    length = vapply(x, length, integer(1)),
+    stringsAsFactors = FALSE,
+    check.names = FALSE
+  )
+}
+
+describe_hdf5_trait_inventory <- function(trait) {
+  datasets <- list(
+    gradient = trait$gradient,
+    hessian = trait$hessian
+  )
+  datasets <- c(datasets, trait$trait_datasets %||% list())
+  dataset_names <- names(datasets)
+  keep <- !vapply(datasets, is.null, logical(1))
+  datasets <- datasets[keep]
+  dataset_names <- dataset_names[keep]
+  data.frame(
+    dataset = dataset_names,
+    class = vapply(datasets, hdf5_inventory_class, character(1)),
+    length = vapply(datasets, length, integer(1)),
+    stringsAsFactors = FALSE,
+    check.names = FALSE
+  )
+}
+
+hdf5_inventory_class <- function(x) {
+  class_x <- class(x)
+  if (length(class_x) == 0L) {
+    typeof(x)
+  } else {
+    class_x[[1L]]
+  }
 }
 
 project_score_hdf5_vector_to_genes <- function(x, G, label) {

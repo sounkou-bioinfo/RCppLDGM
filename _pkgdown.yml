@@ -134,6 +134,7 @@ reference:
   - ldgm_write_score_test_trait_groups
   - ldgm_write_gene_score_hdf5
   - ldgm_read_score_test_hdf5
+  - ldgm_score_test_hdf5_inventory
   - ldgm_read_score_test_trait_groups
   - ldgm_convert_variant_to_gene_scores
   - ldgm_write_surrogate_map_hdf5
