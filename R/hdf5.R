@@ -664,6 +664,74 @@ ldgm_rename_score_test_trait <- function(file, old_name, new_name) {
   ))
 }
 
+#' Remove Traits or Groups from Score-Test HDF5
+#'
+#' Removes score-test HDF5 entries with GraphLD score-test CLI `rm`-style
+#' auto-detection. Exact matches prefer trait groups, then traits; otherwise
+#' wildcard patterns are matched against both `/groups` and `/traits`.
+#'
+#' @param file HDF5 path.
+#' @param patterns Character vector of exact names or wildcard patterns.
+#' @param type Entry type to remove. The default, `"auto"`, mirrors upstream CLI
+#'   detection. Use `"traits"` or `"groups"` to restrict matching.
+#'
+#' @return Invisibly, a list with `removed_traits` and `removed_groups`.
+#' @export
+ldgm_remove_score_test_hdf5_entries <- function(file, patterns, type = c("auto", "traits", "groups")) {
+  check_hdf5_file_arg(file, must_exist = TRUE)
+  type <- match.arg(type)
+  header <- ldgm_read_score_test_hdf5(file)
+  trait_names <- as.character(header$trait_names %||% character())
+  groups <- ldgm_read_score_test_trait_groups(file)
+  group_names <- names(groups) %||% character()
+
+  matched <- match_score_test_entry_patterns(patterns, trait_names, group_names, type = type)
+  removed_groups <- character()
+  removed_traits <- character()
+  if (length(matched$groups) > 0L) {
+    group_info <- ldgm_remove_score_test_trait_groups(file, matched$groups)
+    removed_groups <- group_info$removed_groups
+  }
+  if (length(matched$traits) > 0L) {
+    trait_info <- ldgm_remove_score_test_traits(file, matched$traits)
+    removed_traits <- trait_info$removed_traits
+    removed_groups <- unique(c(removed_groups, trait_info$removed_groups))
+  }
+  invisible(list(file = file, removed_traits = removed_traits, removed_groups = removed_groups))
+}
+
+#' Rename a Trait or Group in Score-Test HDF5
+#'
+#' Renames one score-test HDF5 entry with GraphLD score-test CLI `mv`-style
+#' auto-detection. In `"auto"` mode, an `old_name` that matches a trait group is
+#' treated as a group; otherwise an existing trait is renamed.
+#'
+#' @param file HDF5 path.
+#' @param old_name Existing trait or trait-group name.
+#' @param new_name Replacement name.
+#' @param type Entry type to rename. The default, `"auto"`, mirrors upstream CLI
+#'   detection. Use `"trait"` or `"group"` to restrict matching.
+#'
+#' @return Invisibly, a list describing the renamed entry.
+#' @export
+ldgm_rename_score_test_hdf5_entry <- function(file, old_name, new_name, type = c("auto", "trait", "group")) {
+  check_hdf5_file_arg(file, must_exist = TRUE)
+  type <- match.arg(type)
+  old_name <- normalize_score_test_entry_name(old_name, "old_name")
+  new_name <- normalize_score_test_entry_name(new_name, "new_name")
+  header <- ldgm_read_score_test_hdf5(file)
+  trait_names <- as.character(header$trait_names %||% character())
+  group_names <- names(ldgm_read_score_test_trait_groups(file)) %||% character()
+  selected_type <- resolve_score_test_entry_type(old_name, trait_names, group_names, type = type)
+  if (identical(selected_type, "group")) {
+    info <- ldgm_rename_score_test_trait_group(file, old_name, new_name)
+  } else {
+    info <- ldgm_rename_score_test_trait(file, old_name, new_name)
+  }
+  info$type <- selected_type
+  invisible(info)
+}
+
 #' Write a GraphLD-Style Surrogate-Marker HDF5 Map
 #'
 #' Writes one per-block surrogate-marker dataset at the HDF5 root, matching the
@@ -854,15 +922,79 @@ rename_score_test_group_trait <- function(groups, old_name, new_name) {
   list(groups = out, updated_groups = updated_groups, changed = length(updated_groups) > 0L)
 }
 
-match_score_test_group_patterns <- function(patterns, group_names) {
-  matched <- unique(unlist(lapply(patterns, function(pattern) {
-    hits <- trait_names[grepl(utils::glob2rx(pattern), trait_names)]
-    if (length(hits) == 0L) {
-      stop("no traits matched pattern: ", pattern, call. = FALSE)
+normalize_score_test_entry_name <- function(x, arg) {
+  if (!is.character(x) || length(x) != 1L || is.na(x) || !nzchar(x)) {
+    stop("`", arg, "` must be a single non-empty string", call. = FALSE)
+  }
+  if (grepl("/", x, fixed = TRUE)) {
+    stop("`", arg, "` must not contain '/'", call. = FALSE)
+  }
+  x
+}
+
+match_score_test_entry_patterns <- function(patterns, trait_names, group_names, type) {
+  if (!is.character(patterns) || length(patterns) < 1L || anyNA(patterns) || any(!nzchar(patterns))) {
+    stop("`patterns` must contain one or more non-empty names or patterns", call. = FALSE)
+  }
+  matched_traits <- character()
+  matched_groups <- character()
+  for (pattern in patterns) {
+    if (identical(type, "groups")) {
+      hits <- group_names[grepl(utils::glob2rx(pattern), group_names)]
+      if (length(hits) == 0L) {
+        stop("no trait groups matched pattern: ", pattern, call. = FALSE)
+      }
+      matched_groups <- c(matched_groups, hits)
+      next
     }
-    hits
-  }), use.names = FALSE))
-  sort(matched)
+    if (identical(type, "traits")) {
+      hits <- trait_names[grepl(utils::glob2rx(pattern), trait_names)]
+      if (length(hits) == 0L) {
+        stop("no traits matched pattern: ", pattern, call. = FALSE)
+      }
+      matched_traits <- c(matched_traits, hits)
+      next
+    }
+
+    if (pattern %in% group_names) {
+      matched_groups <- c(matched_groups, pattern)
+      next
+    }
+    if (pattern %in% trait_names) {
+      matched_traits <- c(matched_traits, pattern)
+      next
+    }
+    trait_hits <- trait_names[grepl(utils::glob2rx(pattern), trait_names)]
+    group_hits <- group_names[grepl(utils::glob2rx(pattern), group_names)]
+    if (length(trait_hits) == 0L && length(group_hits) == 0L) {
+      stop("no traits or trait groups matched pattern: ", pattern, call. = FALSE)
+    }
+    matched_traits <- c(matched_traits, trait_hits)
+    matched_groups <- c(matched_groups, group_hits)
+  }
+  list(traits = sort(unique(matched_traits)), groups = sort(unique(matched_groups)))
+}
+
+resolve_score_test_entry_type <- function(name, trait_names, group_names, type) {
+  if (identical(type, "group")) {
+    if (!name %in% group_names) {
+      stop("trait group not found: ", name, call. = FALSE)
+    }
+    return("group")
+  }
+  if (identical(type, "trait")) {
+    if (!name %in% trait_names) {
+      stop("trait not found: ", name, call. = FALSE)
+    }
+    return("trait")
+  }
+  if (name %in% group_names) {
+    return("group")
+  }
+  if (name %in% trait_names) {
+    return("trait")
+  }
+  stop("entry not found as trait or trait group: ", name, call. = FALSE)
 }
 
 match_score_test_group_patterns <- function(patterns, group_names) {
